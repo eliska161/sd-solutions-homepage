@@ -4,19 +4,19 @@ import { SoftwareIllustration } from "@/components/hero/SoftwareIllustration";
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden pt-28 pb-20 md:pt-36 md:pb-28 lg:pt-40 lg:pb-32">
-      <div className="pointer-events-none absolute inset-0 bg-grid" />
+    <section className="relative overflow-hidden pt-32 pb-24 md:pt-44 md:pb-32 lg:pt-48 lg:pb-40">
+      <div className="pointer-events-none absolute inset-0 bg-subtle-pattern" />
 
-      <div className="relative mx-auto grid max-w-6xl items-center gap-16 px-6 lg:grid-cols-2 lg:gap-12 lg:px-8">
+      <div className="relative mx-auto grid max-w-5xl items-center gap-20 px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
         <div>
           <FadeIn>
-            <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">
+            <h1 className="max-w-[11ch] text-[2.75rem] font-medium leading-[1.05] tracking-[-0.04em] text-foreground sm:text-5xl md:text-6xl lg:text-[4rem]">
               Software built for real-world operations.
             </h1>
           </FadeIn>
 
           <FadeIn delay={0.08}>
-            <div className="mt-6 max-w-lg space-y-4 text-base leading-relaxed text-muted sm:text-[17px]">
+            <div className="mt-8 max-w-[34ch] space-y-5 text-[15px] leading-[1.7] text-muted sm:text-base sm:leading-[1.75]">
               <p>
                 SD Solutions develops modern software, web applications and
                 digital platforms that solve real operational challenges.
@@ -29,7 +29,7 @@ export function Hero() {
           </FadeIn>
 
           <FadeIn delay={0.14}>
-            <div className="mt-10 flex flex-wrap gap-3">
+            <div className="mt-12 flex flex-wrap gap-3">
               <Button href="#products" size="lg">
                 Explore Products
               </Button>
@@ -40,7 +40,7 @@ export function Hero() {
           </FadeIn>
         </div>
 
-        <FadeIn delay={0.12} y={20} className="lg:pl-4">
+        <FadeIn delay={0.12} y={16} className="lg:justify-self-end">
           <SoftwareIllustration />
         </FadeIn>
       </div>

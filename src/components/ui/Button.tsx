@@ -15,15 +15,15 @@ type ButtonProps = {
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-primary text-white hover:bg-primary-hover shadow-[0_0_0_1px_rgba(62,142,111,0.35)]",
+    "bg-white text-black hover:bg-white/90 active:bg-white/80",
   secondary:
-    "bg-transparent text-foreground border border-border hover:border-white/20 hover:bg-white/[0.03]",
+    "bg-transparent text-foreground border border-border hover:border-white/20 hover:bg-white/[0.04]",
   ghost: "bg-transparent text-muted hover:text-foreground",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  md: "h-10 px-5 text-sm",
-  lg: "h-12 px-6 text-[15px]",
+  md: "h-9 px-4 text-[13px]",
+  lg: "h-11 px-5 text-sm",
 };
 
 export function Button({
@@ -36,9 +36,9 @@ export function Button({
   type = "button",
 }: ButtonProps) {
   const classes = [
-    "inline-flex items-center justify-center gap-2 rounded-lg font-medium",
-    "transition-all duration-200 ease-out",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    "inline-flex items-center justify-center gap-2 rounded-full font-medium tracking-[-0.01em]",
+    "transition-colors duration-200 ease-out",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     variantStyles[variant],
     sizeStyles[size],
     className,

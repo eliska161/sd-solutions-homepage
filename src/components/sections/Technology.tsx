@@ -16,17 +16,17 @@ export function Technology() {
   return (
     <Section>
       <FadeIn>
-        <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
           Technology
         </h2>
       </FadeIn>
 
       <FadeIn delay={0.08}>
-        <ul className="mt-10 flex flex-wrap gap-3">
+        <ul className="mt-12 flex flex-wrap gap-x-2 gap-y-2 sm:mt-14">
           {technologies.map((tech) => (
             <li
               key={tech}
-              className="rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-muted transition-colors duration-200 hover:border-white/14 hover:text-foreground"
+              className="rounded-full border border-border px-4 py-2 text-[13px] text-muted transition-colors duration-200 hover:border-white/16 hover:text-foreground"
             >
               {tech}
             </li>

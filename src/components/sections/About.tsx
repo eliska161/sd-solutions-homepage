@@ -4,15 +4,15 @@ import { Section } from "@/components/ui/Section";
 export function About() {
   return (
     <Section id="about">
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-xl">
         <FadeIn>
-          <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
             About SD Solutions
           </h2>
         </FadeIn>
 
         <FadeIn delay={0.08}>
-          <div className="mt-8 space-y-5 text-[15px] leading-relaxed text-muted sm:text-base">
+          <div className="mt-10 space-y-6 text-[15px] leading-[1.8] text-muted sm:text-base sm:leading-[1.8]">
             <p>
               SD Solutions is the public brand of Skaug-Danielsen Solutions.
             </p>

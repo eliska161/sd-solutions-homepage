@@ -2,7 +2,6 @@
 
 import { type ReactNode } from "react";
 import { ArrowRight, Map, MonitorSmartphone } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { Section } from "@/components/ui/Section";
 
@@ -28,7 +27,7 @@ const products: Product[] = [
       "Club management",
       "Fast search",
     ],
-    icon: <Map className="h-5 w-5" strokeWidth={1.75} />,
+    icon: <Map className="h-4 w-4" strokeWidth={1.5} />,
     href: "#contact",
   },
   {
@@ -44,60 +43,54 @@ const products: Product[] = [
       "Network monitoring",
       "Self-updating kiosk software",
     ],
-    icon: <MonitorSmartphone className="h-5 w-5" strokeWidth={1.75} />,
+    icon: <MonitorSmartphone className="h-4 w-4" strokeWidth={1.5} />,
     href: "#contact",
   },
 ];
 
-function ProductCard({ product, delay }: { product: Product; delay: number }) {
-  const prefersReducedMotion = useReducedMotion();
-
+function ProductBlock({ product, delay }: { product: Product; delay: number }) {
   return (
     <FadeIn delay={delay}>
-      <motion.article
-        className="group flex h-full flex-col rounded-2xl border border-border bg-surface p-7 sm:p-8 transition-colors duration-300 hover:border-white/12"
-        whileHover={prefersReducedMotion ? undefined : { y: -4 }}
-        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background text-primary">
+      <article className="group border-t border-border pt-12 first:border-t-0 first:pt-0 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-12 lg:first:border-l-0 lg:first:pl-0">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-foreground/70">
           {product.icon}
         </div>
 
-        <h3 className="mt-6 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+        <h3 className="mt-8 text-2xl font-medium tracking-[-0.03em] text-foreground sm:text-3xl">
           {product.name}
         </h3>
 
-        <div className="mt-4 space-y-3 text-[15px] leading-relaxed text-muted">
+        <div className="mt-5 max-w-md space-y-4 text-[15px] leading-[1.75] text-muted">
           {product.description.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
           ))}
         </div>
 
-        <ul className="mt-6 space-y-2.5">
+        <ul className="mt-8 space-y-3">
           {product.features.map((feature) => (
             <li
               key={feature}
-              className="flex items-start gap-2.5 text-sm text-muted"
+              className="flex items-start gap-3 text-sm leading-relaxed text-muted"
             >
-              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-primary" />
+              <span className="mt-[9px] h-px w-3 shrink-0 bg-white/25" />
               {feature}
             </li>
           ))}
         </ul>
 
-        <div className="mt-auto pt-8">
+        <div className="mt-10">
           <a
             href={product.href}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary-hover"
+            className="inline-flex items-center gap-1.5 text-sm text-foreground/80 transition-colors hover:text-foreground"
           >
             Learn More
             <ArrowRight
-              className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
-              strokeWidth={1.75}
+              className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
+              strokeWidth={1.5}
             />
           </a>
         </div>
-      </motion.article>
+      </article>
     </FadeIn>
   );
 }
@@ -106,14 +99,14 @@ export function Products() {
   return (
     <Section id="products">
       <FadeIn>
-        <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
           Our Products
         </h2>
       </FadeIn>
 
-      <div className="mt-12 grid gap-6 lg:grid-cols-2">
+      <div className="mt-16 grid gap-16 lg:mt-20 lg:grid-cols-2 lg:gap-0">
         {products.map((product, index) => (
-          <ProductCard
+          <ProductBlock
             key={product.name}
             product={product}
             delay={index * 0.08}

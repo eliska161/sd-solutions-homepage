@@ -7,12 +7,12 @@ const links = [
 export function Footer() {
   return (
     <footer className="border-t border-border">
-      <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8">
+      <div className="mx-auto max-w-5xl px-6 py-16 lg:px-8 lg:py-20">
         <div className="flex flex-col gap-12 sm:flex-row sm:items-start sm:justify-between">
-          <div className="max-w-sm">
+          <div className="max-w-xs">
             <a
               href="#"
-              className="text-[15px] font-semibold tracking-tight text-foreground"
+              className="text-[13px] font-medium tracking-tight text-foreground"
             >
               SD Solutions
             </a>
@@ -26,7 +26,7 @@ export function Footer() {
               <a
                 key={link.href}
                 href={link.href}
-                className="text-sm text-muted transition-colors hover:text-foreground"
+                className="text-[13px] text-muted transition-colors hover:text-foreground"
               >
                 {link.label}
               </a>
@@ -34,8 +34,8 @@ export function Footer() {
           </nav>
         </div>
 
-        <div className="mt-14 border-t border-border pt-8">
-          <p className="text-sm text-muted">
+        <div className="mt-16 border-t border-border pt-8">
+          <p className="text-[13px] text-muted">
             © 2026 Skaug-Danielsen Solutions.
             <br className="sm:hidden" /> All rights reserved.
           </p>

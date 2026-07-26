@@ -1,7 +1,6 @@
 "use client";
 
 import { Shield, Target, Code2 } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { Section } from "@/components/ui/Section";
 
@@ -27,36 +26,31 @@ const pillars = [
 ];
 
 export function WhyUs() {
-  const prefersReducedMotion = useReducedMotion();
-
   return (
-    <Section className="border-y border-border bg-surface/40">
+    <Section className="border-y border-border">
       <FadeIn>
-        <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
           Why SD Solutions
         </h2>
       </FadeIn>
 
-      <div className="mt-12 grid gap-6 md:grid-cols-3">
+      <div className="mt-16 grid gap-12 md:mt-20 md:grid-cols-3 md:gap-10">
         {pillars.map((pillar, index) => {
           const Icon = pillar.icon;
           return (
             <FadeIn key={pillar.title} delay={index * 0.08}>
-              <motion.div
-                className="h-full rounded-2xl border border-border bg-background/50 p-7 transition-colors duration-300 hover:border-white/12"
-                whileHover={prefersReducedMotion ? undefined : { y: -3 }}
-                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-primary">
-                  <Icon className="h-5 w-5" strokeWidth={1.75} />
-                </div>
-                <h3 className="mt-5 text-lg font-semibold tracking-tight text-foreground">
+              <div>
+                <Icon
+                  className="h-4 w-4 text-foreground/50"
+                  strokeWidth={1.5}
+                />
+                <h3 className="mt-6 text-lg font-medium tracking-[-0.02em] text-foreground">
                   {pillar.title}
                 </h3>
-                <p className="mt-3 text-[15px] leading-relaxed text-muted">
+                <p className="mt-3 max-w-xs text-[15px] leading-[1.75] text-muted">
                   {pillar.description}
                 </p>
-              </motion.div>
+              </div>
             </FadeIn>
           );
         })}
