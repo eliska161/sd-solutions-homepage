@@ -1,23 +1,13 @@
 export const INQUIRY_TYPES = [
   {
-    id: "kartarkiv",
-    label: "Kartarkiv",
-    description: "Spørsmål om Kartarkiv for klubben din",
-  },
-  {
-    id: "eok-kiosk",
-    label: "EOK Kiosk",
-    description: "Kiosk og tidtaking på løpsdag",
+    id: "general",
+    label: "Generell henvendelse",
+    description: "Spørsmål, produkter eller annet",
   },
   {
     id: "custom",
     label: "Skreddersydd løsning",
     description: "Egen programvare eller digital plattform",
-  },
-  {
-    id: "general",
-    label: "Generell henvendelse",
-    description: "Annet eller usikker på hva du trenger",
   },
 ] as const;
 
@@ -29,16 +19,6 @@ export type ContactPayload = {
   email: string;
   organization?: string;
   message: string;
-  // Kartarkiv
-  clubName?: string;
-  mapVolume?: string;
-  currentStorage?: string;
-  desiredStart?: string;
-  // EOK Kiosk
-  timingComputers?: string;
-  usesEventor?: string;
-  nextEvent?: string;
-  // Custom
   timeline?: string;
   budget?: string;
 };

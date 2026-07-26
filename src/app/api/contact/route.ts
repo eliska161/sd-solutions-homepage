@@ -35,25 +35,9 @@ function buildEmail(data: ContactPayload) {
   const typeLabel = inquiryLabel(data.inquiryType);
 
   const extraRows =
-    data.inquiryType === "kartarkiv"
-      ? [
-          row("Klubb", data.clubName),
-          row("Kartmengde / omfang", data.mapVolume),
-          row("Nåværende lagring", data.currentStorage),
-          row("Ønsket oppstart", data.desiredStart),
-        ].join("")
-      : data.inquiryType === "eok-kiosk"
-        ? [
-            row("Klubb", data.clubName),
-            row("Antall tidtakingsmaskiner", data.timingComputers),
-            row("Bruker Eventor i dag", data.usesEventor),
-            row("Neste arrangement", data.nextEvent),
-          ].join("")
-        : data.inquiryType === "custom"
-          ? [row("Tidslinje", data.timeline), row("Budsjett", data.budget)].join(
-              "",
-            )
-          : "";
+    data.inquiryType === "custom"
+      ? [row("Tidslinje", data.timeline), row("Budsjett", data.budget)].join("")
+      : "";
 
   const html = `
     <div style="font-family:Inter,system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111;">
@@ -76,15 +60,6 @@ function buildEmail(data: ContactPayload) {
     `Navn: ${data.name}`,
     `E-post: ${data.email}`,
     data.organization ? `Organisasjon: ${data.organization}` : "",
-    data.clubName ? `Klubb: ${data.clubName}` : "",
-    data.mapVolume ? `Kartmengde / omfang: ${data.mapVolume}` : "",
-    data.currentStorage ? `Nåværende lagring: ${data.currentStorage}` : "",
-    data.desiredStart ? `Ønsket oppstart: ${data.desiredStart}` : "",
-    data.timingComputers
-      ? `Antall tidtakingsmaskiner: ${data.timingComputers}`
-      : "",
-    data.usesEventor ? `Bruker Eventor i dag: ${data.usesEventor}` : "",
-    data.nextEvent ? `Neste arrangement: ${data.nextEvent}` : "",
     data.timeline ? `Tidslinje: ${data.timeline}` : "",
     data.budget ? `Budsjett: ${data.budget}` : "",
     "",
@@ -93,7 +68,7 @@ function buildEmail(data: ContactPayload) {
   ].filter(Boolean);
 
   return {
-    subject: `[${typeLabel}] ${data.name}${data.organization || data.clubName ? ` — ${data.organization || data.clubName}` : ""}`,
+    subject: `[${typeLabel}] ${data.name}${data.organization ? ` — ${data.organization}` : ""}`,
     html,
     text: textLines.join("\n"),
   };
@@ -126,13 +101,6 @@ function parseBody(body: unknown): ContactPayload | null {
     email,
     message,
     organization: optional("organization"),
-    clubName: optional("clubName"),
-    mapVolume: optional("mapVolume"),
-    currentStorage: optional("currentStorage"),
-    desiredStart: optional("desiredStart"),
-    timingComputers: optional("timingComputers"),
-    usesEventor: optional("usesEventor"),
-    nextEvent: optional("nextEvent"),
     timeline: optional("timeline"),
     budget: optional("budget"),
   };

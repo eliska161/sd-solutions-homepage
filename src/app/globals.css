@@ -32,6 +32,13 @@ body {
   color: var(--text);
 }
 
+/* Keep native select menus dark in supporting browsers */
+select,
+select option {
+  background-color: #111111;
+  color: #ffffff;
+}
+
 .bg-atmosphere {
   background-color: var(--background);
   background-image:

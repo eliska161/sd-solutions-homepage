@@ -9,9 +9,14 @@ import {
 } from "@/lib/contact";
 
 const inputClass =
-  "w-full rounded-xl border border-border bg-transparent px-4 py-3 text-sm text-foreground placeholder:text-muted/60 outline-none transition-colors focus:border-white/25";
+  "w-full rounded-xl border border-border bg-[#111111] px-4 py-3 text-sm text-foreground placeholder:text-muted/60 outline-none transition-colors focus:border-white/25";
+
+const selectClass = `${inputClass} appearance-none bg-[length:12px] bg-[right_1rem_center] bg-no-repeat pr-10`;
 
 const labelClass = "mb-2 block text-[13px] text-muted";
+
+const selectChevron =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238E8E93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")";
 
 type FormState = {
   inquiryType: InquiryTypeId;
@@ -19,30 +24,16 @@ type FormState = {
   email: string;
   organization: string;
   message: string;
-  clubName: string;
-  mapVolume: string;
-  currentStorage: string;
-  desiredStart: string;
-  timingComputers: string;
-  usesEventor: string;
-  nextEvent: string;
   timeline: string;
   budget: string;
 };
 
 const initialState: FormState = {
-  inquiryType: "kartarkiv",
+  inquiryType: "general",
   name: "",
   email: "",
   organization: "",
   message: "",
-  clubName: "",
-  mapVolume: "",
-  currentStorage: "",
-  desiredStart: "",
-  timingComputers: "",
-  usesEventor: "",
-  nextEvent: "",
   timeline: "",
   budget: "",
 };
@@ -89,13 +80,6 @@ export function ContactForm() {
       email: form.email.trim(),
       organization: form.organization.trim() || undefined,
       message: form.message.trim(),
-      clubName: form.clubName.trim() || undefined,
-      mapVolume: form.mapVolume.trim() || undefined,
-      currentStorage: form.currentStorage.trim() || undefined,
-      desiredStart: form.desiredStart.trim() || undefined,
-      timingComputers: form.timingComputers.trim() || undefined,
-      usesEventor: form.usesEventor || undefined,
-      nextEvent: form.nextEvent.trim() || undefined,
       timeline: form.timeline.trim() || undefined,
       budget: form.budget || undefined,
     };
@@ -198,7 +182,7 @@ export function ContactForm() {
             value={form.email}
             onChange={(e) => update("email", e.target.value)}
             className={inputClass}
-            placeholder="navn@klubb.no"
+            placeholder="navn@firma.no"
           />
         </Field>
       </div>
@@ -212,90 +196,6 @@ export function ContactForm() {
           placeholder="Valgfritt"
         />
       </Field>
-
-      {form.inquiryType === "kartarkiv" && (
-        <div className="space-y-5 rounded-2xl border border-border p-5 sm:p-6">
-          <p className="text-[13px] font-medium text-foreground/80">
-            Om Kartarkiv-behovet
-          </p>
-          <Field label="Klubbnavn">
-            <input
-              value={form.clubName}
-              onChange={(e) => update("clubName", e.target.value)}
-              className={inputClass}
-              placeholder="F.eks. Eiker OK"
-            />
-          </Field>
-          <Field label="Omtrentlig kartmengde / omfang">
-            <input
-              value={form.mapVolume}
-              onChange={(e) => update("mapVolume", e.target.value)}
-              className={inputClass}
-              placeholder="F.eks. 80 kart, flere klubber"
-            />
-          </Field>
-          <Field label="Hvordan lagrer dere kart i dag?">
-            <input
-              value={form.currentStorage}
-              onChange={(e) => update("currentStorage", e.target.value)}
-              className={inputClass}
-              placeholder="F.eks. Dropbox, lokal disk, e-post"
-            />
-          </Field>
-          <Field label="Ønsket oppstart">
-            <input
-              value={form.desiredStart}
-              onChange={(e) => update("desiredStart", e.target.value)}
-              className={inputClass}
-              placeholder="F.eks. før sesongstart"
-            />
-          </Field>
-        </div>
-      )}
-
-      {form.inquiryType === "eok-kiosk" && (
-        <div className="space-y-5 rounded-2xl border border-border p-5 sm:p-6">
-          <p className="text-[13px] font-medium text-foreground/80">
-            Om EOK Kiosk
-          </p>
-          <Field label="Klubbnavn">
-            <input
-              value={form.clubName}
-              onChange={(e) => update("clubName", e.target.value)}
-              className={inputClass}
-              placeholder="F.eks. Eiker OK"
-            />
-          </Field>
-          <Field label="Antall tidtakingsmaskiner">
-            <input
-              value={form.timingComputers}
-              onChange={(e) => update("timingComputers", e.target.value)}
-              className={inputClass}
-              placeholder="F.eks. 2"
-            />
-          </Field>
-          <Field label="Bruker dere Eventor i dag?">
-            <select
-              value={form.usesEventor}
-              onChange={(e) => update("usesEventor", e.target.value)}
-              className={inputClass}
-            >
-              <option value="">Velg</option>
-              <option value="Ja">Ja</option>
-              <option value="Nei">Nei</option>
-              <option value="Usikker">Usikker</option>
-            </select>
-          </Field>
-          <Field label="Neste arrangement / tidspunkt">
-            <input
-              value={form.nextEvent}
-              onChange={(e) => update("nextEvent", e.target.value)}
-              className={inputClass}
-              placeholder="F.eks. klubbløp i april"
-            />
-          </Field>
-        </div>
-      )}
 
       {form.inquiryType === "custom" && (
         <div className="space-y-5 rounded-2xl border border-border p-5 sm:p-6">
@@ -314,13 +214,18 @@ export function ContactForm() {
             <select
               value={form.budget}
               onChange={(e) => update("budget", e.target.value)}
-              className={inputClass}
+              className={selectClass}
+              style={{
+                backgroundImage: selectChevron,
+                colorScheme: "dark",
+              }}
             >
               <option value="">Velg (valgfritt)</option>
-              <option value="Under 50 000 kr">Under 50 000 kr</option>
-              <option value="50–150 000 kr">50–150 000 kr</option>
-              <option value="150–500 000 kr">150–500 000 kr</option>
-              <option value="Over 500 000 kr">Over 500 000 kr</option>
+              <option value="Under 10 000 kr">Under 10 000 kr</option>
+              <option value="10–25 000 kr">10–25 000 kr</option>
+              <option value="25–50 000 kr">25–50 000 kr</option>
+              <option value="50–100 000 kr">50–100 000 kr</option>
+              <option value="Over 100 000 kr">Over 100 000 kr</option>
               <option value="Usikker / ønsker estimat">
                 Usikker / ønsker estimat
               </option>
@@ -331,11 +236,7 @@ export function ContactForm() {
 
       <Field
         label={
-          form.inquiryType === "custom"
-            ? "Beskriv prosjektet *"
-            : form.inquiryType === "general"
-              ? "Melding *"
-              : "Hva trenger du hjelp til? *"
+          form.inquiryType === "custom" ? "Beskriv prosjektet *" : "Melding *"
         }
       >
         <textarea
@@ -344,15 +245,11 @@ export function ContactForm() {
           rows={5}
           value={form.message}
           onChange={(e) => update("message", e.target.value)}
-          className={`${inputClass} resize-y min-h-[120px]`}
+          className={`${inputClass} min-h-[120px] resize-y`}
           placeholder={
-            form.inquiryType === "kartarkiv"
-              ? "Fortell kort om klubben og hva dere ønsker å løse med Kartarkiv."
-              : form.inquiryType === "eok-kiosk"
-                ? "Beskriv oppsett, utfordringer på løpsdag, eller hva dere ønsker fra kiosken."
-                : form.inquiryType === "custom"
-                  ? "Beskriv problemet, brukerne og hva en god løsning ville gjort for dere."
-                  : "Skriv kort hva henvendelsen gjelder."
+            form.inquiryType === "custom"
+              ? "Beskriv problemet, brukerne og hva en god løsning ville gjort for dere."
+              : "Skriv kort hva henvendelsen gjelder."
           }
         />
       </Field>
