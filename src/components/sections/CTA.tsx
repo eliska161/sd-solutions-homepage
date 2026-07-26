@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/Button";
+import { ContactForm } from "@/components/contact/ContactForm";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { Section } from "@/components/ui/Section";
 
@@ -12,13 +12,14 @@ export function CTA() {
           </h2>
           <p className="mx-auto mt-6 max-w-sm text-[15px] leading-[1.75] text-muted">
             Interessert i programvaren vår, eller ser du etter en skreddersydd
-            løsning?
+            løsning? Velg type henvendelse, så tilpasser vi skjemaet.
           </p>
-          <div className="mt-12">
-            <Button href="mailto:kontakt@sdsolutions.no" size="lg">
-              Kontakt oss
-            </Button>
-          </div>
+        </div>
+      </FadeIn>
+
+      <FadeIn delay={0.08}>
+        <div className="mx-auto mt-14 max-w-xl">
+          <ContactForm />
         </div>
       </FadeIn>
     </Section>

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { type ReactNode } from "react";
-import { ArrowRight, MonitorSmartphone } from "lucide-react";
+import { ArrowRight, ArrowUpRight, MonitorSmartphone } from "lucide-react";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { Section } from "@/components/ui/Section";
 
@@ -18,6 +18,7 @@ type Product = {
     height: number;
   };
   href: string;
+  external?: boolean;
 };
 
 const products: Product[] = [
@@ -37,10 +38,11 @@ const products: Product[] = [
     logo: {
       src: "/kartarkiv-logo.png",
       alt: "Kartarkiv",
-      width: 180,
-      height: 40,
+      width: 320,
+      height: 72,
     },
-    href: "#kontakt",
+    href: "https://kartarkiv.co",
+    external: true,
   },
   {
     name: "EOK Kiosk",
@@ -61,18 +63,25 @@ const products: Product[] = [
 ];
 
 function ProductBlock({ product, delay }: { product: Product; delay: number }) {
+  const linkProps = product.external
+    ? { target: "_blank", rel: "noopener noreferrer" }
+    : {};
+
   return (
     <FadeIn delay={delay}>
       <article className="group border-t border-border pt-12 first:border-t-0 first:pt-0 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-12 lg:first:border-l-0 lg:first:pl-0">
         {product.logo ? (
           <>
-            <Image
-              src={product.logo.src}
-              alt={product.logo.alt}
-              width={product.logo.width}
-              height={product.logo.height}
-              className="h-9 w-auto object-contain object-left"
-            />
+            <a href={product.href} {...linkProps} className="inline-block">
+              <Image
+                src={product.logo.src}
+                alt={product.logo.alt}
+                width={product.logo.width}
+                height={product.logo.height}
+                className="h-14 w-auto object-contain object-left sm:h-16"
+                priority
+              />
+            </a>
             <h3 className="sr-only">{product.name}</h3>
           </>
         ) : (
@@ -111,13 +120,21 @@ function ProductBlock({ product, delay }: { product: Product; delay: number }) {
         <div className="mt-10">
           <a
             href={product.href}
+            {...linkProps}
             className="inline-flex items-center gap-1.5 text-sm text-foreground/80 transition-colors hover:text-foreground"
           >
-            Les mer
-            <ArrowRight
-              className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
-              strokeWidth={1.5}
-            />
+            {product.external ? "Besøk Kartarkiv" : "Les mer"}
+            {product.external ? (
+              <ArrowUpRight
+                className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                strokeWidth={1.5}
+              />
+            ) : (
+              <ArrowRight
+                className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
+                strokeWidth={1.5}
+              />
+            )}
           </a>
         </div>
       </article>

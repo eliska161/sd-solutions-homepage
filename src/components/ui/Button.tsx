@@ -11,6 +11,7 @@ type ButtonProps = {
   className?: string;
   onClick?: MouseEventHandler<HTMLAnchorElement | HTMLButtonElement>;
   type?: "button" | "submit";
+  disabled?: boolean;
 };
 
 const variantStyles: Record<ButtonVariant, string> = {
@@ -34,11 +35,13 @@ export function Button({
   className = "",
   onClick,
   type = "button",
+  disabled = false,
 }: ButtonProps) {
   const classes = [
     "inline-flex items-center justify-center gap-2 rounded-full font-medium tracking-[-0.01em]",
     "transition-colors duration-200 ease-out",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    "disabled:pointer-events-none disabled:opacity-50",
     variantStyles[variant],
     sizeStyles[size],
     className,
@@ -53,7 +56,7 @@ export function Button({
   }
 
   return (
-    <button type={type} onClick={onClick} className={classes}>
+    <button type={type} onClick={onClick} className={classes} disabled={disabled}>
       {children}
     </button>
   );
