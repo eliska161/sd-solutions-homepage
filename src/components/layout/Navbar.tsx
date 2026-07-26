@@ -5,9 +5,9 @@ import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 const links = [
-  { label: "Products", href: "#products" },
-  { label: "About", href: "#about" },
-  { label: "Contact", href: "#contact" },
+  { label: "Produkter", href: "#produkter" },
+  { label: "Om oss", href: "#om-oss" },
+  { label: "Kontakt", href: "#kontakt" },
 ];
 
 export function Navbar() {
@@ -57,8 +57,8 @@ export function Navbar() {
               </a>
             ))}
             <div className="ml-2">
-              <Button href="#contact" size="md">
-                Get in Touch
+              <Button href="#kontakt" size="md">
+                Ta kontakt
               </Button>
             </div>
           </div>
@@ -66,7 +66,7 @@ export function Navbar() {
           <button
             type="button"
             className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:text-foreground md:hidden"
-            aria-label={open ? "Close menu" : "Open menu"}
+            aria-label={open ? "Lukk meny" : "Åpne meny"}
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
           >
@@ -89,11 +89,11 @@ export function Navbar() {
               ))}
               <div className="pt-2">
                 <Button
-                  href="#contact"
+                  href="#kontakt"
                   className="w-full"
                   onClick={() => setOpen(false)}
                 >
-                  Get in Touch
+                  Ta kontakt
                 </Button>
               </div>
             </div>

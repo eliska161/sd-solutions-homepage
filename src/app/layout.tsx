@@ -9,15 +9,15 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SD Solutions — Software built for real-world operations",
+  title: "SD Solutions — Programvare bygget for reell drift",
   description:
-    "SD Solutions develops modern software, web applications and digital platforms that solve real operational challenges.",
+    "SD Solutions utvikler moderne programvare, webapplikasjoner og digitale plattformer som løser reelle driftsutfordringer.",
   openGraph: {
     title: "SD Solutions",
     description:
-      "Software built for real-world operations. Modern software, web applications and digital platforms.",
+      "Programvare bygget for reell drift. Moderne programvare, webapplikasjoner og digitale plattformer.",
     type: "website",
-    locale: "en_US",
+    locale: "nb_NO",
   },
 };
 
@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="bg-background">
+    <html lang="nb" className="bg-background">
       <body className={`${inter.variable} font-sans antialiased text-foreground`}>
         {children}
       </body>

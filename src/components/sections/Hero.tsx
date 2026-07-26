@@ -10,31 +10,31 @@ export function Hero() {
       <div className="relative mx-auto grid max-w-5xl items-center gap-20 px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
         <div>
           <FadeIn>
-            <h1 className="max-w-[11ch] text-[2.75rem] font-medium leading-[1.05] tracking-[-0.04em] text-foreground sm:text-5xl md:text-6xl lg:text-[4rem]">
-              Software built for real-world operations.
+            <h1 className="max-w-[12ch] text-[2.75rem] font-medium leading-[1.05] tracking-[-0.04em] text-foreground sm:text-5xl md:text-6xl lg:text-[4rem]">
+              Programvare bygget for reell drift.
             </h1>
           </FadeIn>
 
           <FadeIn delay={0.08}>
-            <div className="mt-8 max-w-[34ch] space-y-5 text-[15px] leading-[1.7] text-muted sm:text-base sm:leading-[1.75]">
+            <div className="mt-8 max-w-[36ch] space-y-5 text-[15px] leading-[1.7] text-muted sm:text-base sm:leading-[1.75]">
               <p>
-                SD Solutions develops modern software, web applications and
-                digital platforms that solve real operational challenges.
+                SD Solutions utvikler moderne programvare, webapplikasjoner og
+                digitale plattformer som løser reelle driftsutfordringer.
               </p>
               <p>
-                We build reliable software designed for long-term use, intuitive
-                workflows and high performance.
+                Vi bygger pålitelig programvare designet for langsiktig bruk,
+                intuitive arbeidsflyter og høy ytelse.
               </p>
             </div>
           </FadeIn>
 
           <FadeIn delay={0.14}>
             <div className="mt-12 flex flex-wrap gap-3">
-              <Button href="#products" size="lg">
-                Explore Products
+              <Button href="#produkter" size="lg">
+                Utforsk produkter
               </Button>
-              <Button href="#contact" variant="secondary" size="lg">
-                Contact
+              <Button href="#kontakt" variant="secondary" size="lg">
+                Kontakt
               </Button>
             </div>
           </FadeIn>

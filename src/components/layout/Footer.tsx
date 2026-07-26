@@ -1,7 +1,7 @@
 const links = [
-  { label: "Products", href: "#products" },
-  { label: "About", href: "#about" },
-  { label: "Contact", href: "#contact" },
+  { label: "Produkter", href: "#produkter" },
+  { label: "Om oss", href: "#om-oss" },
+  { label: "Kontakt", href: "#kontakt" },
 ];
 
 export function Footer() {
@@ -17,7 +17,7 @@ export function Footer() {
               SD Solutions
             </a>
             <p className="mt-3 text-sm leading-relaxed text-muted">
-              Software built for real-world operations.
+              Programvare bygget for reell drift.
             </p>
           </div>
 
@@ -37,7 +37,7 @@ export function Footer() {
         <div className="mt-16 border-t border-border pt-8">
           <p className="text-[13px] text-muted">
             © 2026 Skaug-Danielsen Solutions.
-            <br className="sm:hidden" /> All rights reserved.
+            <br className="sm:hidden" /> Alle rettigheter forbeholdt.
           </p>
         </div>
       </div>

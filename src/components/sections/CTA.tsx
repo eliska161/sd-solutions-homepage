@@ -4,18 +4,19 @@ import { Section } from "@/components/ui/Section";
 
 export function CTA() {
   return (
-    <Section id="contact" className="pb-32 md:pb-40">
+    <Section id="kontakt" className="pb-32 md:pb-40">
       <FadeIn>
         <div className="mx-auto max-w-xl text-center">
           <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl md:text-5xl md:leading-[1.1]">
-            Let&apos;s build something great.
+            La oss bygge noe bra.
           </h2>
           <p className="mx-auto mt-6 max-w-sm text-[15px] leading-[1.75] text-muted">
-            Interested in our software or looking for a custom solution?
+            Interessert i programvaren vår, eller ser du etter en skreddersydd
+            løsning?
           </p>
           <div className="mt-12">
             <Button href="mailto:kontakt@sdsolutions.no" size="lg">
-              Contact Us
+              Kontakt oss
             </Button>
           </div>
         </div>

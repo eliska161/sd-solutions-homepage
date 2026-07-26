@@ -17,7 +17,7 @@ export function Technology() {
     <Section>
       <FadeIn>
         <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
-          Technology
+          Teknologi
         </h2>
       </FadeIn>
 

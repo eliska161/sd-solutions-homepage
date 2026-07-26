@@ -3,27 +3,28 @@ import { Section } from "@/components/ui/Section";
 
 export function About() {
   return (
-    <Section id="about">
+    <Section id="om-oss">
       <div className="mx-auto max-w-xl">
         <FadeIn>
           <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
-            About SD Solutions
+            Om SD Solutions
           </h2>
         </FadeIn>
 
         <FadeIn delay={0.08}>
           <div className="mt-10 space-y-6 text-[15px] leading-[1.8] text-muted sm:text-base sm:leading-[1.8]">
             <p>
-              SD Solutions is the public brand of Skaug-Danielsen Solutions.
+              SD Solutions er det offentlige merkevarenavnet til Skaug-Danielsen
+              Solutions.
             </p>
             <p>
-              We develop modern software, web applications and digital platforms
-              with a strong focus on quality, reliability and long-term
-              maintainability.
+              Vi utvikler moderne programvare, webapplikasjoner og digitale
+              plattformer med sterk fokus på kvalitet, pålitelighet og
+              langsiktig vedlikeholdbarhet.
             </p>
             <p>
-              Our goal is to create software that people genuinely enjoy using
-              while solving real operational challenges.
+              Målet vårt er å skape programvare folk faktisk liker å bruke,
+              samtidig som den løser reelle driftsutfordringer.
             </p>
           </div>
         </FadeIn>

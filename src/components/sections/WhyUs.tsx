@@ -6,21 +6,21 @@ import { Section } from "@/components/ui/Section";
 
 const pillars = [
   {
-    title: "Reliable",
+    title: "Pålitelig",
     description:
-      "We build software designed for long-term reliability and stability.",
+      "Vi bygger programvare designet for langsiktig pålitelighet og stabilitet.",
     icon: Shield,
   },
   {
-    title: "Purpose Built",
+    title: "Formålsbygget",
     description:
-      "Every product is developed to solve real operational problems instead of adding unnecessary complexity.",
+      "Hvert produkt er utviklet for å løse reelle driftsproblemer i stedet for å legge til unødvendig kompleksitet.",
     icon: Target,
   },
   {
-    title: "Modern Engineering",
+    title: "Moderne utvikling",
     description:
-      "Built with modern technologies and clean architecture for long-term maintainability.",
+      "Bygget med moderne teknologier og ren arkitektur for langsiktig vedlikeholdbarhet.",
     icon: Code2,
   },
 ];
@@ -30,7 +30,7 @@ export function WhyUs() {
     <Section className="border-y border-border">
       <FadeIn>
         <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
-          Why SD Solutions
+          Hvorfor SD Solutions
         </h2>
       </FadeIn>
 
