@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Logo } from "@/components/brand/Logo";
 
 const links = [
   { label: "Produkter", href: "#produkter" },
@@ -41,9 +42,10 @@ export function Navbar() {
         <nav className="flex h-12 items-center justify-between px-4 sm:px-5">
           <a
             href="#"
-            className="text-[13px] font-medium tracking-tight text-foreground transition-opacity hover:opacity-70"
+            className="transition-opacity hover:opacity-70"
+            aria-label="SD Solutions"
           >
-            SD Solutions
+            <Logo />
           </a>
 
           <div className="hidden items-center gap-1 md:flex">

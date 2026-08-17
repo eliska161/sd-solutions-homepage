@@ -1,3 +1,5 @@
+import { Logo } from "@/components/brand/Logo";
+
 const links = [
   { label: "Produkter", href: "#produkter" },
   { label: "Om oss", href: "#om-oss" },
@@ -10,11 +12,8 @@ export function Footer() {
       <div className="mx-auto max-w-5xl px-6 py-16 lg:px-8 lg:py-20">
         <div className="flex flex-col gap-12 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-xs">
-            <a
-              href="#"
-              className="text-[13px] font-medium tracking-tight text-foreground"
-            >
-              SD Solutions
+            <a href="#" className="inline-flex" aria-label="SD Solutions">
+              <Logo />
             </a>
             <p className="mt-3 text-sm leading-relaxed text-muted">
               Programvare bygget for reell drift.
