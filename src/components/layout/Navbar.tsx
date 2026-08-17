@@ -39,7 +39,7 @@ export function Navbar() {
             : "rounded-2xl border border-transparent bg-transparent",
         ].join(" ")}
       >
-        <nav className="flex h-12 items-center justify-between px-4 sm:px-5">
+        <nav className="flex h-16 items-center justify-between px-4 sm:h-[4.5rem] sm:px-5">
           <a
             href="#"
             className="transition-opacity hover:opacity-70"
