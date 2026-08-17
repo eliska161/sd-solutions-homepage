@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { Topography } from "@/components/hero/Topography";
 import { Hero } from "@/components/sections/Hero";
 import { Products } from "@/components/sections/Products";
 import { WhyUs } from "@/components/sections/WhyUs";
@@ -9,9 +10,10 @@ import { CTA } from "@/components/sections/CTA";
 
 export default function Home() {
   return (
-    <div className="bg-atmosphere min-h-screen">
+    <div className="bg-atmosphere relative min-h-screen">
+      <Topography />
       <Navbar />
-      <main>
+      <main className="relative">
         <Hero />
         <Products />
         <WhyUs />
@@ -19,7 +21,9 @@ export default function Home() {
         <About />
         <CTA />
       </main>
-      <Footer />
+      <div className="relative">
+        <Footer />
+      </div>
     </div>
   );
 }
