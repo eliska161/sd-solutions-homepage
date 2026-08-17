@@ -34,7 +34,7 @@ export function Footer() {
         </div>
 
         <div className="mt-16 border-t border-border pt-8">
-          <p className="text-[13px] text-muted">
+          <p className="text-[13px] font-light tracking-[0.01em] text-muted">
             © 2026 Skaug-Danielsen Solutions.
             <br className="sm:hidden" /> Alle rettigheter forbeholdt.
           </p>

@@ -6,6 +6,7 @@
   --text: #ffffff;
   --muted: #8e8e93;
   --border: rgba(255, 255, 255, 0.08);
+  --accent: #00a3c4;
 }
 
 @theme inline {
@@ -14,6 +15,7 @@
   --color-foreground: var(--text);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-accent: var(--accent);
   --font-sans: var(--font-inter);
 }
 
