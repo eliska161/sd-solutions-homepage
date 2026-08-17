@@ -2,44 +2,34 @@ type LogoMarkProps = {
   className?: string;
 };
 
-export function LogoMark({ className = "h-6 w-6" }: LogoMarkProps) {
+export function LogoMark({ className = "h-5 w-auto" }: LogoMarkProps) {
   return (
     <svg
-      viewBox="0 0 40 40"
+      viewBox="0 0 56 40"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       aria-hidden="true"
     >
-      <rect
-        x="3.25"
-        y="3.25"
-        width="33.5"
-        height="33.5"
-        rx="11"
+      <path
+        d="M8.2 15.1c0-3.9 3.4-6.5 7.8-6.5 4.3 0 7.5 2.2 7.5 5.5 0 7-15.4 5-15.4 14.5 0 4.3 3.7 7 8.4 7 4.8 0 8.2-2.6 8.5-6.6"
         stroke="currentColor"
-        strokeWidth="1.35"
+        strokeWidth="4"
+        strokeLinecap="round"
       />
-      <rect
-        x="9.25"
-        y="9.25"
-        width="21.5"
-        height="21.5"
-        rx="7"
+      <path
+        d="M33.2 8.6v22.8"
         stroke="currentColor"
-        strokeWidth="1.1"
-        opacity="0.72"
+        strokeWidth="4"
+        strokeLinecap="round"
       />
-      <rect
-        x="15"
-        y="15"
-        width="10"
-        height="10"
-        rx="3.2"
+      <path
+        d="M33.2 8.6h3.6c7 0 11.5 5.1 11.5 11.4S43.8 31.4 36.8 31.4h-3.6"
         stroke="currentColor"
-        strokeWidth="1.35"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      <rect x="18.4" y="18.4" width="3.2" height="3.2" rx="0.9" fill="currentColor" />
     </svg>
   );
 }
@@ -52,7 +42,7 @@ type LogoProps = {
 export function Logo({ className = "", markClassName }: LogoProps) {
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
-      <LogoMark className={markClassName ?? "h-[18px] w-[18px]"} />
+      <LogoMark className={markClassName ?? "h-[18px] w-auto"} />
       <span className="text-[13px] font-medium tracking-tight">SD Solutions</span>
     </span>
   );
