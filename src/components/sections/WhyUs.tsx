@@ -8,7 +8,7 @@ const pillars = [
   {
     title: "Pålitelig",
     description:
-      "Vi bygger programvare designet for langsiktig pålitelighet og stabilitet.",
+      "Vi bygger programvare designet for langsiktig pålitelighet og stabilitet, inkludert drift av egne servermiljøer.",
     icon: Shield,
   },
   {
@@ -20,7 +20,7 @@ const pillars = [
   {
     title: "Moderne utvikling",
     description:
-      "Bygget med moderne teknologier og ren arkitektur for langsiktig vedlikeholdbarhet.",
+      "Bygget med moderne teknologier og ren arkitektur. Vi har erfaring med Docker, serverhosting og produksjonsmiljøer.",
     icon: Code2,
   },
 ];

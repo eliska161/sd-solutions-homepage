@@ -8,6 +8,7 @@ const technologies = [
   "Node.js",
   "PostgreSQL",
   "Docker",
+  "Linux",
   "Supabase",
   "GitHub",
 ];

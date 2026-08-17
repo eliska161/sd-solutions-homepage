@@ -27,6 +27,7 @@ const products: Product[] = [
     description: [
       "Kartarkiv er en skyplattform for lagring, organisering og forvaltning av orienteringskart.",
       "Bygget spesielt for orienteringsklubber som trenger sikker lagring, versjonshistorikk og enkelt samarbeid.",
+      "API-serveren kjører nå på vår egen Docker-infrastruktur. Vi drifter miljøene selv, med kontroll over deploy, backup og oppetid.",
     ],
     features: [
       "Skylagring",
@@ -34,6 +35,7 @@ const products: Product[] = [
       "Sikre sikkerhetskopier",
       "Klubbadministrasjon",
       "Raskt søk",
+      "Egen Docker-hosting",
     ],
     logo: {
       src: "/kartarkiv-logo.png",
@@ -45,9 +47,9 @@ const products: Product[] = [
     external: true,
   },
   {
-    name: "EOK Kiosk",
+    name: "SD Kiosk",
     description: [
-      "EOK Kiosk er en dedikert kiosk-applikasjon for orienteringstidtakingssystemer.",
+      "SD Kiosk er en dedikert kiosk-applikasjon for orienteringstidtakingssystemer.",
       "Den gir rask tilgang til tidtakingsprogramvare, Eventor-integrasjon og viktige systemfunksjoner på løpsdag.",
     ],
     features: [

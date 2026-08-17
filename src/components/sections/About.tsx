@@ -23,6 +23,11 @@ export function About() {
               langsiktig vedlikeholdbarhet.
             </p>
             <p>
+              I tillegg til utvikling drifter vi egne servermiljøer. Kartarkivs
+              API kjører på Docker-infrastruktur vi selv hoster, med kontroll
+              over deploy, miljøer og daglig drift.
+            </p>
+            <p>
               Målet vårt er å skape programvare folk faktisk liker å bruke,
               samtidig som den løser reelle driftsutfordringer.
             </p>
