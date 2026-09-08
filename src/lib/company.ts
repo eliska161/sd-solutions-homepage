@@ -1,6 +1,9 @@
 export const company = {
   brandName: "SD Solutions",
   legalName: "Skaug-Danielsen Solutions",
+  repairName: "SD Solutions Repair",
+  repairDescription:
+    "SD Solutions tilbyr reparasjon og refurbishing av mobiltelefoner, med hovedfokus på iPhone. Vi utfører blant annet skjerm- og batteribytter, reparasjon av ladeporter, kamera/lyd og diagnostikk.",
   email: "eliasskaugdanielsen10@gmail.com",
   address: {
     line1: "Slåttmyrvegen 49",

@@ -3,17 +3,17 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Topography } from "@/components/hero/Topography";
 import { RepairHero } from "@/components/sections/repair/RepairHero";
+import { RepairAbout } from "@/components/sections/repair/RepairAbout";
 import { RepairServices } from "@/components/sections/repair/RepairServices";
 import { RepairCTA } from "@/components/sections/repair/RepairCTA";
-import { company, formatBusinessAddress } from "@/lib/company";
+import { company } from "@/lib/company";
 
 export const metadata: Metadata = {
-  title: "iPhone-reparasjon — SD Solutions",
-  description:
-    "iPhone-reparasjon hos SD Solutions i Elverum. Skjerm, batteri, ladeport og mer.",
+  title: "SD Solutions Repair — iPhone-reparasjon",
+  description: company.repairDescription,
   openGraph: {
-    title: "iPhone-reparasjon — SD Solutions",
-    description: "iPhone-reparasjon hos SD Solutions i Elverum.",
+    title: "SD Solutions Repair",
+    description: company.repairDescription,
     type: "website",
     locale: "nb_NO",
   },
@@ -23,9 +23,9 @@ export default function RepairPage() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ElectronicsStore",
-    name: company.brandName,
+    name: company.repairName,
     legalName: company.legalName,
-    description: "iPhone-reparasjon",
+    description: company.repairDescription,
     email: company.email,
     url: "/reparasjon",
     address: {
@@ -51,6 +51,7 @@ export default function RepairPage() {
       <Navbar />
       <main className="relative">
         <RepairHero />
+        <RepairAbout />
         <RepairServices />
         <RepairCTA />
       </main>
@@ -59,12 +60,7 @@ export default function RepairPage() {
       </div>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            ...jsonLd,
-            description: `iPhone-reparasjon. ${formatBusinessAddress()}.`,
-          }),
-        }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
     </div>
   );
