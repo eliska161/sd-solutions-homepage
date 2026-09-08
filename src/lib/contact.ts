@@ -18,6 +18,15 @@ export const INQUIRY_TYPES = [
 
 export type InquiryTypeId = (typeof INQUIRY_TYPES)[number]["id"];
 
+export type RepairRequestDetails = {
+  modelId: string;
+  modelLabel: string;
+  serviceIds: string[];
+  serviceLabels: string[];
+  estimatedTotal: number;
+  comment?: string;
+};
+
 export type ContactPayload = {
   inquiryType: InquiryTypeId;
   name: string;
@@ -26,6 +35,8 @@ export type ContactPayload = {
   message: string;
   timeline?: string;
   budget?: string;
+  phone?: string;
+  repair?: RepairRequestDetails;
 };
 
 export const CONTACT_TO = "eliasskaugdanielsen10@gmail.com";
