@@ -11,7 +11,7 @@ const services = [
 
 export function RepairServices() {
   return (
-    <Section id="tjenester" className="border-y border-border py-20 md:py-28 lg:py-32">
+    <Section id="tjenester" className="py-20 md:py-28 lg:py-32">
       <FadeIn>
         <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
           Tjenester

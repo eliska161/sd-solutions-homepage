@@ -8,7 +8,7 @@ export function RepairHero() {
       <div className="relative mx-auto max-w-5xl px-6 lg:px-8">
         <FadeIn>
           <p className="text-[13px] font-medium tracking-[0.04em] text-foreground/70">
-            {company.brandName}
+            {company.repairName}
           </p>
         </FadeIn>
 
