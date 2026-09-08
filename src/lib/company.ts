@@ -1,16 +1,11 @@
-/**
- * Offentlig firmainfo brukt på nettsiden (online presence).
- * Fyll inn gateadresse før du sender lenken til iFixit Pro.
- */
 export const company = {
   brandName: "SD Solutions",
   legalName: "Skaug-Danielsen Solutions",
   email: "eliasskaugdanielsen10@gmail.com",
-  /** Sett inn aktiv forretningsadresse (påkrevd for iFixit Pro). */
   address: {
-    line1: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS_LINE1 ?? "",
-    postalCode: process.env.NEXT_PUBLIC_BUSINESS_POSTAL_CODE ?? "",
-    city: process.env.NEXT_PUBLIC_BUSINESS_CITY ?? "",
+    line1: "Slåttmyrvegen 49",
+    postalCode: "2406",
+    city: "Elverum",
     country: "Norge",
   },
   organizationType:
