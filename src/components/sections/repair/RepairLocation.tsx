@@ -1,14 +1,8 @@
 import { FadeIn } from "@/components/ui/FadeIn";
 import { Section } from "@/components/ui/Section";
-import {
-  company,
-  formatBusinessAddress,
-  hasBusinessAddress,
-} from "@/lib/company";
+import { company, formatBusinessAddress } from "@/lib/company";
 
 export function RepairLocation() {
-  const addressReady = hasBusinessAddress();
-
   return (
     <Section id="sted" className="border-y border-border">
       <FadeIn>
@@ -25,21 +19,12 @@ export function RepairLocation() {
           <div>
             <dt className="text-[13px] text-muted">Forretningsadresse</dt>
             <dd className="mt-3 text-[15px] leading-relaxed text-foreground">
-              {addressReady ? (
-                <>
-                  <span className="block">{company.address.line1}</span>
-                  <span className="block">
-                    {company.address.postalCode} {company.address.city}
-                  </span>
-                  <span className="block">{company.address.country}</span>
-                  <span className="sr-only">{formatBusinessAddress()}</span>
-                </>
-              ) : (
-                <span className="text-muted">
-                  Forretningsadresse legges inn før publisering. Skriv til oss på
-                  e-post for avtale inntil videre.
-                </span>
-              )}
+              <span className="block">{company.address.line1}</span>
+              <span className="block">
+                {company.address.postalCode} {company.address.city}
+              </span>
+              <span className="block">{company.address.country}</span>
+              <span className="sr-only">{formatBusinessAddress()}</span>
             </dd>
           </div>
 
