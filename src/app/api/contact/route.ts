@@ -7,7 +7,16 @@ import {
   inquiryLabel,
   type ContactPayload,
   type InquiryTypeId,
+  type RepairRequestDetails,
 } from "@/lib/contact";
+import {
+  REPAIR_SERVICE_LABELS,
+  estimateRepairTotal,
+  formatNok,
+  getRepairModel,
+  isRepairServiceId,
+  type RepairServiceId,
+} from "@/lib/repair-prices";
 
 const inquiryIds = INQUIRY_TYPES.map((t) => t.id);
 
@@ -39,6 +48,19 @@ function buildEmail(data: ContactPayload) {
       ? [row("Tidslinje", data.timeline), row("Budsjett", data.budget)].join("")
       : "";
 
+  const repairRows = data.repair
+    ? [
+        row("Modell", data.repair.modelLabel),
+        row("Reparasjoner", data.repair.serviceLabels.join(", ")),
+        row(
+          "Estimert pris",
+          `${formatNok(data.repair.estimatedTotal)} (estimat — endelig pris etter inspeksjon)`,
+        ),
+        row("Telefon", data.phone),
+        row("Kommentar", data.repair.comment),
+      ].join("")
+    : row("Telefon", data.phone);
+
   const html = `
     <div style="font-family:Inter,system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111;">
       <h1 style="font-size:18px;font-weight:600;margin:0 0 4px;">Ny henvendelse fra SD Solutions</h1>
@@ -48,7 +70,8 @@ function buildEmail(data: ContactPayload) {
         ${row("E-post", data.email)}
         ${row("Organisasjon", data.organization)}
         ${extraRows}
-        ${row("Melding", data.message)}
+        ${repairRows}
+        ${data.repair ? "" : row("Melding", data.message)}
       </table>
     </div>
   `;
@@ -59,18 +82,62 @@ function buildEmail(data: ContactPayload) {
     "",
     `Navn: ${data.name}`,
     `E-post: ${data.email}`,
+    data.phone ? `Telefon: ${data.phone}` : "",
     data.organization ? `Organisasjon: ${data.organization}` : "",
     data.timeline ? `Tidslinje: ${data.timeline}` : "",
     data.budget ? `Budsjett: ${data.budget}` : "",
-    "",
-    "Melding:",
-    data.message,
+    data.repair ? `Modell: ${data.repair.modelLabel}` : "",
+    data.repair
+      ? `Reparasjoner: ${data.repair.serviceLabels.join(", ")}`
+      : "",
+    data.repair
+      ? `Estimert pris: ${formatNok(data.repair.estimatedTotal)} (estimat)`
+      : "",
+    data.repair?.comment ? `Kommentar: ${data.repair.comment}` : "",
+    data.repair ? "" : "",
+    data.repair ? "" : "Melding:",
+    data.repair ? "" : data.message,
   ].filter(Boolean);
 
   return {
-    subject: `[${typeLabel}] ${data.name}${data.organization ? ` — ${data.organization}` : ""}`,
+    subject: data.repair
+      ? `[Reparasjon] ${data.repair.modelLabel} — ${data.name}`
+      : `[${typeLabel}] ${data.name}${data.organization ? ` — ${data.organization}` : ""}`,
     html,
     text: textLines.join("\n"),
+  };
+}
+
+function parseRepair(value: unknown): RepairRequestDetails | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const data = value as Record<string, unknown>;
+
+  const modelId = typeof data.modelId === "string" ? data.modelId.trim() : "";
+  const model = getRepairModel(modelId);
+  if (!model) return undefined;
+
+  if (!Array.isArray(data.serviceIds) || data.serviceIds.length === 0) {
+    return undefined;
+  }
+
+  const serviceIds: RepairServiceId[] = [];
+  for (const item of data.serviceIds) {
+    if (typeof item !== "string" || !isRepairServiceId(item)) return undefined;
+    if (!serviceIds.includes(item)) serviceIds.push(item);
+  }
+  if (serviceIds.length === 0) return undefined;
+
+  const estimatedTotal = estimateRepairTotal(model.id, serviceIds);
+  const comment =
+    typeof data.comment === "string" ? data.comment.trim() : undefined;
+
+  return {
+    modelId: model.id,
+    modelLabel: model.label,
+    serviceIds,
+    serviceLabels: serviceIds.map((id) => REPAIR_SERVICE_LABELS[id]),
+    estimatedTotal,
+    comment: comment || undefined,
   };
 }
 
@@ -88,12 +155,30 @@ function parseBody(body: unknown): ContactPayload | null {
 
   const name = typeof data.name === "string" ? data.name.trim() : "";
   const email = typeof data.email === "string" ? data.email.trim() : "";
-  const message = typeof data.message === "string" ? data.message.trim() : "";
+  let message = typeof data.message === "string" ? data.message.trim() : "";
+  const phone = typeof data.phone === "string" ? data.phone.trim() : undefined;
 
-  if (!name || !email || !message || !isValidEmail(email)) return null;
+  if (!name || !email || !isValidEmail(email)) return null;
 
   const optional = (key: string) =>
     typeof data[key] === "string" ? (data[key] as string).trim() : undefined;
+
+  let repair: RepairRequestDetails | undefined;
+  if (inquiryType === "repair") {
+    repair = parseRepair(data.repair);
+    if (repair && !message) {
+      message = [
+        `Modell: ${repair.modelLabel}`,
+        `Reparasjoner: ${repair.serviceLabels.join(", ")}`,
+        `Estimert pris: ${formatNok(repair.estimatedTotal)}`,
+        repair.comment ? `Kommentar: ${repair.comment}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+  }
+
+  if (!message) return null;
 
   return {
     inquiryType: inquiryType as InquiryTypeId,
@@ -103,6 +188,8 @@ function parseBody(body: unknown): ContactPayload | null {
     organization: optional("organization"),
     timeline: optional("timeline"),
     budget: optional("budget"),
+    phone: phone || undefined,
+    repair,
   };
 }
 

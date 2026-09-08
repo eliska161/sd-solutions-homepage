@@ -1,4 +1,4 @@
-import { ContactForm } from "@/components/contact/ContactForm";
+import { RepairRequestForm } from "@/components/repair/RepairRequestForm";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { Section } from "@/components/ui/Section";
 import { company, formatBusinessAddress } from "@/lib/company";
@@ -9,8 +9,12 @@ export function RepairCTA() {
       <div className="mx-auto max-w-xl">
         <FadeIn>
           <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
-            Kontakt
+            Pris og forespørsel
           </h2>
+          <p className="mt-5 text-[15px] leading-[1.75] text-muted">
+            Velg modell og reparasjon for et estimat, fyll inn kontaktinfo og
+            send forespørsel. Du får pristilbud etterpå.
+          </p>
         </FadeIn>
 
         <FadeIn delay={0.06}>
@@ -41,10 +45,7 @@ export function RepairCTA() {
 
         <FadeIn delay={0.1}>
           <div className="mt-14 border-t border-border pt-14">
-            <p className="mb-8 text-[15px] leading-relaxed text-muted">
-              Beskriv modell og feil, så tar vi kontakt.
-            </p>
-            <ContactForm defaultInquiryType="repair" hideInquiryType />
+            <RepairRequestForm />
           </div>
         </FadeIn>
       </div>
