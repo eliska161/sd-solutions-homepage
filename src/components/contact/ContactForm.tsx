@@ -53,8 +53,15 @@ function Field({
   );
 }
 
-export function ContactForm() {
-  const [form, setForm] = useState<FormState>(initialState);
+export function ContactForm({
+  defaultInquiryType = "general",
+}: {
+  defaultInquiryType?: InquiryTypeId;
+} = {}) {
+  const [form, setForm] = useState<FormState>({
+    ...initialState,
+    inquiryType: defaultInquiryType,
+  });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle",
   );
@@ -131,7 +138,7 @@ export function ContactForm() {
     <form onSubmit={onSubmit} className="space-y-8">
       <fieldset>
         <legend className={labelClass}>Hva gjelder henvendelsen?</legend>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {INQUIRY_TYPES.map((type) => {
             const active = form.inquiryType === type.id;
             return (
@@ -236,7 +243,11 @@ export function ContactForm() {
 
       <Field
         label={
-          form.inquiryType === "custom" ? "Beskriv prosjektet *" : "Melding *"
+          form.inquiryType === "custom"
+            ? "Beskriv prosjektet *"
+            : form.inquiryType === "repair"
+              ? "Beskriv feilen *"
+              : "Melding *"
         }
       >
         <textarea
@@ -249,7 +260,9 @@ export function ContactForm() {
           placeholder={
             form.inquiryType === "custom"
               ? "Beskriv problemet, brukerne og hva en god løsning ville gjort for dere."
-              : "Skriv kort hva henvendelsen gjelder."
+              : form.inquiryType === "repair"
+                ? "Modell (f.eks. iPhone 13), feil, og om skjermen/batteriet er det viktigste."
+                : "Skriv kort hva henvendelsen gjelder."
           }
         />
       </Field>

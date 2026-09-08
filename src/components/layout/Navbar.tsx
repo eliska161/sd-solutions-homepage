@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/brand/Logo";
 
 const links = [
-  { label: "Produkter", href: "#produkter" },
-  { label: "Om oss", href: "#om-oss" },
-  { label: "Kontakt", href: "#kontakt" },
+  { label: "Produkter", href: "/#produkter" },
+  { label: "Reparasjon", href: "/reparasjon" },
+  { label: "Om oss", href: "/#om-oss" },
+  { label: "Kontakt", href: "/#kontakt" },
 ];
 
 export function Navbar() {
@@ -40,13 +42,13 @@ export function Navbar() {
         ].join(" ")}
       >
         <nav className="flex h-16 items-center justify-between px-4 sm:h-[4.5rem] sm:px-5">
-          <a
-            href="#"
+          <Link
+            href="/"
             className="transition-opacity hover:opacity-70"
             aria-label="SD Solutions"
           >
             <Logo />
-          </a>
+          </Link>
 
           <div className="hidden items-center gap-1 md:flex">
             {links.map((link) => (
@@ -59,7 +61,7 @@ export function Navbar() {
               </a>
             ))}
             <div className="ml-2">
-              <Button href="#kontakt" size="md">
+              <Button href="/#kontakt" size="md">
                 Ta kontakt
               </Button>
             </div>
@@ -91,7 +93,7 @@ export function Navbar() {
               ))}
               <div className="pt-2">
                 <Button
-                  href="#kontakt"
+                  href="/#kontakt"
                   className="w-full"
                   onClick={() => setOpen(false)}
                 >
