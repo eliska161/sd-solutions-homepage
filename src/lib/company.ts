@@ -8,23 +8,12 @@ export const company = {
     city: "Elverum",
     country: "Norge",
   },
-  organizationType:
-    "IT-firma og mobilreparasjon — programvareutvikling og iPhone-reparasjon",
-  servicesFocus: "iPhone-reparasjon",
   urls: {
     kartarkiv: "https://kartarkiv.co",
   },
 } as const;
 
-export function hasBusinessAddress(): boolean {
-  const { line1, postalCode, city } = company.address;
-  return Boolean(line1 && postalCode && city);
-}
-
 export function formatBusinessAddress(): string {
   const { line1, postalCode, city, country } = company.address;
-  const lines = [line1, [postalCode, city].filter(Boolean).join(" "), country].filter(
-    Boolean,
-  );
-  return lines.join(", ");
+  return `${line1}, ${postalCode} ${city}, ${country}`;
 }
