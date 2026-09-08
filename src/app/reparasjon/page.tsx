@@ -4,23 +4,16 @@ import { Footer } from "@/components/layout/Footer";
 import { Topography } from "@/components/hero/Topography";
 import { RepairHero } from "@/components/sections/repair/RepairHero";
 import { RepairServices } from "@/components/sections/repair/RepairServices";
-import { RepairAbout } from "@/components/sections/repair/RepairAbout";
-import { RepairLocation } from "@/components/sections/repair/RepairLocation";
 import { RepairCTA } from "@/components/sections/repair/RepairCTA";
-import {
-  company,
-  formatBusinessAddress,
-  hasBusinessAddress,
-} from "@/lib/company";
+import { company, formatBusinessAddress } from "@/lib/company";
 
 export const metadata: Metadata = {
   title: "iPhone-reparasjon — SD Solutions",
   description:
-    "SD Solutions tilbyr iPhone-reparasjon: skjermbytte, batteribytte, ladeport, kamera og diagnostikk. Kvalitetsdeler og tydelig pris før vi starter.",
+    "iPhone-reparasjon hos SD Solutions i Elverum. Skjerm, batteri, ladeport og mer.",
   openGraph: {
     title: "iPhone-reparasjon — SD Solutions",
-    description:
-      "iPhone-reparasjon fra SD Solutions. Skjerm, batteri, ladeport og mer.",
+    description: "iPhone-reparasjon hos SD Solutions i Elverum.",
     type: "website",
     locale: "nb_NO",
   },
@@ -32,23 +25,16 @@ export default function RepairPage() {
     "@type": "ElectronicsStore",
     name: company.brandName,
     legalName: company.legalName,
-    description: hasBusinessAddress()
-      ? `${company.organizationType}. ${formatBusinessAddress()}.`
-      : company.organizationType,
+    description: "iPhone-reparasjon",
     email: company.email,
     url: "/reparasjon",
-    areaServed: "NO",
-    ...(hasBusinessAddress()
-      ? {
-          address: {
-            "@type": "PostalAddress",
-            streetAddress: company.address.line1,
-            postalCode: company.address.postalCode,
-            addressLocality: company.address.city,
-            addressCountry: "NO",
-          },
-        }
-      : {}),
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: company.address.line1,
+      postalCode: company.address.postalCode,
+      addressLocality: company.address.city,
+      addressCountry: "NO",
+    },
     makesOffer: {
       "@type": "Offer",
       itemOffered: {
@@ -66,8 +52,6 @@ export default function RepairPage() {
       <main className="relative">
         <RepairHero />
         <RepairServices />
-        <RepairAbout />
-        <RepairLocation />
         <RepairCTA />
       </main>
       <div className="relative">
@@ -75,7 +59,12 @@ export default function RepairPage() {
       </div>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            ...jsonLd,
+            description: `iPhone-reparasjon. ${formatBusinessAddress()}.`,
+          }),
+        }}
       />
     </div>
   );

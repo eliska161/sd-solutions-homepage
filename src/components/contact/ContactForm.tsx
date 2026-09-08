@@ -55,8 +55,10 @@ function Field({
 
 export function ContactForm({
   defaultInquiryType = "general",
+  hideInquiryType = false,
 }: {
   defaultInquiryType?: InquiryTypeId;
+  hideInquiryType?: boolean;
 } = {}) {
   const [form, setForm] = useState<FormState>({
     ...initialState,
@@ -71,6 +73,7 @@ export function ContactForm({
     () => INQUIRY_TYPES.find((t) => t.id === form.inquiryType),
     [form.inquiryType],
   );
+  const isRepairFlow = hideInquiryType && form.inquiryType === "repair";
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -136,37 +139,39 @@ export function ContactForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-8">
-      <fieldset>
-        <legend className={labelClass}>Hva gjelder henvendelsen?</legend>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {INQUIRY_TYPES.map((type) => {
-            const active = form.inquiryType === type.id;
-            return (
-              <button
-                key={type.id}
-                type="button"
-                onClick={() => update("inquiryType", type.id)}
-                className={[
-                  "rounded-xl border px-4 py-3 text-left transition-colors",
-                  active
-                    ? "border-white/25 bg-white/[0.04]"
-                    : "border-border hover:border-white/16",
-                ].join(" ")}
-              >
-                <span className="block text-sm text-foreground">{type.label}</span>
-                <span className="mt-1 block text-[12px] leading-snug text-muted">
-                  {type.description}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        {selected && (
-          <p className="mt-3 text-[13px] text-muted/80">
-            Fyll ut feltene under, så får vi riktig grunnlag for å hjelpe deg.
-          </p>
-        )}
-      </fieldset>
+      {!hideInquiryType && (
+        <fieldset>
+          <legend className={labelClass}>Hva gjelder henvendelsen?</legend>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {INQUIRY_TYPES.map((type) => {
+              const active = form.inquiryType === type.id;
+              return (
+                <button
+                  key={type.id}
+                  type="button"
+                  onClick={() => update("inquiryType", type.id)}
+                  className={[
+                    "rounded-xl border px-4 py-3 text-left transition-colors",
+                    active
+                      ? "border-white/25 bg-white/[0.04]"
+                      : "border-border hover:border-white/16",
+                  ].join(" ")}
+                >
+                  <span className="block text-sm text-foreground">{type.label}</span>
+                  <span className="mt-1 block text-[12px] leading-snug text-muted">
+                    {type.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {selected && (
+            <p className="mt-3 text-[13px] text-muted/80">
+              Fyll ut feltene under, så får vi riktig grunnlag for å hjelpe deg.
+            </p>
+          )}
+        </fieldset>
+      )}
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Navn *">
@@ -189,20 +194,22 @@ export function ContactForm({
             value={form.email}
             onChange={(e) => update("email", e.target.value)}
             className={inputClass}
-            placeholder="navn@firma.no"
+            placeholder="navn@epost.no"
           />
         </Field>
       </div>
 
-      <Field label="Organisasjon / klubb">
-        <input
-          name="organization"
-          value={form.organization}
-          onChange={(e) => update("organization", e.target.value)}
-          className={inputClass}
-          placeholder="Valgfritt"
-        />
-      </Field>
+      {!isRepairFlow && (
+        <Field label="Organisasjon / klubb">
+          <input
+            name="organization"
+            value={form.organization}
+            onChange={(e) => update("organization", e.target.value)}
+            className={inputClass}
+            placeholder="Valgfritt"
+          />
+        </Field>
+      )}
 
       {form.inquiryType === "custom" && (
         <div className="space-y-5 rounded-2xl border border-border p-5 sm:p-6">
@@ -274,11 +281,22 @@ export function ContactForm({
       )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-[12px] leading-relaxed text-muted">
-          Vi svarer på e-postadressen du oppgir.
-        </p>
-        <Button type="submit" size="lg" disabled={status === "loading"}>
-          {status === "loading" ? "Sender…" : "Send henvendelse"}
+        {!isRepairFlow && (
+          <p className="text-[12px] leading-relaxed text-muted">
+            Vi svarer på e-postadressen du oppgir.
+          </p>
+        )}
+        <Button
+          type="submit"
+          size="lg"
+          disabled={status === "loading"}
+          className={isRepairFlow ? "sm:ml-auto" : undefined}
+        >
+          {status === "loading"
+            ? "Sender…"
+            : isRepairFlow
+              ? "Send"
+              : "Send henvendelse"}
         </Button>
       </div>
     </form>
