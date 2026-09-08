@@ -9,13 +9,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SD Solutions — Programvare bygget for reell drift",
+  title: "SD Solutions — Programvare og iPhone-reparasjon",
   description:
-    "SD Solutions utvikler moderne programvare, webapplikasjoner og digitale plattformer som løser reelle driftsutfordringer.",
+    "SD Solutions utvikler moderne programvare og tilbyr iPhone-reparasjon — skjerm, batteri og mer.",
   openGraph: {
     title: "SD Solutions",
     description:
-      "Programvare bygget for reell drift. Moderne programvare, webapplikasjoner og digitale plattformer.",
+      "Programvare bygget for reell drift. iPhone-reparasjon med tydelig pris.",
     type: "website",
     locale: "nb_NO",
   },

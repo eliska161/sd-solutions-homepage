@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { Logo } from "@/components/brand/Logo";
 
 const links = [
-  { label: "Produkter", href: "#produkter" },
-  { label: "Om oss", href: "#om-oss" },
-  { label: "Kontakt", href: "#kontakt" },
+  { label: "Produkter", href: "/#produkter" },
+  { label: "Reparasjon", href: "/reparasjon" },
+  { label: "Om oss", href: "/#om-oss" },
+  { label: "Kontakt", href: "/#kontakt" },
 ];
 
 export function Footer() {
@@ -12,11 +14,11 @@ export function Footer() {
       <div className="mx-auto max-w-5xl px-6 py-16 lg:px-8 lg:py-20">
         <div className="flex flex-col gap-12 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-xs">
-            <a href="#" className="inline-flex" aria-label="SD Solutions">
+            <Link href="/" className="inline-flex" aria-label="SD Solutions">
               <Logo />
-            </a>
+            </Link>
             <p className="mt-3 text-sm leading-relaxed text-muted">
-              Programvare bygget for reell drift.
+              Programvare og iPhone-reparasjon.
             </p>
           </div>
 

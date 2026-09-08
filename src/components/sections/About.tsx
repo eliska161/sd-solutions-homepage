@@ -20,7 +20,8 @@ export function About() {
             <p>
               Vi utvikler moderne programvare, webapplikasjoner og digitale
               plattformer med sterk fokus på kvalitet, pålitelighet og
-              langsiktig vedlikeholdbarhet.
+              langsiktig vedlikeholdbarhet. I tillegg tilbyr vi
+              iPhone-reparasjon for privatpersoner og bedrifter.
             </p>
             <p>
               I tillegg til utvikling drifter vi egne servermiljøer. Kartarkivs

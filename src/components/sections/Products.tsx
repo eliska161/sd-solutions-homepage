@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { type ReactNode } from "react";
-import { ArrowRight, ArrowUpRight, MonitorSmartphone } from "lucide-react";
+import { ArrowRight, ArrowUpRight, MonitorSmartphone, Smartphone } from "lucide-react";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { Section } from "@/components/ui/Section";
 
@@ -19,6 +19,7 @@ type Product = {
   };
   href: string;
   external?: boolean;
+  ctaLabel?: string;
 };
 
 const products: Product[] = [
@@ -45,6 +46,7 @@ const products: Product[] = [
     },
     href: "https://kartarkiv.co",
     external: true,
+    ctaLabel: "Besøk Kartarkiv",
   },
   {
     name: "SD Kiosk",
@@ -61,6 +63,24 @@ const products: Product[] = [
     ],
     icon: <MonitorSmartphone className="h-4 w-4" strokeWidth={1.5} />,
     href: "#kontakt",
+    ctaLabel: "Les mer",
+  },
+  {
+    name: "iPhone-reparasjon",
+    description: [
+      "Vi tilbyr iPhone-reparasjon: skjermbytte, batteribytte, ladeport, kamera og diagnostikk.",
+      "Tydelig pris før vi starter, med fokus på kvalitetsdeler og ærlig vurdering av feilen.",
+    ],
+    features: [
+      "Skjermbytte",
+      "Batteribytte",
+      "Ladeport",
+      "Kamera og lyd",
+      "Diagnostikk",
+    ],
+    icon: <Smartphone className="h-4 w-4" strokeWidth={1.5} />,
+    href: "/reparasjon",
+    ctaLabel: "Se reparasjon",
   },
 ];
 
@@ -125,7 +145,7 @@ function ProductBlock({ product, delay }: { product: Product; delay: number }) {
             {...linkProps}
             className="inline-flex items-center gap-1.5 text-sm text-foreground/80 transition-colors hover:text-foreground"
           >
-            {product.external ? "Besøk Kartarkiv" : "Les mer"}
+            {product.ctaLabel ?? (product.external ? "Besøk" : "Les mer")}
             {product.external ? (
               <ArrowUpRight
                 className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
@@ -149,11 +169,11 @@ export function Products() {
     <Section id="produkter">
       <FadeIn>
         <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
-          Våre produkter
+          Våre produkter og tjenester
         </h2>
       </FadeIn>
 
-      <div className="mt-16 grid gap-16 lg:mt-20 lg:grid-cols-2 lg:gap-0">
+      <div className="mt-16 grid gap-16 lg:mt-20 lg:grid-cols-3 lg:gap-0">
         {products.map((product, index) => (
           <ProductBlock
             key={product.name}

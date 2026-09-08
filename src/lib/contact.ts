@@ -5,6 +5,11 @@ export const INQUIRY_TYPES = [
     description: "Spørsmål, produkter eller annet",
   },
   {
+    id: "repair",
+    label: "iPhone-reparasjon",
+    description: "Skjerm, batteri, ladeport eller diagnostikk",
+  },
+  {
     id: "custom",
     label: "Skreddersydd løsning",
     description: "Egen programvare eller digital plattform",
