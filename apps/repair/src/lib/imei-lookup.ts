@@ -226,19 +226,6 @@ export function lookupTac(tac: string): TacHit | null {
   return { tac, brand, specs, ...parsed };
 }
 
-function uniq(values: Array<string | null | undefined>): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const v of values) {
-    if (!v) continue;
-    const key = v.trim();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(key);
-  }
-  return out;
-}
-
 function normalizeKey(s: string): string {
   return s
     .toLowerCase()
