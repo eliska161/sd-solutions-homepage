@@ -33,6 +33,20 @@ export const INTAKE_CHECKLIST = [
 
 export type IntakeCheckKey = (typeof INTAKE_CHECKLIST)[number]["key"];
 
+/** Extra receive checks for flip phones (plus shared INTAKE_CHECKLIST). */
+export const FLIP_INTAKE_EXTRA_CHECKS = [
+  { key: "matches_listing", label: "Stemmer med annonse / beskrivelse" },
+  { key: "activation_lock", label: "Activation Lock / Find My sjekket" },
+  { key: "package_contents", label: "Innhold / tilbehør sjekket" },
+  { key: "imei_serial_recorded", label: "IMEI / serienummer registrert" },
+  { key: "battery_health_recorded", label: "Batterihelse registrert" },
+] as const;
+
+export const FLIP_INTAKE_CHECKLIST = [
+  ...INTAKE_CHECKLIST,
+  ...FLIP_INTAKE_EXTRA_CHECKS,
+] as const;
+
 export const INTAKE_PHOTO_CATEGORIES = [
   { key: "INTAKE_FRONT", label: "Forside" },
   { key: "INTAKE_BACK", label: "Bakside" },

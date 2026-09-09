@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -109,6 +110,20 @@ export const refurbishments = pgTable(
     estimatedRoiBps: integer("estimated_roi_bps"),
     actualRoiBps: integer("actual_roi_bps"),
     notes: text("notes"),
+    /** Structured condition / faults at receive (flip mottak). */
+    conditionGrade: text("condition_grade"),
+    cosmeticFaultKeys: jsonb("cosmetic_fault_keys")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    repairFaultKeys: jsonb("repair_fault_keys")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    conditionComment: text("condition_comment"),
+    faultComment: text("fault_comment"),
+    conditionSummary: text("condition_summary"),
+    faultSummary: text("fault_summary"),
     createdById: text("created_by_id").references(() => users.id),
     purchasedAt: timestamp("purchased_at", { withTimezone: true }),
     receivedAt: timestamp("received_at", { withTimezone: true }),
@@ -125,6 +140,46 @@ export const refurbishments = pgTable(
     index("refurbishments_flip_number_idx").on(t.flipNumber),
     index("refurbishments_status_idx").on(t.status),
     index("refurbishments_imei_idx").on(t.imei),
+  ],
+);
+
+/** Structured intake / mottakskontroll for a flip phone. */
+export const flipIntakeInspections = pgTable(
+  "flip_intake_inspections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    refurbishmentId: uuid("refurbishment_id")
+      .notNull()
+      .unique()
+      .references(() => refurbishments.id, { onDelete: "cascade" }),
+    inspectedById: text("inspected_by_id").references(() => users.id),
+    damageNotes: text("damage_notes"),
+    physicalZones: jsonb("physical_zones")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
+    checklist: jsonb("checklist")
+      .$type<
+        Record<
+          string,
+          {
+            result: "PASS" | "FAIL" | "NOT_TESTED" | "NOT_APPLICABLE";
+            note?: string;
+          }
+        >
+      >()
+      .notNull()
+      .default({}),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("flip_intake_inspections_refurbishment_id_idx").on(t.refurbishmentId),
   ],
 );
 
