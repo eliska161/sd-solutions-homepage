@@ -98,6 +98,19 @@ export function formatDate(value: Date | string | null | undefined) {
   });
 }
 
+export function formatDateOnly(value: Date | string | null | undefined) {
+  if (!value) return "—";
+  const d = typeof value === "string" ? new Date(value) : value;
+  return d.toLocaleDateString("nb-NO", { dateStyle: "long" });
+}
+
+export function toDateInputValue(value: Date | string | null | undefined) {
+  if (!value) return "";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
+
 /** Parse kr input (comma or dot) to øre. */
 export function parseKrToOre(raw: FormDataEntryValue | null): number {
   if (raw == null || raw === "") return 0;

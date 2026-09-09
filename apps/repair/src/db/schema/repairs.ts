@@ -1,3 +1,5 @@
+import { randomBytes } from "crypto";
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -42,6 +44,18 @@ export const paymentStatusEnum = pgEnum("payment_status", [
 export const noteVisibilityEnum = pgEnum("note_visibility", [
   "INTERNAL",
   "CUSTOMER",
+]);
+
+export const attachmentVisibilityEnum = pgEnum("attachment_visibility", [
+  "INTERNAL",
+  "CUSTOMER",
+]);
+
+export const intakeCheckResultEnum = pgEnum("intake_check_result", [
+  "PASS",
+  "FAIL",
+  "NOT_TESTED",
+  "NOT_APPLICABLE",
 ]);
 
 export const quoteStatusEnum = pgEnum("quote_status", [
@@ -137,6 +151,17 @@ export const repairTickets = pgTable(
     physicalCondition: text("physical_condition"),
     status: repairStatusEnum("status").notNull().default("NEW"),
     assigneeId: text("assignee_id").references(() => users.id),
+    /** Unpredictable public link token — never use ticket number alone. */
+    publicAccessToken: text("public_access_token")
+      .notNull()
+      .unique()
+      .$defaultFn(() => randomBytes(32).toString("hex"))
+      .default(
+        sql`replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')`,
+      ),
+    estimatedCompletionDate: timestamp("estimated_completion_date", {
+      withTimezone: true,
+    }),
     customerPriceOre: integer("customer_price_ore"),
     estimatedPartsCostOre: integer("estimated_parts_cost_ore"),
     actualPartsCostOre: integer("actual_parts_cost_ore"),
@@ -158,7 +183,50 @@ export const repairTickets = pgTable(
     index("repair_tickets_status_idx").on(t.status),
     index("repair_tickets_customer_id_idx").on(t.customerId),
     index("repair_tickets_device_id_idx").on(t.deviceId),
+    index("repair_tickets_public_access_token_idx").on(t.publicAccessToken),
+    index("repair_tickets_assignee_id_idx").on(t.assigneeId),
   ],
+);
+
+/** Structured intake / mottakskontroll for a repair ticket. */
+export const repairIntakeInspections = pgTable(
+  "repair_intake_inspections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ticketId: uuid("ticket_id")
+      .notNull()
+      .unique()
+      .references(() => repairTickets.id, { onDelete: "cascade" }),
+    inspectedById: text("inspected_by_id").references(() => users.id),
+    /** Free-text damage documentation at intake. */
+    damageNotes: text("damage_notes"),
+    /** Physical zones: front, back, left, right, top, bottom, screen, frame, back_glass, camera. */
+    physicalZones: jsonb("physical_zones")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
+    /** Checklist keyed results. */
+    checklist: jsonb("checklist")
+      .$type<
+        Record<
+          string,
+          {
+            result: "PASS" | "FAIL" | "NOT_TESTED" | "NOT_APPLICABLE";
+            note?: string;
+          }
+        >
+      >()
+      .notNull()
+      .default({}),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("repair_intake_inspections_ticket_id_idx").on(t.ticketId)],
 );
 
 export const repairTicketStatusHistory = pgTable(
@@ -253,6 +321,10 @@ export const attachments = pgTable(
     entityType: text("entity_type").notNull(),
     entityId: text("entity_id").notNull(),
     category: text("category"),
+    description: text("description"),
+    visibility: attachmentVisibilityEnum("visibility")
+      .notNull()
+      .default("INTERNAL"),
     fileName: text("file_name").notNull(),
     mimeType: text("mime_type").notNull(),
     size: integer("size").notNull(),
@@ -264,6 +336,7 @@ export const attachments = pgTable(
   },
   (t) => [
     index("attachments_entity_idx").on(t.entityType, t.entityId),
+    index("attachments_visibility_idx").on(t.visibility),
   ],
 );
 

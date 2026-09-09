@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { getAuth } from "../src/lib/auth";
 import { getDb, getSql } from "../src/lib/db";
 import { nextPublicId } from "../src/lib/sequences";
+import { createPublicAccessToken } from "../src/lib/public-token";
 import { dealRisk, roiBps, krToOre } from "../src/lib/money";
 import {
   customers,
@@ -243,6 +244,8 @@ async function seed() {
       physicalCondition: "Ramme OK, glass sprukket nederst",
       status: "DIAGNOSTICS",
       assigneeId: adminId,
+      publicAccessToken: createPublicAccessToken(),
+      estimatedCompletionDate: new Date(Date.UTC(2026, 8, 12, 12, 0, 0)),
       customerPriceOre: krToOre(2490),
       estimatedPartsCostOre: screenPart.costPriceOre,
     })
@@ -275,6 +278,8 @@ async function seed() {
       physicalCondition: "Display knust, bakglass OK",
       status: "WAITING_FOR_CUSTOMER",
       assigneeId: adminId,
+      publicAccessToken: createPublicAccessToken(),
+      estimatedCompletionDate: new Date(Date.UTC(2026, 8, 15, 12, 0, 0)),
       customerPriceOre: krToOre(3990),
       estimatedPartsCostOre: krToOre(1600),
     })
@@ -288,6 +293,7 @@ async function seed() {
     physicalCondition: "OK kosmetikk",
     status: "NEW",
     assigneeId: adminId,
+    publicAccessToken: createPublicAccessToken(),
     customerPriceOre: krToOre(1290),
     estimatedPartsCostOre: krToOre(320),
   });

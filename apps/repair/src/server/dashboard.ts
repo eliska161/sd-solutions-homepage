@@ -7,6 +7,7 @@ import {
   refurbishments,
   repairTickets,
   resales,
+  users,
 } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { requireSession } from "@/lib/session";
@@ -64,8 +65,17 @@ export async function getDashboardStats() {
     );
 
   const recentRepairs = await db
-    .select()
+    .select({
+      id: repairTickets.id,
+      ticketNumber: repairTickets.ticketNumber,
+      customerProblem: repairTickets.customerProblem,
+      status: repairTickets.status,
+      assigneeName: users.name,
+      estimatedCompletionDate: repairTickets.estimatedCompletionDate,
+      createdAt: repairTickets.createdAt,
+    })
     .from(repairTickets)
+    .leftJoin(users, eq(users.id, repairTickets.assigneeId))
     .orderBy(desc(repairTickets.createdAt))
     .limit(8);
 

@@ -59,7 +59,7 @@ export default async function RepairsPage({
         />
       ) : (
         <DataTable
-          headers={["Ticket", "Problem", "Status", "Opprettet"]}
+          headers={["Ticket", "Problem", "Tekniker", "Estimert ferdig", "Status", "Opprettet"]}
         >
           {repairs.map((r) => (
             <tr key={r.id} className="hover:bg-white/[0.03]">
@@ -73,6 +73,15 @@ export default async function RepairsPage({
               </Td>
               <Td className="max-w-md truncate text-muted">
                 {r.customerProblem}
+              </Td>
+              <Td className="text-muted">
+                {r.assigneeName || "Tekniker ikke tildelt"}
+              </Td>
+              <Td className="text-muted">
+                {r.estimatedCompletionDate
+                  ? formatDate(r.estimatedCompletionDate).split(",")[0] ||
+                    formatDate(r.estimatedCompletionDate)
+                  : "—"}
               </Td>
               <Td>
                 <RepairStatusBadge status={r.status} />

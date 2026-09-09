@@ -12,11 +12,13 @@ import {
   repairTicketStatusHistory,
   repairTickets,
   services,
+  users,
 } from "@/db/schema";
 import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
+import { createPublicAccessToken } from "@/lib/public-token";
 import { nextPublicId } from "@/lib/sequences";
 import { requireSession } from "@/lib/session";
 
@@ -67,8 +69,24 @@ export async function listRepairs(filters: RepairListFilters = {}) {
     conditions.push(eq(repairTickets.assigneeId, filters.assigneeId));
 
   return db
-    .select()
+    .select({
+      id: repairTickets.id,
+      ticketNumber: repairTickets.ticketNumber,
+      customerId: repairTickets.customerId,
+      deviceId: repairTickets.deviceId,
+      customerProblem: repairTickets.customerProblem,
+      status: repairTickets.status,
+      assigneeId: repairTickets.assigneeId,
+      assigneeName: users.name,
+      estimatedCompletionDate: repairTickets.estimatedCompletionDate,
+      customerPriceOre: repairTickets.customerPriceOre,
+      paymentStatus: repairTickets.paymentStatus,
+      createdAt: repairTickets.createdAt,
+      updatedAt: repairTickets.updatedAt,
+      completedAt: repairTickets.completedAt,
+    })
     .from(repairTickets)
+    .leftJoin(users, eq(users.id, repairTickets.assigneeId))
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(repairTickets.createdAt));
 }
@@ -84,6 +102,18 @@ export async function getRepair(ticketId: string) {
   return row ?? null;
 }
 
+export async function getRepairAssigneeName(assigneeId: string | null) {
+  if (!assigneeId) return null;
+  await requireSession();
+  const db = getDb();
+  const [row] = await db
+    .select({ name: users.name })
+    .from(users)
+    .where(eq(users.id, assigneeId))
+    .limit(1);
+  return row?.name ?? null;
+}
+
 export async function createRepair(input: z.infer<typeof createRepairSchema>) {
   const session = await requireSession();
   assertCanWrite(session.user.role);
@@ -91,6 +121,7 @@ export async function createRepair(input: z.infer<typeof createRepairSchema>) {
   const db = getDb();
 
   const ticketNumber = await nextPublicId("REP");
+  const assigneeId = data.assigneeId || session.user.id;
 
   const [row] = await db
     .insert(repairTickets)
@@ -100,7 +131,8 @@ export async function createRepair(input: z.infer<typeof createRepairSchema>) {
       deviceId: data.deviceId,
       customerProblem: data.customerProblem,
       physicalCondition: data.physicalCondition || null,
-      assigneeId: data.assigneeId || session.user.id,
+      assigneeId,
+      publicAccessToken: createPublicAccessToken(),
       status: "NEW",
     })
     .returning();
@@ -132,9 +164,146 @@ export async function createRepair(input: z.infer<typeof createRepairSchema>) {
     message: `Reparasjon ${ticketNumber} opprettet`,
     actorId: session.user.id,
   });
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: row.id,
+    type: "repair.received",
+    message: "Enhet mottatt",
+    actorId: session.user.id,
+  });
+
+  if (assigneeId) {
+    const [tech] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, assigneeId))
+      .limit(1);
+    await addActivity({
+      entityType: "repair_ticket",
+      entityId: row.id,
+      type: "repair.assignee",
+      message: `Tekniker ${tech?.name ?? "ukjent"} tildelt`,
+      actorId: session.user.id,
+    });
+  }
 
   revalidatePath("/repairs");
   revalidatePath("/dashboard");
+  return row;
+}
+
+export async function updateRepairAssignee(
+  ticketId: string,
+  assigneeId: string | null,
+) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const db = getDb();
+  const before = await getRepair(ticketId);
+  if (!before) throw new Error("Reparasjon ikke funnet");
+
+  let technicianName: string | null = null;
+  if (assigneeId) {
+    const [tech] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, assigneeId))
+      .limit(1);
+    if (!tech) throw new Error("Tekniker ikke funnet");
+    technicianName = tech.name;
+  }
+
+  const [row] = await db
+    .update(repairTickets)
+    .set({
+      assigneeId: assigneeId || null,
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, ticketId))
+    .returning();
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: ticketId,
+    type: "repair.assignee",
+    message: technicianName
+      ? `Tekniker ${technicianName} tildelt`
+      : "Tekniker fjernet",
+    actorId: session.user.id,
+    meta: { assigneeId },
+  });
+
+  revalidatePath("/repairs");
+  revalidatePath(`/repairs/${ticketId}`);
+  revalidatePath("/dashboard");
+  return row;
+}
+
+export async function updateEstimatedCompletionDate(
+  ticketId: string,
+  dateIso: string | null,
+) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const db = getDb();
+  const before = await getRepair(ticketId);
+  if (!before) throw new Error("Reparasjon ikke funnet");
+
+  const nextDate = dateIso ? new Date(`${dateIso}T12:00:00`) : null;
+  if (dateIso && Number.isNaN(nextDate?.getTime())) {
+    throw new Error("Ugyldig dato");
+  }
+
+  const [row] = await db
+    .update(repairTickets)
+    .set({
+      estimatedCompletionDate: nextDate,
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, ticketId))
+    .returning();
+
+  const label = nextDate
+    ? nextDate.toLocaleDateString("nb-NO", { dateStyle: "short" })
+    : null;
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: ticketId,
+    type: "repair.eta",
+    message: label
+      ? `Estimert ferdigdato satt til ${label}`
+      : "Estimert ferdigdato fjernet",
+    actorId: session.user.id,
+    meta: {
+      from: before.estimatedCompletionDate,
+      to: nextDate,
+    },
+  });
+
+  revalidatePath("/repairs");
+  revalidatePath(`/repairs/${ticketId}`);
+  revalidatePath("/dashboard");
+  return row;
+}
+
+export async function ensurePublicAccessToken(ticketId: string) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const ticket = await getRepair(ticketId);
+  if (!ticket) throw new Error("Reparasjon ikke funnet");
+  if (ticket.publicAccessToken) return ticket;
+
+  const db = getDb();
+  const [row] = await db
+    .update(repairTickets)
+    .set({
+      publicAccessToken: createPublicAccessToken(),
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, ticketId))
+    .returning();
+  revalidatePath(`/repairs/${ticketId}`);
   return row;
 }
 
