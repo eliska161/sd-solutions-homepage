@@ -10,7 +10,6 @@ import {
 } from "@/db/schema";
 import {
   buildCustomerProgress,
-  customerStatusEmoji,
   customerStatusLabel,
 } from "@/lib/customer-progress";
 import { getDb } from "@/lib/db";
@@ -34,6 +33,7 @@ export async function getPublicRepairByToken(token: string) {
       ticketNumber: repairTickets.ticketNumber,
       status: repairTickets.status,
       customerProblem: repairTickets.customerProblem,
+      internalProblem: repairTickets.internalProblem,
       customerPriceOre: repairTickets.customerPriceOre,
       estimatedCompletionDate: repairTickets.estimatedCompletionDate,
       createdAt: repairTickets.createdAt,
@@ -93,11 +93,13 @@ export async function getPublicRepairByToken(token: string) {
     deviceLabel,
     status: row.status,
     statusLabel: customerStatusLabel(row.status),
-    statusEmoji: customerStatusEmoji(row.status),
     progress: buildCustomerProgress(row.status),
     technicianName: row.technicianName || "Tekniker ikke tildelt",
     estimatedCompletionDate: row.estimatedCompletionDate,
-    customerProblem: row.customerProblem,
+    /** Intake list — internal only; not shown raw to customers. */
+    intakeProblem: row.customerProblem,
+    /** Technician-written text after diagnostics (customer-facing). */
+    diagnosisText: row.internalProblem?.trim() || null,
     customerPriceLabel:
       row.customerPriceOre != null
         ? formatNokFromOre(row.customerPriceOre)

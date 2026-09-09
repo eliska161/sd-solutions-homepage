@@ -1,275 +1,138 @@
-/** Cascading catalogs for intake problem + physical condition. */
+/** Intake catalogs: grades, cosmetic faults, repair faults. */
 
+export type CatalogOption = {
+  key: string;
+  label: string;
+  group?: string;
+};
+
+/** Overall condition grade — pick one first. */
+export const CONDITION_GRADES: CatalogOption[] = [
+  { key: "cond_mint", label: "Som ny" },
+  { key: "cond_good", label: "God" },
+  { key: "cond_fair", label: "Bruksspor" },
+  { key: "cond_poor", label: "Sterkt slitt / skadet" },
+];
+
+/** Cosmetic faults — add as many as needed. */
+export const COSMETIC_FAULTS: CatalogOption[] = [
+  { key: "front_clean", label: "Forside: Ren / uten synlige riper", group: "Forside" },
+  { key: "front_micro", label: "Forside: Mikroriper", group: "Forside" },
+  { key: "front_deep", label: "Forside: Dype riper", group: "Forside" },
+  { key: "front_crack", label: "Forside: Sprekk / knust", group: "Forside" },
+  { key: "back_clean", label: "Bakside: Uten skader", group: "Bakside" },
+  { key: "back_scuff", label: "Bakside: Skraper", group: "Bakside" },
+  { key: "back_crack", label: "Bakside: Sprekk / knust", group: "Bakside" },
+  { key: "frame_ok", label: "Ramme: OK", group: "Ramme" },
+  { key: "frame_dent", label: "Ramme: Bulker", group: "Ramme" },
+  { key: "frame_bend", label: "Ramme: Bøyd", group: "Ramme" },
+  { key: "frame_chip", label: "Ramme: Hakk / flis", group: "Ramme" },
+  { key: "ports_ok", label: "Porter/knapper: OK", group: "Porter" },
+  { key: "ports_dirty", label: "Porter/knapper: Skitt / støv", group: "Porter" },
+  { key: "ports_damage", label: "Porter/knapper: Synlig skade", group: "Porter" },
+];
+
+/** Repair faults to fix — add as many as needed at intake (internal). */
+export const REPAIR_FAULTS: CatalogOption[] = [
+  { key: "screen_cracked_glass", label: "Skjerm: Kun glass", group: "Skjerm" },
+  { key: "screen_cracked_lcd", label: "Skjerm: LCD/OLED skadet", group: "Skjerm" },
+  { key: "screen_cracked_touch", label: "Skjerm: Touch feiler", group: "Skjerm" },
+  { key: "screen_flicker", label: "Skjerm: Flimrer", group: "Skjerm" },
+  { key: "screen_lines", label: "Skjerm: Streker / flekker", group: "Skjerm" },
+  { key: "screen_black", label: "Skjerm: Svart skjerm", group: "Skjerm" },
+  { key: "battery_drain", label: "Batteri: Tømmes raskt", group: "Batteri" },
+  { key: "battery_swollen", label: "Batteri: Oppsvulmet", group: "Batteri" },
+  { key: "battery_health_low", label: "Batteri: Lav batterihelse", group: "Batteri" },
+  { key: "charge_port", label: "Lading: Ladeport", group: "Lading" },
+  { key: "charge_wireless", label: "Lading: Trådløs", group: "Lading" },
+  { key: "charge_intermittent", label: "Lading: Av og til", group: "Lading" },
+  { key: "camera_rear_blur", label: "Bakamera: Uskarpt / flekk", group: "Kamera" },
+  { key: "camera_rear_crash", label: "Bakamera: App kræsjer", group: "Kamera" },
+  { key: "camera_rear_broken", label: "Bakamera: Linse/glass knust", group: "Kamera" },
+  { key: "camera_front_blur", label: "Frontkamera: Uskarpt", group: "Kamera" },
+  { key: "camera_front_fail", label: "Frontkamera: Fungerer ikke", group: "Kamera" },
+  { key: "speaker_weak", label: "Høyttaler: Svak lyd", group: "Lyd" },
+  { key: "speaker_distort", label: "Høyttaler: Forvrengt", group: "Lyd" },
+  { key: "speaker_dead", label: "Høyttaler: Ingen lyd", group: "Lyd" },
+  { key: "mic_call", label: "Mikrofon: Samtale", group: "Lyd" },
+  { key: "mic_video", label: "Mikrofon: Video / Siri", group: "Lyd" },
+  { key: "btn_power", label: "Knapp: Av/på", group: "Knapper" },
+  { key: "btn_volume", label: "Knapp: Volum", group: "Knapper" },
+  { key: "btn_mute", label: "Knapp: Mute", group: "Knapper" },
+  { key: "face_id_fail", label: "Face ID feiler", group: "Biometri" },
+  { key: "touch_id_fail", label: "Touch ID feiler", group: "Biometri" },
+  { key: "liquid_recent", label: "Væskeskade (nylig)", group: "Skade" },
+  { key: "liquid_unknown", label: "Væskeskade (ukjent omfang)", group: "Skade" },
+  { key: "drop_frame", label: "Fallskade: Ramme / chassis", group: "Skade" },
+  { key: "drop_internal", label: "Fallskade: Mulig intern skade", group: "Skade" },
+  { key: "sw_boot", label: "Programvare: Starter ikke", group: "Programvare" },
+  { key: "sw_slow", label: "Programvare: Treg / henger", group: "Programvare" },
+  { key: "sw_update", label: "Programvare: Etter oppdatering", group: "Programvare" },
+  { key: "other_custom", label: "Annet (se kommentar)", group: "Annet" },
+];
+
+export function labelForOption(
+  options: CatalogOption[],
+  key: string,
+): string {
+  return options.find((o) => o.key === key)?.label ?? key;
+}
+
+export function formatConditionSummary(
+  gradeKey: string,
+  faultKeys: string[],
+  comment?: string | null,
+): string {
+  const grade = labelForOption(CONDITION_GRADES, gradeKey);
+  const lines = [`Karakter: ${grade}`];
+  const faults = faultKeys
+    .map((k) => labelForOption(COSMETIC_FAULTS, k))
+    .filter(Boolean);
+  if (faults.length) {
+    lines.push("Kosmetiske feil:");
+    for (const f of faults) lines.push(`- ${f}`);
+  }
+  const note = comment?.trim();
+  if (note) lines.push(`Kommentar: ${note}`);
+  return lines.join("\n");
+}
+
+export function formatProblemSummary(
+  faultKeys: string[],
+  comment?: string | null,
+): string {
+  const faults = faultKeys
+    .map((k) => labelForOption(REPAIR_FAULTS, k))
+    .filter(Boolean);
+  const lines: string[] = [];
+  if (faults.length) {
+    lines.push("Feil som må utbedres:");
+    for (const f of faults) lines.push(`- ${f}`);
+  }
+  const note = comment?.trim();
+  if (note) lines.push(`Kommentar: ${note}`);
+  return lines.join("\n") || "Ingen feil registrert ved mottak";
+}
+
+/** @deprecated kept for older imports — prefer flat option lists above */
 export type CatalogNode = {
   key: string;
   label: string;
   children?: CatalogNode[];
 };
 
-export const PROBLEM_CATALOG: CatalogNode[] = [
-  {
-    key: "screen",
-    label: "Skjerm / display",
-    children: [
-      {
-        key: "screen_cracked",
-        label: "Sprukket / knust",
-        children: [
-          { key: "screen_cracked_glass", label: "Kun glass" },
-          { key: "screen_cracked_lcd", label: "LCD/OLED skadet" },
-          { key: "screen_cracked_touch", label: "Touch feiler" },
-        ],
-      },
-      {
-        key: "screen_issue",
-        label: "Visningsfeil",
-        children: [
-          { key: "screen_flicker", label: "Flimrer" },
-          { key: "screen_lines", label: "Streker / flekker" },
-          { key: "screen_black", label: "Svart skjerm" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "battery",
-    label: "Batteri / lading",
-    children: [
-      {
-        key: "battery_life",
-        label: "Dårlig batteritid",
-        children: [
-          { key: "battery_drain", label: "Tømmes raskt" },
-          { key: "battery_swollen", label: "Oppsvulmet" },
-          { key: "battery_health_low", label: "Lav batterihelse" },
-        ],
-      },
-      {
-        key: "charging",
-        label: "Lading",
-        children: [
-          { key: "charge_port", label: "Ladeport" },
-          { key: "charge_wireless", label: "Trådløs lading" },
-          { key: "charge_intermittent", label: "Lader av og til" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "camera",
-    label: "Kamera",
-    children: [
-      {
-        key: "camera_rear",
-        label: "Bakamera",
-        children: [
-          { key: "camera_rear_blur", label: "Uskarpt / flekk" },
-          { key: "camera_rear_crash", label: "App kræsjer" },
-          { key: "camera_rear_broken", label: "Linse/glass knust" },
-        ],
-      },
-      {
-        key: "camera_front",
-        label: "Frontkamera",
-        children: [
-          { key: "camera_front_blur", label: "Uskarpt" },
-          { key: "camera_front_fail", label: "Fungerer ikke" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "audio",
-    label: "Lyd",
-    children: [
-      {
-        key: "speaker",
-        label: "Høyttaler",
-        children: [
-          { key: "speaker_weak", label: "Svak lyd" },
-          { key: "speaker_distort", label: "Forvrengt" },
-          { key: "speaker_dead", label: "Ingen lyd" },
-        ],
-      },
-      {
-        key: "mic",
-        label: "Mikrofon",
-        children: [
-          { key: "mic_call", label: "Samtale" },
-          { key: "mic_video", label: "Video / Siri" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "buttons",
-    label: "Knapper / biometri",
-    children: [
-      {
-        key: "buttons_side",
-        label: "Sideknapper",
-        children: [
-          { key: "btn_power", label: "Av/på" },
-          { key: "btn_volume", label: "Volum" },
-          { key: "btn_mute", label: "Mute" },
-        ],
-      },
-      {
-        key: "biometrics",
-        label: "Face ID / Touch ID",
-        children: [
-          { key: "face_id_fail", label: "Face ID feiler" },
-          { key: "touch_id_fail", label: "Touch ID feiler" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "water",
-    label: "Væske / fall",
-    children: [
-      {
-        key: "liquid",
-        label: "Væskeskade",
-        children: [
-          { key: "liquid_recent", label: "Nylig" },
-          { key: "liquid_unknown", label: "Ukjent omfang" },
-        ],
-      },
-      {
-        key: "drop",
-        label: "Fallskade",
-        children: [
-          { key: "drop_frame", label: "Ramme / chassis" },
-          { key: "drop_internal", label: "Mulig intern skade" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "software",
-    label: "Programvare / annet",
-    children: [
-      {
-        key: "software_issue",
-        label: "Programvare",
-        children: [
-          { key: "sw_boot", label: "Starter ikke" },
-          { key: "sw_slow", label: "Treg / henger" },
-          { key: "sw_update", label: "Etter oppdatering" },
-        ],
-      },
-      {
-        key: "other",
-        label: "Annet",
-        children: [{ key: "other_custom", label: "Beskriv i kommentar" }],
-      },
-    ],
-  },
-];
+export const PROBLEM_CATALOG: CatalogNode[] = [];
+export const CONDITION_CATALOG: CatalogNode[] = [];
 
-export const CONDITION_CATALOG: CatalogNode[] = [
-  {
-    key: "overall",
-    label: "Helhetsinntrykk",
-    children: [
-      {
-        key: "overall_grade",
-        label: "Karakter",
-        children: [
-          { key: "cond_mint", label: "Som ny" },
-          { key: "cond_good", label: "God" },
-          { key: "cond_fair", label: "Bruksspor" },
-          { key: "cond_poor", label: "Sterkt slitt / skadet" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "front",
-    label: "Forside / skjerm",
-    children: [
-      {
-        key: "front_surface",
-        label: "Overflate",
-        children: [
-          { key: "front_clean", label: "Ren / uten synlige riper" },
-          { key: "front_micro", label: "Mikroriper" },
-          { key: "front_deep", label: "Dype riper" },
-          { key: "front_crack", label: "Sprekk / knust" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "back",
-    label: "Bakside / bakglass",
-    children: [
-      {
-        key: "back_surface",
-        label: "Overflate",
-        children: [
-          { key: "back_clean", label: "Uten skader" },
-          { key: "back_scuff", label: "Skraper" },
-          { key: "back_crack", label: "Sprekk / knust" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "frame",
-    label: "Ramme / sider",
-    children: [
-      {
-        key: "frame_state",
-        label: "Tilstand",
-        children: [
-          { key: "frame_ok", label: "OK" },
-          { key: "frame_dent", label: "Bulker" },
-          { key: "frame_bend", label: "Bøyd" },
-          { key: "frame_chip", label: "Hakk / flis" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "ports",
-    label: "Porter / knapper",
-    children: [
-      {
-        key: "ports_state",
-        label: "Tilstand",
-        children: [
-          { key: "ports_ok", label: "OK" },
-          { key: "ports_dirty", label: "Skitt / støv" },
-          { key: "ports_damage", label: "Synlig skade" },
-        ],
-      },
-    ],
-  },
-];
-
-export function findCatalogPath(
-  catalog: CatalogNode[],
-  leafKey: string,
-): CatalogNode[] | null {
-  for (const node of catalog) {
-    if (node.key === leafKey) return [node];
-    if (node.children) {
-      const nested = findCatalogPath(node.children, leafKey);
-      if (nested) return [node, ...nested];
-    }
-  }
+export function findCatalogPath(): null {
   return null;
 }
 
 export function formatCatalogSelection(
-  catalog: CatalogNode[],
+  _catalog: CatalogNode[],
   leafKey: string,
   comment?: string | null,
 ): string {
-  const path = findCatalogPath(catalog, leafKey);
-  const labels = path?.map((n) => n.label).join(" → ") ?? leafKey;
   const note = comment?.trim();
-  return note ? `${labels}\nKommentar: ${note}` : labels;
+  return note ? `${leafKey}\nKommentar: ${note}` : leafKey;
 }

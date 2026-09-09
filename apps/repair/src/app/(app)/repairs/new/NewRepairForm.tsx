@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { CascadingCatalogFields } from "@/components/forms/CascadingCatalogFields";
 import { ColorStorageFields } from "@/components/forms/ColorStorageFields";
+import { ConditionIntakeFields } from "@/components/forms/ConditionIntakeFields";
+import { MultiFaultPicker } from "@/components/forms/MultiFaultPicker";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
 import {
-  CONDITION_CATALOG,
-  formatCatalogSelection,
-  PROBLEM_CATALOG,
+  formatConditionSummary,
+  formatProblemSummary,
+  REPAIR_FAULTS,
 } from "@/lib/intake-options";
 import { INTAKE_PHOTO_CATEGORIES } from "@/lib/intake-catalog";
 import { uploadAttachment } from "@/server/attachments";
@@ -53,6 +54,11 @@ export function NewRepairForm({
   const [serial, setSerial] = useState("");
   const [deviceId, setDeviceId] = useState("");
   const [createNew, setCreateNew] = useState(true);
+  const [problemFaults, setProblemFaults] = useState<string[]>([]);
+  const [problemComment, setProblemComment] = useState("");
+  const [conditionGrade, setConditionGrade] = useState("");
+  const [cosmeticFaults, setCosmeticFaults] = useState<string[]>([]);
+  const [conditionComment, setConditionComment] = useState("");
 
   const [photoTicketId, setPhotoTicketId] = useState<string | null>(null);
   const [photoCategory, setPhotoCategory] = useState("INTAKE_FRONT");
@@ -120,20 +126,19 @@ export function NewRepairForm({
     const fd = new FormData(form);
     startTransition(async () => {
       try {
-        const problemKey = String(fd.get("problemKey") || "");
-        const conditionKey = String(fd.get("conditionKey") || "");
-        if (!problemKey) throw new Error("Velg problemkategori");
-        if (!conditionKey) throw new Error("Velg fysisk tilstand");
+        if (problemFaults.length === 0) {
+          throw new Error("Legg til minst én feil som må utbedres");
+        }
+        if (!conditionGrade) throw new Error("Velg karakter for fysisk tilstand");
 
-        const customerProblem = formatCatalogSelection(
-          PROBLEM_CATALOG,
-          problemKey,
-          String(fd.get("problemComment") || ""),
+        const customerProblem = formatProblemSummary(
+          problemFaults,
+          problemComment,
         );
-        const physicalCondition = formatCatalogSelection(
-          CONDITION_CATALOG,
-          conditionKey,
-          String(fd.get("conditionComment") || ""),
+        const physicalCondition = formatConditionSummary(
+          conditionGrade,
+          cosmeticFaults,
+          conditionComment,
         );
 
         const result = await createRepairTicketFromForm({
@@ -215,6 +220,9 @@ export function NewRepairForm({
 
         <div className="rounded-xl border border-border p-4 space-y-3">
           <p className="text-sm font-medium">Enhet — IMEI / serienummer</p>
+          <p className="text-[12px] text-muted">
+            IMEI lagres på enheten ved opprettelse (ikke bare til oppslag).
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="newImei">IMEI</Label>
@@ -312,17 +320,30 @@ export function NewRepairForm({
           )}
         </div>
 
-        <CascadingCatalogFields
-          catalog={PROBLEM_CATALOG}
-          namePrefix="problem"
-          label="Problembeskrivelse"
-          required
-        />
-        <CascadingCatalogFields
-          catalog={CONDITION_CATALOG}
-          namePrefix="condition"
-          label="Fysisk tilstand"
-          required
+        <div className="rounded-xl border border-border p-4">
+          <MultiFaultPicker
+            label="Feil som må utbedres"
+            options={REPAIR_FAULTS}
+            value={problemFaults}
+            onChange={setProblemFaults}
+            comment={problemComment}
+            onCommentChange={setProblemComment}
+            required
+            addLabel="Legg til ny feil"
+            emptyHint="Legg til én eller flere feil fra listen."
+          />
+          <p className="mt-3 text-[12px] text-muted">
+            Kundevendt problemtekst skrives av tekniker etter diagnostikk — ikke her.
+          </p>
+        </div>
+
+        <ConditionIntakeFields
+          gradeKey={conditionGrade}
+          onGradeChange={setConditionGrade}
+          faultKeys={cosmeticFaults}
+          onFaultsChange={setCosmeticFaults}
+          comment={conditionComment}
+          onCommentChange={setConditionComment}
         />
 
         {error ? <p className="text-sm text-danger">{error}</p> : null}

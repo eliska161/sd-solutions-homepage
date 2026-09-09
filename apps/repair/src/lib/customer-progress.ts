@@ -48,29 +48,3 @@ export function customerStatusLabel(status: string): string {
     REPAIR_STATUS_LABELS[status as keyof typeof REPAIR_STATUS_LABELS] ?? status
   );
 }
-
-export function customerStatusEmoji(status: string): string {
-  switch (status) {
-    case "NEW":
-      return "📥";
-    case "DIAGNOSTICS":
-      return "🔍";
-    case "WAITING_FOR_PART":
-    case "WAITING_FOR_CUSTOMER":
-    case "APPROVED":
-      return "⏳";
-    case "IN_REPAIR":
-      return "🔧";
-    case "TESTING":
-      return "🧪";
-    case "READY_FOR_PICKUP":
-      return "✅";
-    case "COMPLETED":
-      return "🎉";
-    case "CANCELLED":
-    case "RETURNED":
-      return "⛔";
-    default:
-      return "•";
-  }
-}

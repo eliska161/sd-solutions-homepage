@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
@@ -38,22 +39,35 @@ export function Topbar({
   }
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b border-border px-4 lg:px-6">
+    <header className="flex h-12 items-center gap-4 border-b border-border bg-background px-4 lg:px-6">
+      <Link
+        href="/dashboard"
+        className="shrink-0 text-[13px] font-semibold tracking-tight text-foreground"
+      >
+        SD Solutions
+      </Link>
       <form onSubmit={onSearch} className="min-w-0 flex-1 max-w-md">
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Søk kunder, tickets, enheter, deler…"
+          placeholder="Søk kunder, tickets, enheter…"
           aria-label="Globalt søk"
+          className="h-9"
         />
       </form>
       <div className="ml-auto flex items-center gap-3">
-        <div className="hidden text-right sm:block">
-          <p className="text-[13px] text-foreground">{userEmail}</p>
+        <Link
+          href="/profile"
+          className="hidden text-right sm:block hover:opacity-90"
+        >
+          <p className="text-[12px] text-foreground">{userEmail}</p>
           <p className="text-[11px] text-muted">
             {userName} · {userRole}
           </p>
-        </div>
+        </Link>
+        <Link href="/profile" className="sm:hidden text-[12px] text-muted">
+          Profil
+        </Link>
         <Button
           type="button"
           variant="secondary"

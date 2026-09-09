@@ -107,6 +107,7 @@ export async function createDevice(input: z.infer<typeof deviceInputSchema>) {
   assertCanWrite(session.user.role);
   const data = deviceInputSchema.parse(input);
   const db = getDb();
+  const imei = data.imei ? normalizeImei(data.imei) || data.imei.trim() : null;
 
   const [row] = await db
     .insert(devices)
@@ -116,8 +117,8 @@ export async function createDevice(input: z.infer<typeof deviceInputSchema>) {
       variant: data.variant || null,
       storage: data.storage || null,
       color: data.color || null,
-      serialNumber: data.serialNumber || null,
-      imei: data.imei || null,
+      serialNumber: data.serialNumber?.trim() || null,
+      imei: imei || null,
       batteryHealth: data.batteryHealth ?? null,
       condition: data.condition || null,
       ownershipType: data.ownershipType,
@@ -149,6 +150,13 @@ export async function updateDevice(
   const before = await getDevice(id);
   if (!before) throw new Error("Enhet ikke funnet");
 
+  const imei =
+    data.imei === undefined
+      ? undefined
+      : data.imei
+        ? normalizeImei(data.imei) || data.imei.trim() || null
+        : null;
+
   const [row] = await db
     .update(devices)
     .set({
@@ -157,8 +165,10 @@ export async function updateDevice(
       storage: data.storage === undefined ? undefined : data.storage || null,
       color: data.color === undefined ? undefined : data.color || null,
       serialNumber:
-        data.serialNumber === undefined ? undefined : data.serialNumber || null,
-      imei: data.imei === undefined ? undefined : data.imei || null,
+        data.serialNumber === undefined
+          ? undefined
+          : data.serialNumber?.trim() || null,
+      imei,
       condition: data.condition === undefined ? undefined : data.condition || null,
       customerId: data.customerId === undefined ? undefined : data.customerId || null,
       updatedAt: new Date(),

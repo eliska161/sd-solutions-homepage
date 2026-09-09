@@ -307,6 +307,41 @@ export async function ensurePublicAccessToken(ticketId: string) {
   return row;
 }
 
+/** Customer-facing diagnosis text shown on /s/[token] after diagnostics. */
+export async function updateCustomerDiagnosis(
+  ticketId: string,
+  diagnosis: string,
+) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const text = diagnosis.trim();
+  if (!text) throw new Error("Skriv en kundevendt problembeskrivelse");
+
+  const db = getDb();
+  const before = await getRepair(ticketId);
+  if (!before) throw new Error("Reparasjon ikke funnet");
+
+  const [row] = await db
+    .update(repairTickets)
+    .set({
+      internalProblem: text,
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, ticketId))
+    .returning();
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: ticketId,
+    type: "repair.diagnosis",
+    message: "Kundevendt problembeskrivelse oppdatert etter diagnostikk",
+    actorId: session.user.id,
+  });
+
+  revalidatePath(`/repairs/${ticketId}`);
+  return row;
+}
+
 export async function updateRepairStatus(
   ticketId: string,
   status: z.infer<typeof repairStatusSchema>,

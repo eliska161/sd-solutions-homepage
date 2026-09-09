@@ -45,6 +45,7 @@ import {
   getWarrantyForTicket,
 } from "@/server/warranty";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
+import { CustomerDiagnosisForm } from "./CustomerDiagnosisForm";
 import { IntakePanel } from "./IntakePanel";
 import { RepairStatusForm } from "./RepairStatusForm";
 import {
@@ -329,7 +330,7 @@ export default async function RepairDetailPage({
                 ) : null
               }
             />
-            <CardBody>
+            <CardBody className="space-y-6">
               {diag ? (
                 <DiagnosticsPanel
                   ticketId={ticket.id}
@@ -341,6 +342,12 @@ export default async function RepairDetailPage({
                   description="Start sjekklisten for denne ticketen."
                 />
               )}
+              <div className="border-t border-border pt-5">
+                <CustomerDiagnosisForm
+                  ticketId={ticket.id}
+                  initialValue={ticket.internalProblem}
+                />
+              </div>
             </CardBody>
           </Card>
 

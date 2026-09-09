@@ -1,8 +1,9 @@
 "use server";
 
 import { z } from "zod";
-import { createDevice } from "@/server/devices";
+import { createDevice, updateDevice } from "@/server/devices";
 import { createRepair } from "@/server/repairs";
+import { normalizeImei } from "@/lib/imei-lookup";
 
 const schema = z.object({
   customerId: z.string().uuid(),
@@ -18,10 +19,18 @@ const schema = z.object({
   physicalCondition: z.string().optional().nullable(),
 });
 
+function cleanImei(raw: string | null | undefined) {
+  if (!raw?.trim()) return null;
+  const digits = normalizeImei(raw);
+  return digits || raw.trim();
+}
+
 export async function createRepairTicketFromForm(
   input: z.infer<typeof schema>,
 ) {
   const data = schema.parse(input);
+  const imei = cleanImei(data.imei);
+  const serialNumber = data.serialNumber?.trim() || null;
   let deviceId = data.deviceId || "";
 
   if (data.createNewDevice || !deviceId) {
@@ -32,12 +41,23 @@ export async function createRepairTicketFromForm(
       model,
       storage: data.storage || null,
       color: data.color || null,
-      imei: data.imei || null,
-      serialNumber: data.serialNumber || null,
+      imei,
+      serialNumber,
       ownershipType: "CUSTOMER",
       customerId: data.customerId,
     });
     deviceId = device.id;
+  } else {
+    // Existing device: still persist IMEI / serial / identity fields entered in the form
+    await updateDevice(deviceId, {
+      ...(data.brand?.trim() ? { brand: data.brand.trim() } : {}),
+      ...(data.model?.trim() ? { model: data.model.trim() } : {}),
+      storage: data.storage || null,
+      color: data.color || null,
+      imei,
+      serialNumber,
+      customerId: data.customerId,
+    });
   }
 
   const repair = await createRepair({
