@@ -1,0 +1,31 @@
+# fly.toml — deploy from apps/repair
+#   fly apps create sd-solutions-repair
+#   fly secrets set DATABASE_URL=... BETTER_AUTH_SECRET=... BETTER_AUTH_URL=https://repair.sd-solutions.org
+#   fly deploy
+
+app = "sd-solutions-repair"
+primary_region = "arn"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3001"
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[mounts]
+  source = "repair_uploads"
+  destination = "/app/public/uploads"

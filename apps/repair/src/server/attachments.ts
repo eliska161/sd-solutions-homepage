@@ -6,6 +6,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { attachments } from "@/db/schema";
+import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
@@ -18,7 +19,15 @@ const categorySchema = z.enum([
   "DAMAGE",
   "SERIAL_NUMBER",
   "OTHER",
+  "INTAKE_FRONT",
+  "INTAKE_BACK",
+  "INTAKE_LEFT",
+  "INTAKE_RIGHT",
+  "INTAKE_TOP",
+  "INTAKE_BOTTOM",
 ]);
+
+const visibilitySchema = z.enum(["INTERNAL", "CUSTOMER"]);
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const ALLOWED = new Set([
@@ -49,11 +58,15 @@ export async function uploadAttachment(input: {
   entityId: string;
   category: z.infer<typeof categorySchema>;
   formData: FormData;
+  visibility?: z.infer<typeof visibilitySchema>;
+  description?: string | null;
 }) {
   const session = await requireSession();
   assertCanWrite(session.user.role);
 
   const category = categorySchema.parse(input.category);
+  const visibility = visibilitySchema.parse(input.visibility ?? "INTERNAL");
+  const description = input.description?.trim() || null;
   const file = input.formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     throw new Error("Fil mangler");
@@ -98,6 +111,8 @@ export async function uploadAttachment(input: {
       entityType: input.entityType,
       entityId: input.entityId,
       category,
+      description,
+      visibility,
       fileName: file.name || safeName,
       mimeType: file.type,
       size: file.size,
@@ -111,14 +126,70 @@ export async function uploadAttachment(input: {
     entityType: input.entityType,
     entityId: input.entityId,
     action: "attachment.uploaded",
-    after: { attachmentId: row.id, category, storagePath },
+    after: { attachmentId: row.id, category, visibility, storagePath },
   });
 
   if (input.entityType === "repair_ticket") {
+    await addActivity({
+      entityType: "repair_ticket",
+      entityId: input.entityId,
+      type: "repair.photo_uploaded",
+      message:
+        visibility === "CUSTOMER"
+          ? `Bilde lastet opp (kunde-synlig): ${category}`
+          : `Bilde lastet opp: ${category}`,
+      actorId: session.user.id,
+      meta: { attachmentId: row.id, category, visibility },
+    });
     revalidatePath(`/repairs/${input.entityId}`);
   }
   if (input.entityType === "refurbishment") {
     revalidatePath(`/refurbishment/${input.entityId}`);
+  }
+
+  return row;
+}
+
+export async function setAttachmentVisibility(input: {
+  attachmentId: string;
+  visibility: z.infer<typeof visibilitySchema>;
+}) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const data = z
+    .object({
+      attachmentId: z.string().uuid(),
+      visibility: visibilitySchema,
+    })
+    .parse(input);
+
+  const db = getDb();
+  const [before] = await db
+    .select()
+    .from(attachments)
+    .where(eq(attachments.id, data.attachmentId))
+    .limit(1);
+  if (!before) throw new Error("Vedlegg ikke funnet");
+
+  const [row] = await db
+    .update(attachments)
+    .set({ visibility: data.visibility })
+    .where(eq(attachments.id, data.attachmentId))
+    .returning();
+
+  if (before.entityType === "repair_ticket") {
+    await addActivity({
+      entityType: "repair_ticket",
+      entityId: before.entityId,
+      type: "repair.photo_visibility",
+      message:
+        data.visibility === "CUSTOMER"
+          ? "Bilde gjort synlig for kunde"
+          : "Bilde skjult for kunde",
+      actorId: session.user.id,
+      meta: { attachmentId: row.id, visibility: data.visibility },
+    });
+    revalidatePath(`/repairs/${before.entityId}`);
   }
 
   return row;

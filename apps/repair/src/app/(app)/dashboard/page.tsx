@@ -4,7 +4,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MoneyText } from "@/components/ui/MoneyText";
 import { RepairStatusBadge, FlipStatusBadge } from "@/components/ui/StatusBadge";
-import { formatDate } from "@/lib/labels";
+import { formatDate, formatDateOnly } from "@/lib/labels";
 import { listActivity } from "@/server/activity";
 import { listCustomers } from "@/server/customers";
 import { getDashboardStats } from "@/server/dashboard";
@@ -106,6 +106,12 @@ export default async function DashboardPage() {
                     <p className="text-sm text-foreground">{r.ticketNumber}</p>
                     <p className="text-[12px] text-muted line-clamp-1">
                       {r.customerProblem}
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted">
+                      {r.assigneeName || "Tekniker ikke tildelt"}
+                      {" · "}
+                      Estimert ferdig:{" "}
+                      {formatDateOnly(r.estimatedCompletionDate)}
                     </p>
                   </div>
                   <RepairStatusBadge status={r.status} />

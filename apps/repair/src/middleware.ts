@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/s"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/public") ||
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/uploads") ||
     pathname.startsWith("/favicon") ||
-    pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico|pdf)$/)
+    pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico)$/)
   ) {
     return NextResponse.next();
   }

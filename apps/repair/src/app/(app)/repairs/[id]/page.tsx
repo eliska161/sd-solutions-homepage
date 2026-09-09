@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -10,20 +11,27 @@ import { MoneyText } from "@/components/ui/MoneyText";
 import { Select } from "@/components/ui/Select";
 import { RepairStatusBadge } from "@/components/ui/StatusBadge";
 import { Textarea } from "@/components/ui/Textarea";
-import { formatDate, parseKrToOre } from "@/lib/labels";
+import { formatDate, formatDateOnly, parseKrToOre } from "@/lib/labels";
 import { grossProfitOre } from "@/lib/money";
 import { listActivity } from "@/server/activity";
+import {
+  listAttachments,
+  setAttachmentVisibility,
+  uploadAttachment,
+} from "@/server/attachments";
 import { getCustomer } from "@/server/customers";
 import { getDevice } from "@/server/devices";
 import {
   getDiagnosticsForTicket,
   getOrCreateDiagnostics,
 } from "@/server/diagnostics";
+import { getIntakeInspection } from "@/server/intake";
 import { listParts, usePartOnRepair as consumePartOnRepair } from "@/server/parts";
 import {
   addRepairNote,
   addServiceToRepair,
   getRepair,
+  getRepairAssigneeName,
   listRepairNotes,
   listRepairParts,
   listRepairServices,
@@ -31,13 +39,18 @@ import {
   updateRepairPricing,
 } from "@/server/repairs";
 import { listServices } from "@/server/services-catalog";
+import { listTechnicians } from "@/server/users";
 import {
   createWarrantyForRepair,
   getWarrantyForTicket,
 } from "@/server/warranty";
-import { listAttachments, uploadAttachment } from "@/server/attachments";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
+import { IntakePanel } from "./IntakePanel";
 import { RepairStatusForm } from "./RepairStatusForm";
+import {
+  CustomerLinkCard,
+  TechnicianEtaForm,
+} from "./TechnicianEtaForm";
 
 async function ensureDiagnosticsAction(formData: FormData) {
   "use server";
@@ -111,9 +124,30 @@ async function uploadPhotoAction(formData: FormData) {
       | "AFTER"
       | "DAMAGE"
       | "SERIAL_NUMBER"
-      | "OTHER",
+      | "OTHER"
+      | "INTAKE_FRONT"
+      | "INTAKE_BACK"
+      | "INTAKE_LEFT"
+      | "INTAKE_RIGHT"
+      | "INTAKE_TOP"
+      | "INTAKE_BOTTOM",
+    visibility: (String(formData.get("visibility") || "INTERNAL") as
+      | "INTERNAL"
+      | "CUSTOMER"),
+    description: String(formData.get("description") || "") || null,
     formData,
   });
+  redirect(`/repairs/${ticketId}`);
+}
+
+async function togglePhotoVisibilityAction(formData: FormData) {
+  "use server";
+  const ticketId = String(formData.get("ticketId"));
+  const attachmentId = String(formData.get("attachmentId"));
+  const visibility = String(formData.get("visibility")) as
+    | "INTERNAL"
+    | "CUSTOMER";
+  await setAttachmentVisibility({ attachmentId, visibility });
   redirect(`/repairs/${ticketId}`);
 }
 
@@ -125,6 +159,11 @@ export default async function RepairDetailPage({
   const { id } = await params;
   const ticket = await getRepair(id);
   if (!ticket) notFound();
+
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") || headerList.get("host");
+  const proto = headerList.get("x-forwarded-proto") || "https";
+  const origin = host ? `${proto}://${host}` : "";
 
   const [
     customer,
@@ -139,6 +178,9 @@ export default async function RepairDetailPage({
     activity,
     warranty,
     photos,
+    technicians,
+    assigneeName,
+    intake,
   ] = await Promise.all([
     getCustomer(ticket.customerId),
     getDevice(ticket.deviceId),
@@ -149,9 +191,12 @@ export default async function RepairDetailPage({
     listServices(true),
     listParts(),
     getDiagnosticsForTicket(id),
-    listActivity({ entityType: "repair_ticket", entityId: id, limit: 30 }),
+    listActivity({ entityType: "repair_ticket", entityId: id, limit: 40 }),
     getWarrantyForTicket(id),
     listAttachments("repair_ticket", id),
+    listTechnicians(),
+    getRepairAssigneeName(ticket.assigneeId),
+    getIntakeInspection(id),
   ]);
 
   const customerPrice = ticket.customerPriceOre ?? 0;
@@ -162,6 +207,7 @@ export default async function RepairDetailPage({
     partsCostOre: partsCost,
     otherCostsOre: otherCosts,
   });
+  const publicUrl = `${origin}/s/${ticket.publicAccessToken}`;
 
   return (
     <div>
@@ -175,6 +221,12 @@ export default async function RepairDetailPage({
         <RepairStatusForm ticketId={ticket.id} status={ticket.status} />
         <p className="text-[13px] text-muted">
           Opprettet {formatDate(ticket.createdAt)}
+        </p>
+        <p className="text-[13px] text-muted">
+          Tekniker: {assigneeName || "Tekniker ikke tildelt"}
+        </p>
+        <p className="text-[13px] text-muted">
+          Estimert ferdig: {formatDateOnly(ticket.estimatedCompletionDate)}
         </p>
       </div>
 
@@ -250,9 +302,16 @@ export default async function RepairDetailPage({
                 </p>
               </div>
               <div className="sm:col-span-2">
-                <p className="text-muted">Fysisk tilstand</p>
+                <p className="text-muted">Fysisk tilstand (kort)</p>
                 <p className="mt-1">{ticket.physicalCondition || "—"}</p>
               </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Mottakskontroll" />
+            <CardBody>
+              <IntakePanel ticketId={ticket.id} intake={intake} />
             </CardBody>
           </Card>
 
@@ -374,29 +433,64 @@ export default async function RepairDetailPage({
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {photos.map((p) => (
-                    <a
+                    <div
                       key={p.id}
-                      href={p.storagePath}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block overflow-hidden rounded-xl border border-border"
+                      className="overflow-hidden rounded-xl border border-border"
                     >
-                      {p.mimeType.startsWith("image/") ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={p.storagePath}
-                          alt={p.fileName}
-                          className="h-28 w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-28 items-center justify-center px-2 text-center text-[12px] text-muted">
-                          {p.fileName}
-                        </div>
-                      )}
-                      <p className="truncate px-2 py-1 text-[11px] text-muted">
-                        {p.category || "OTHER"}
-                      </p>
-                    </a>
+                      <a
+                        href={p.storagePath}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block"
+                      >
+                        {p.mimeType.startsWith("image/") ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={p.storagePath}
+                            alt={p.fileName}
+                            className="h-28 w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-28 items-center justify-center px-2 text-center text-[12px] text-muted">
+                            {p.fileName}
+                          </div>
+                        )}
+                      </a>
+                      <div className="space-y-1 px-2 py-2">
+                        <p className="truncate text-[11px] text-muted">
+                          {p.category || "OTHER"}
+                          {p.description ? ` · ${p.description}` : ""}
+                        </p>
+                        <p className="text-[11px] text-muted">
+                          {p.visibility === "CUSTOMER"
+                            ? "Kunde-synlig"
+                            : "Internt"}{" "}
+                          · {formatDate(p.createdAt)}
+                        </p>
+                        <form action={togglePhotoVisibilityAction}>
+                          <input type="hidden" name="ticketId" value={ticket.id} />
+                          <input
+                            type="hidden"
+                            name="attachmentId"
+                            value={p.id}
+                          />
+                          <input
+                            type="hidden"
+                            name="visibility"
+                            value={
+                              p.visibility === "CUSTOMER"
+                                ? "INTERNAL"
+                                : "CUSTOMER"
+                            }
+                          />
+                          <Button type="submit" size="sm" variant="secondary">
+                            {p.visibility === "CUSTOMER"
+                              ? "Skjul for kunde"
+                              : "Vis for kunde"}
+                          </Button>
+                        </form>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -421,6 +515,26 @@ export default async function RepairDetailPage({
                     <option value="SERIAL_NUMBER">Serienummer</option>
                     <option value="OTHER">Annet</option>
                   </Select>
+                </div>
+                <div>
+                  <Label htmlFor="visibility">Synlighet</Label>
+                  <Select
+                    id="visibility"
+                    name="visibility"
+                    defaultValue="INTERNAL"
+                    className="mt-1.5 w-40"
+                  >
+                    <option value="INTERNAL">Internt</option>
+                    <option value="CUSTOMER">Kunde</option>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="description">Beskrivelse</Label>
+                  <Input
+                    id="description"
+                    name="description"
+                    className="mt-1.5 w-44"
+                  />
                 </div>
                 <div>
                   <Label htmlFor="file">Fil</Label>
@@ -464,7 +578,11 @@ export default async function RepairDetailPage({
                 <input type="hidden" name="ticketId" value={ticket.id} />
                 <Textarea name="content" required placeholder="Skriv notat…" />
                 <div className="flex gap-2">
-                  <Select name="visibility" defaultValue="INTERNAL" className="w-40">
+                  <Select
+                    name="visibility"
+                    defaultValue="INTERNAL"
+                    className="w-40"
+                  >
                     <option value="INTERNAL">Internt</option>
                     <option value="CUSTOMER">Kunde</option>
                   </Select>
@@ -478,6 +596,25 @@ export default async function RepairDetailPage({
         </div>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader title="Tekniker & levering" />
+            <CardBody>
+              <TechnicianEtaForm
+                ticketId={ticket.id}
+                assigneeId={ticket.assigneeId}
+                estimatedCompletionDate={ticket.estimatedCompletionDate}
+                technicians={technicians}
+              />
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Kundestatus-side" />
+            <CardBody>
+              <CustomerLinkCard publicUrl={publicUrl} />
+            </CardBody>
+          </Card>
+
           <Card>
             <CardHeader title="Prising" />
             <CardBody>
@@ -518,8 +655,7 @@ export default async function RepairDetailPage({
               {warranty ? (
                 <div>
                   <p>
-                    {warranty.days} dager ·{" "}
-                    {formatDate(warranty.startsAt)} –{" "}
+                    {warranty.days} dager · {formatDate(warranty.startsAt)} –{" "}
                     {formatDate(warranty.endsAt)}
                   </p>
                 </div>
@@ -566,7 +702,10 @@ export default async function RepairDetailPage({
                 <p className="text-sm text-muted">Ingen aktivitet.</p>
               ) : (
                 activity.map((a) => (
-                  <div key={a.id} className="text-sm border-b border-border pb-2">
+                  <div
+                    key={a.id}
+                    className="text-sm border-b border-border pb-2"
+                  >
                     <p>{a.message}</p>
                     <p className="text-[12px] text-muted">
                       {formatDate(a.createdAt)}
