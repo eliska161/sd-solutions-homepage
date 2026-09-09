@@ -4,8 +4,12 @@ import { and, asc, eq } from "drizzle-orm";
 import {
   attachments,
   devices,
+  parts,
   repairNotes,
+  repairParts,
+  repairServices,
   repairTickets,
+  services,
   users,
 } from "@/db/schema";
 import {
@@ -50,7 +54,7 @@ export async function getPublicRepairByToken(token: string) {
 
   if (!row) return null;
 
-  const [updates, photos] = await Promise.all([
+  const [updates, photos, ticketParts, ticketServices] = await Promise.all([
     db
       .select({
         id: repairNotes.id,
@@ -82,6 +86,26 @@ export async function getPublicRepairByToken(token: string) {
         ),
       )
       .orderBy(asc(attachments.createdAt)),
+    db
+      .select({
+        id: repairParts.id,
+        quantity: repairParts.quantity,
+        status: repairParts.status,
+        partName: parts.name,
+      })
+      .from(repairParts)
+      .leftJoin(parts, eq(parts.id, repairParts.partId))
+      .where(eq(repairParts.ticketId, row.id))
+      .orderBy(asc(repairParts.createdAt)),
+    db
+      .select({
+        id: repairServices.id,
+        serviceName: services.name,
+      })
+      .from(repairServices)
+      .leftJoin(services, eq(services.id, repairServices.serviceId))
+      .where(eq(repairServices.ticketId, row.id))
+      .orderBy(asc(repairServices.createdAt)),
   ]);
 
   const deviceLabel = [row.deviceBrand, row.deviceModel, row.deviceVariant]
@@ -100,10 +124,26 @@ export async function getPublicRepairByToken(token: string) {
     intakeProblem: row.customerProblem,
     /** Technician-written text after diagnostics (customer-facing). */
     diagnosisText: row.internalProblem?.trim() || null,
+    /** Service total only — never part cost prices. */
     customerPriceLabel:
       row.customerPriceOre != null
         ? formatNokFromOre(row.customerPriceOre)
         : null,
+    services: ticketServices
+      .map((s) => ({
+        id: s.id,
+        name: s.serviceName?.trim() || "Tjeneste",
+      }))
+      .filter((s) => s.name),
+    /** Parts in the job — names/qty only, no unit costs. */
+    parts: ticketParts
+      .filter((p) => p.status !== "CANCELLED")
+      .map((p) => ({
+        id: p.id,
+        name: p.partName?.trim() || "Del",
+        quantity: p.quantity,
+        status: p.status === "ORDERED" ? ("ordered" as const) : ("used" as const),
+      })),
     updates: updates.map((u) => ({
       id: u.id,
       content: u.content,

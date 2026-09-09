@@ -6,6 +6,7 @@ import {
   ImageIcon,
   MessageSquareText,
   Banknote,
+  Package,
   Smartphone,
   UserRound,
   Wrench,
@@ -162,6 +163,39 @@ export default async function CustomerStatusPage({
             </p>
           )}
         </Section>
+
+        {data.services.length > 0 ? (
+          <Section icon={Wrench} label="Tjenester">
+            <ul className="space-y-2">
+              {data.services.map((s) => (
+                <li key={s.id} className="text-sm text-slate-200">
+                  {s.name}
+                </li>
+              ))}
+            </ul>
+          </Section>
+        ) : null}
+
+        {data.parts.length > 0 ? (
+          <Section icon={Package} label="Deler i reparasjonen">
+            <ul className="space-y-2">
+              {data.parts.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 text-sm text-slate-200"
+                >
+                  <span>
+                    {p.quantity > 1 ? `${p.quantity} × ` : ""}
+                    {p.name}
+                  </span>
+                  {p.status === "ordered" ? (
+                    <span className="text-[11px] text-amber-300/90">Bestilt</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </Section>
+        ) : null}
 
         {data.customerPriceLabel ? (
           <Section icon={Banknote} label="Pris">
