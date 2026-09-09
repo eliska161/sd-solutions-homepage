@@ -10,7 +10,7 @@ import { MoneyText } from "@/components/ui/MoneyText";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { parseKrToOre } from "@/lib/labels";
-import { attachPartToRepair, orderPartForRepair } from "@/server/parts";
+import { attachPartToRepair, orderPartForRepair, removePartFromRepair } from "@/server/parts";
 
 type PartOption = {
   id: string;
@@ -85,7 +85,31 @@ export function TicketPartsPanel({
                 {p.notes ? ` · ${p.notes}` : ""}
               </p>
             </div>
-            <MoneyText ore={p.quantity * p.unitCostOre} />
+            <div className="flex items-center gap-2">
+              <MoneyText ore={p.quantity * p.unitCostOre} />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={pending}
+                onClick={() => {
+                  setError(null);
+                  startTransition(async () => {
+                    try {
+                      await removePartFromRepair({
+                        ticketId,
+                        repairPartId: p.id,
+                      });
+                      router.refresh();
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Feil");
+                    }
+                  });
+                }}
+              >
+                Fjern
+              </Button>
+            </div>
           </div>
         ))
       )}

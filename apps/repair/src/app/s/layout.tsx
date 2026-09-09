@@ -19,7 +19,7 @@ export default function CustomerStatusLayout({
 }) {
   return (
     <div
-      className={`${plex.variable} min-h-screen bg-[#f4f4f5] text-[#18181b]`}
+      className={`${plex.variable} customer-status min-h-screen text-slate-100`}
       style={{ fontFamily: "var(--font-customer), system-ui, sans-serif" }}
     >
       {children}

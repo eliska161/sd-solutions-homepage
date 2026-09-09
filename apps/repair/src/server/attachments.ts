@@ -1,6 +1,6 @@
 "use server";
 
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
 import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -11,7 +11,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
-import { getUploadsRoot } from "@/lib/uploads";
+import { getUploadsRoot, resolveUploadAbsolutePath } from "@/lib/uploads";
 
 const categorySchema = z.enum([
   "BEFORE",
@@ -192,4 +192,44 @@ export async function setAttachmentVisibility(input: {
   }
 
   return row;
+}
+
+export async function deleteAttachment(input: { attachmentId: string }) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const data = z.object({ attachmentId: z.string().uuid() }).parse(input);
+  const db = getDb();
+
+  const [before] = await db
+    .select()
+    .from(attachments)
+    .where(eq(attachments.id, data.attachmentId))
+    .limit(1);
+  if (!before) throw new Error("Vedlegg ikke funnet");
+
+  await db.delete(attachments).where(eq(attachments.id, data.attachmentId));
+
+  try {
+    const abs = resolveUploadAbsolutePath(before.storagePath);
+    if (abs) await unlink(abs).catch(() => undefined);
+  } catch {
+    // File may already be gone; DB row is what matters.
+  }
+
+  if (before.entityType === "repair_ticket") {
+    await addActivity({
+      entityType: "repair_ticket",
+      entityId: before.entityId,
+      type: "repair.photo_removed",
+      message: "Bilde fjernet",
+      actorId: session.user.id,
+      meta: { attachmentId: before.id },
+    });
+    revalidatePath(`/repairs/${before.entityId}`);
+  }
+  if (before.entityType === "refurbishment") {
+    revalidatePath(`/refurbishment/${before.entityId}`);
+  }
+
+  return { ok: true };
 }

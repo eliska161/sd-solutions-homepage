@@ -23,6 +23,7 @@ import {
   createListing,
   getFlip,
   recordSale,
+  removeFlipCost,
 } from "@/server/flips";
 import { FlipConditionFaultsPanel } from "./FlipConditionFaultsPanel";
 import { FlipDevicePanel } from "./FlipDevicePanel";
@@ -49,6 +50,16 @@ async function addCostAction(formData: FormData) {
   redirect(`/refurbishment/${refurbishmentId}`);
 }
 
+async function removeCostAction(formData: FormData) {
+  "use server";
+  const refurbishmentId = String(formData.get("refurbishmentId"));
+  await removeFlipCost({
+    refurbishmentId,
+    costId: String(formData.get("costId")),
+  });
+  redirect(`/refurbishment/${refurbishmentId}`);
+}
+
 async function createListingAction(formData: FormData) {
   "use server";
   const refurbishmentId = String(formData.get("refurbishmentId"));
@@ -66,15 +77,16 @@ async function createListingAction(formData: FormData) {
 async function recordSaleAction(formData: FormData) {
   "use server";
   const refurbishmentId = String(formData.get("refurbishmentId"));
+  // Finn charges shipping / platform fees to the buyer, not the seller.
   await recordSale({
     refurbishmentId,
     salePriceOre: parseKrToOre(formData.get("salePriceKr")),
     listingId: String(formData.get("listingId") || "") || null,
     platform: String(formData.get("platform") || "") || null,
     buyerName: String(formData.get("buyerName") || "") || null,
-    shippingOre: parseKrToOre(formData.get("shippingKr")),
-    platformFeesOre: parseKrToOre(formData.get("platformFeesKr")),
-    otherFeesOre: parseKrToOre(formData.get("otherFeesKr")),
+    shippingOre: 0,
+    platformFeesOre: 0,
+    otherFeesOre: 0,
   });
   redirect(`/refurbishment/${refurbishmentId}`);
 }
@@ -275,22 +287,36 @@ export default async function FlipDetailPage({
             {costs.map((c) => (
               <div
                 key={c.id}
-                className="flex justify-between border-b border-border pb-2 text-sm"
+                className="flex items-center justify-between gap-3 border-b border-border pb-2 text-sm"
               >
                 <span>
                   {c.category}: {c.label}
                 </span>
-                <MoneyText ore={c.amountOre} />
+                <div className="flex items-center gap-2">
+                  <MoneyText ore={c.amountOre} />
+                  {c.category !== "PURCHASE" ? (
+                    <form action={removeCostAction}>
+                      <input
+                        type="hidden"
+                        name="refurbishmentId"
+                        value={flip.id}
+                      />
+                      <input type="hidden" name="costId" value={c.id} />
+                      <Button type="submit" variant="ghost" size="sm">
+                        Fjern
+                      </Button>
+                    </form>
+                  ) : null}
+                </div>
               </div>
             ))}
             <form action={addCostAction} className="grid gap-2 sm:grid-cols-3">
               <input type="hidden" name="refurbishmentId" value={flip.id} />
               <Select name="category" defaultValue="PART">
                 <option value="PART">Del</option>
-                <option value="SHIPPING">Frakt</option>
+                <option value="SHIPPING">Frakt (ved kjøp)</option>
                 <option value="CONSUMABLE">Forbruk</option>
                 <option value="TOOL">Verktøy</option>
-                <option value="PLATFORM_FEE">Plattformgebyr</option>
                 <option value="OTHER">Annet</option>
               </Select>
               <Input name="label" placeholder="Beskrivelse" required />
@@ -392,14 +418,6 @@ export default async function FlipDetailPage({
                 <Input id="buyerName" name="buyerName" className="mt-1.5" />
               </div>
               <div>
-                <Label htmlFor="platformFeesKr">Plattformgebyr (kr)</Label>
-                <Input id="platformFeesKr" name="platformFeesKr" defaultValue="0" className="mt-1.5" />
-              </div>
-              <div>
-                <Label htmlFor="shippingKr">Frakt (kr)</Label>
-                <Input id="shippingKr" name="shippingKr" defaultValue="0" className="mt-1.5" />
-              </div>
-              <div>
                 <Label htmlFor="listingId">Listing</Label>
                 <Select id="listingId" name="listingId" className="mt-1.5">
                   <option value="">—</option>
@@ -410,6 +428,9 @@ export default async function FlipDetailPage({
                   ))}
                 </Select>
               </div>
+              <p className="sm:col-span-2 text-[12px] text-muted">
+                Finn tar frakt og plattformgebyr av kjøper — ikke selger.
+              </p>
               <div className="sm:col-span-2">
                 <Button type="submit">Registrer salg</Button>
               </div>

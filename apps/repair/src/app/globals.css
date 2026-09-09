@@ -43,3 +43,12 @@ body {
   background: rgba(255, 255, 255, 0.14);
   color: var(--text);
 }
+
+/* Public customer status page — soft dark shell, not pure white. */
+.customer-status {
+  background:
+    radial-gradient(ellipse 90% 50% at 50% -10%, rgba(8, 145, 178, 0.22), transparent 55%),
+    linear-gradient(180deg, #0b1220 0%, #0f172a 45%, #0a1018 100%);
+  color: #e2e8f0;
+}
+

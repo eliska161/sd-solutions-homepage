@@ -491,6 +491,61 @@ export async function addFlipCost(input: {
   return row;
 }
 
+export async function removeFlipCost(input: {
+  costId: string;
+  refurbishmentId: string;
+}) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const data = z
+    .object({
+      costId: z.string().uuid(),
+      refurbishmentId: z.string().uuid(),
+    })
+    .parse(input);
+  const db = getDb();
+
+  const [existing] = await db
+    .select()
+    .from(refurbishmentCosts)
+    .where(
+      and(
+        eq(refurbishmentCosts.id, data.costId),
+        eq(refurbishmentCosts.refurbishmentId, data.refurbishmentId),
+      ),
+    )
+    .limit(1);
+  if (!existing) throw new Error("Kostnad ikke funnet");
+  if (existing.category === "PURCHASE") {
+    throw new Error("Kan ikke fjerne kjøpspris her");
+  }
+
+  await db
+    .delete(refurbishmentCosts)
+    .where(eq(refurbishmentCosts.id, data.costId));
+
+  const [{ total }] = await db
+    .select({
+      total: sql<number>`coalesce(sum(${refurbishmentCosts.amountOre}), 0)::int`,
+    })
+    .from(refurbishmentCosts)
+    .where(
+      and(
+        eq(refurbishmentCosts.refurbishmentId, data.refurbishmentId),
+        ne(refurbishmentCosts.category, "PURCHASE"),
+      ),
+    );
+
+  await db
+    .update(refurbishments)
+    .set({ actualRepairOre: total, updatedAt: new Date() })
+    .where(eq(refurbishments.id, data.refurbishmentId));
+
+  revalidatePath("/refurbishment");
+  revalidatePath(`/refurbishment/${data.refurbishmentId}`);
+  return { ok: true };
+}
+
 export async function createListing(input: {
   refurbishmentId: string;
   title: string;
