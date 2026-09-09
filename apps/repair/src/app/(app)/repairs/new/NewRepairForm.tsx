@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { CascadingCatalogFields } from "@/components/forms/CascadingCatalogFields";
+import { ColorStorageFields } from "@/components/forms/ColorStorageFields";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -88,6 +89,8 @@ export function NewRepairForm({
         setDeviceId("");
         setBrand(catalog.brand);
         setModel(catalog.model);
+        setStorage("");
+        setColor("");
         setColorOptions(catalog.colorOptions);
         setStorageOptions(catalog.storageOptions);
         if (catalog.storageOptions.length === 1) {
@@ -295,56 +298,16 @@ export function NewRepairForm({
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="newStorage">Lagring</Label>
-                {storageOptions.length > 0 ? (
-                  <Select
-                    id="newStorage"
-                    className="mt-1.5"
-                    value={storage}
-                    onChange={(e) => setStorage(e.target.value)}
-                  >
-                    <option value="">Velg…</option>
-                    {storageOptions.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </Select>
-                ) : (
-                  <Input
-                    id="newStorage"
-                    className="mt-1.5"
-                    value={storage}
-                    onChange={(e) => setStorage(e.target.value)}
-                  />
-                )}
-              </div>
-              <div>
-                <Label htmlFor="newColor">Farge</Label>
-                {colorOptions.length > 0 ? (
-                  <Select
-                    id="newColor"
-                    className="mt-1.5"
-                    value={color}
-                    onChange={(e) => setColor(e.target.value)}
-                  >
-                    <option value="">Velg…</option>
-                    {colorOptions.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </Select>
-                ) : (
-                  <Input
-                    id="newColor"
-                    className="mt-1.5"
-                    value={color}
-                    onChange={(e) => setColor(e.target.value)}
-                  />
-                )}
-              </div>
+              <ColorStorageFields
+                storage={storage}
+                color={color}
+                storageOptions={storageOptions}
+                colorOptions={colorOptions}
+                onStorageChange={setStorage}
+                onColorChange={setColor}
+                storageId="newStorage"
+                colorId="newColor"
+              />
             </div>
           )}
         </div>

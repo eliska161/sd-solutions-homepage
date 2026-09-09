@@ -8,11 +8,17 @@ Compact TAC (first 8 digits of IMEI) → `[brand, specs]` index built from
 Rebuild:
 
 ```bash
-node scripts/build-tac-index.mjs
+npm run data:tac
 ```
 
-## Apple supplement
+## `apple-device-options.json`
 
-Runtime enrichment for Apple devices uses the npm package
-[`ios-device-list`](https://github.com/pbakondy/ios-device-list)
-(colors, storage options, identifiers).
+Per-generation color + storage options for Apple devices, built from
+[pbakondy/ios-device-list](https://github.com/pbakondy/ios-device-list).
+Loaded from disk at runtime (no `require('ios-device-list')` in production).
+
+Rebuild:
+
+```bash
+npm run data:apple
+```

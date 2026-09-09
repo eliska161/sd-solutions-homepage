@@ -39,14 +39,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 RUN mkdir -p /app/scripts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/fly-db-migrate.cjs ./scripts/fly-db-migrate.cjs
 
-# Local TAC IMEI lookup index (+ meta)
+# Local TAC IMEI lookup index + Apple color/storage options
 COPY --from=builder --chown=nextjs:nodejs /app/data ./data
-
-# ios-device-list + its runtime deps (standalone does not trace these)
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/ios-device-list ./node_modules/ios-device-list
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/lodash.uniq ./node_modules/lodash.uniq
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/lodash.clonedeep ./node_modules/lodash.clonedeep
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/lodash.flatten ./node_modules/lodash.flatten
 
 # Minimal deps for release_command migrate (not part of Next standalone)
 WORKDIR /app/migrate-node
@@ -56,10 +50,10 @@ RUN npm init -y >/dev/null 2>&1 \
 
 WORKDIR /app
 RUN mkdir -p /app/public/uploads /data/uploads \
-  && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts /app/data /app/node_modules /data/uploads \
+  && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts /app/data /data/uploads \
   && test -f /app/scripts/fly-db-migrate.cjs \
   && test -f /app/data/tac-index.json.gz \
-  && node -e "require('ios-device-list'); require('lodash.uniq'); console.log('ios-device-list ok')"
+  && test -f /app/data/apple-device-options.json
 
 USER nextjs
 EXPOSE 3001

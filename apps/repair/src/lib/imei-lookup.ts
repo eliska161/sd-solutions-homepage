@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { createRequire } from "node:module";
 import { gunzipSync } from "node:zlib";
 
 export type TacHit = {
@@ -35,11 +34,43 @@ export type ImeiCatalogResult = {
 
 type TacIndex = Record<string, [string, string]>;
 
-let cachedIndex: TacIndex | null = null;
+type AppleGenerationOptions = {
+  identifier: string | null;
+  colors: string[];
+  storages: string[];
+};
 
-const nodeRequire = createRequire(
-  path.join(process.cwd(), "node_modules/ios-device-list/package.json"),
-);
+type AppleOptionsFile = {
+  generations: Record<string, AppleGenerationOptions>;
+};
+
+let cachedIndex: TacIndex | null = null;
+let cachedAppleOptions: AppleOptionsFile | null = null;
+
+/** Common Apple fallbacks when generation match is incomplete. */
+const FALLBACK_IPHONE_STORAGE = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
+const FALLBACK_IPAD_STORAGE = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB", "2 TB"];
+const FALLBACK_IPHONE_COLORS = [
+  "Black",
+  "White",
+  "Blue",
+  "Green",
+  "Pink",
+  "Yellow",
+  "Purple",
+  "Midnight",
+  "Starlight",
+  "Product Red",
+  "Space Black",
+  "Space Gray",
+  "Silver",
+  "Gold",
+  "Natural Titanium",
+  "Blue Titanium",
+  "White Titanium",
+  "Black Titanium",
+  "Desert Titanium",
+];
 
 function resolveDataPath(filename: string) {
   const candidates = [
@@ -59,6 +90,15 @@ function loadTacIndex(): TacIndex {
   const json = gunzipSync(buf).toString("utf8");
   cachedIndex = JSON.parse(json) as TacIndex;
   return cachedIndex;
+}
+
+function loadAppleOptions(): AppleOptionsFile {
+  if (cachedAppleOptions) return cachedAppleOptions;
+  const file = resolveDataPath("apple-device-options.json");
+  cachedAppleOptions = JSON.parse(
+    readFileSync(file, "utf8"),
+  ) as AppleOptionsFile;
+  return cachedAppleOptions;
 }
 
 /** Digits only; IMEI is typically 15 digits (14 + check). */
@@ -128,12 +168,16 @@ function parseSpecs(brand: string, specs: string): Omit<TacHit, "tac" | "brand" 
     nameParts.push(part);
   }
 
-  // Prefer marketing name (first segment) over internal codes like "Xiaomi 2502FRA65G"
   const preferred =
-    nameParts.find((p) => /iPhone|iPad|Galaxy|Pixel|Apple /i.test(p)) ??
+    nameParts.find(
+      (p) => /Apple\s+(iPhone|iPad)/i.test(p) && p !== p.toUpperCase(),
+    ) ??
+    nameParts.find(
+      (p) => /iPhone|iPad|Galaxy|Pixel/i.test(p) && p !== p.toUpperCase(),
+    ) ??
+    nameParts.find((p) => /iPhone|iPad|Galaxy|Pixel/i.test(p)) ??
     nameParts.find((p) => {
       const stripped = p.replace(new RegExp(`^${brand}\\s+`, "i"), "").trim();
-      // Skip short internal model codes (letters+digits, no spaces)
       return /\s/.test(stripped) || stripped.length > 12;
     }) ??
     nameParts[0] ??
@@ -147,7 +191,6 @@ function parseSpecs(brand: string, specs: string): Omit<TacHit, "tac" | "brand" 
     .replace(/\s+/g, " ")
     .trim();
 
-  // Normalize ALL-CAPS marketing names
   if (model === model.toUpperCase() && /[A-Z]/.test(model)) {
     if (/IPHONE|IPAD/.test(model)) {
       model = model
@@ -183,47 +226,6 @@ export function lookupTac(tac: string): TacHit | null {
   return { tac, brand, specs, ...parsed };
 }
 
-type IosDevice = {
-  Type?: string;
-  Generation?: string;
-  Identifier?: string;
-  Color?: string;
-  Storage?: string;
-  Model?: string;
-  ANumber?: string | string[];
-};
-
-function loadIosDeviceList(): {
-  deviceByGeneration: (
-    generation: string,
-    type?: string | null,
-    options?: { caseInsensitive?: boolean; contains?: boolean },
-  ) => IosDevice[];
-  deviceByANumber: (
-    anumber: string,
-    type?: string | null,
-    options?: { caseInsensitive?: boolean; contains?: boolean },
-  ) => IosDevice[];
-  generationByIdentifier: (id: string, type?: string | null) => string | undefined;
-  generations: (type?: string) => string[];
-} {
-  const candidates = [
-    path.join(process.cwd(), "node_modules/ios-device-list"),
-    "ios-device-list",
-  ];
-  let lastErr: unknown;
-  for (const id of candidates) {
-    try {
-      return nodeRequire(id);
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-  throw lastErr instanceof Error
-    ? lastErr
-    : new Error("ios-device-list is not installed");
-}
-
 function uniq(values: Array<string | null | undefined>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -237,88 +239,115 @@ function uniq(values: Array<string | null | undefined>): string[] {
   return out;
 }
 
-function normalizeGenerationQuery(model: string): string[] {
-  const cleaned = model
-    .replace(/^Apple\s+/i, "")
+function normalizeKey(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/^apple\s+/, "")
+    .replace(/^(iphone|ipad)(\d)/, "$1 $2")
     .replace(/\s+/g, " ")
     .trim();
-  const variants = [cleaned];
-  // "iPhone14 Pro" → "iPhone 14 Pro"
-  variants.push(cleaned.replace(/^(iPhone|iPad)(\d)/i, "$1 $2"));
-  return uniq(variants);
 }
 
-export function supplementWithIosDeviceList(hit: TacHit): IosSupplement | null {
+function deviceSeries(s: string): { kind: string; num: string } | null {
+  const m = normalizeKey(s).match(/\b(iphone|ipad)\s+(\d+)\b/);
+  if (!m) return null;
+  return { kind: m[1]!, num: m[2]! };
+}
+
+function scoreGeneration(query: string, generation: string): number {
+  const q = normalizeKey(query);
+  const g = normalizeKey(generation);
+  if (!q || !g) return -1;
+
+  const qs = deviceSeries(q);
+  const gs = deviceSeries(g);
+  if (qs && gs) {
+    if (qs.kind !== gs.kind) return -1;
+    if (qs.num !== gs.num) return -1;
+  }
+
+  if (q === g) return 100;
+
+  // Prefer exact-ish containment only within same series
+  if (g.startsWith(q + " ")) return 40;
+  if (q.startsWith(g + " ")) return 35;
+  if (g.includes(q)) return 25;
+  if (q.includes(g)) return 20;
+
+  const qTokens = new Set(q.split(" "));
+  const gTokens = new Set(g.split(" "));
+  let overlap = 0;
+  for (const t of qTokens) if (gTokens.has(t)) overlap++;
+  let score = overlap * 8;
+  for (const flag of ["pro", "max", "plus", "mini", "air"]) {
+    if (qTokens.has(flag) === gTokens.has(flag)) score += 3;
+    else score -= 8;
+  }
+  return score;
+}
+
+function findAppleGeneration(model: string): {
+  generation: string;
+  options: AppleGenerationOptions;
+} | null {
+  let file: AppleOptionsFile;
+  try {
+    file = loadAppleOptions();
+  } catch {
+    return null;
+  }
+
+  let best: { generation: string; score: number } | null = null;
+  for (const generation of Object.keys(file.generations)) {
+    const score = scoreGeneration(model, generation);
+    if (!best || score > best.score) best = { generation, score };
+  }
+  // Require a confident match (same series + decent score)
+  if (!best || best.score < 40) return null;
+  return {
+    generation: best.generation,
+    options: file.generations[best.generation]!,
+  };
+}
+
+export function supplementWithAppleOptions(hit: TacHit): IosSupplement | null {
   if (hit.brand.toLowerCase() !== "apple") return null;
 
-  const ios = loadIosDeviceList();
-  let devices: IosDevice[] = [];
-
-  if (hit.aNumber) {
-    devices = ios.deviceByANumber(hit.aNumber, null, { caseInsensitive: true });
-  }
-
-  if (devices.length === 0) {
-    for (const q of normalizeGenerationQuery(hit.model)) {
-      devices = ios.deviceByGeneration(q, null, {
-        caseInsensitive: true,
-        contains: false,
-      });
-      if (devices.length === 0) {
-        devices = ios.deviceByGeneration(q, null, {
-          caseInsensitive: true,
-          contains: true,
-        });
-      }
-      if (devices.length > 0) break;
-    }
-  }
-
-  // Prefer phone/tablet generations that best match the model string
-  if (devices.length > 1) {
-    const lower = hit.model.toLowerCase();
-    const scored = devices.map((d) => {
-      const gen = (d.Generation || "").toLowerCase();
-      let score = 0;
-      if (gen === lower) score += 10;
-      if (lower.includes(gen) || gen.includes(lower)) score += 5;
-      if (/pro max/.test(lower) === /pro max/.test(gen)) score += 2;
-      if (/plus/.test(lower) === /plus/.test(gen)) score += 1;
-      return { d, score };
-    });
-    scored.sort((a, b) => b.score - a.score);
-    const best = scored[0]?.score ?? 0;
-    devices = scored.filter((s) => s.score === best).map((s) => s.d);
-  }
-
-  if (devices.length === 0) {
+  const match = findAppleGeneration(hit.model);
+  if (!match) {
+    const isIpad = /ipad/i.test(hit.model);
     return {
       generation: hit.model,
       identifier: null,
       colors: [],
-      storages: [],
+      storages: isIpad ? FALLBACK_IPAD_STORAGE : FALLBACK_IPHONE_STORAGE,
       aNumbers: hit.aNumber ? [hit.aNumber] : [],
       models: [],
     };
   }
 
-  const generation = devices[0]?.Generation ?? hit.model;
   return {
-    generation,
-    identifier: devices[0]?.Identifier ?? null,
-    colors: uniq(devices.map((d) => d.Color)),
-    storages: uniq(devices.map((d) => d.Storage)),
-    aNumbers: uniq(
-      devices.flatMap((d) =>
-        Array.isArray(d.ANumber) ? d.ANumber : d.ANumber ? [d.ANumber] : [],
-      ),
-    ),
-    models: uniq(devices.map((d) => d.Model)),
+    generation: match.generation,
+    identifier: match.options.identifier,
+    colors: match.options.colors,
+    storages:
+      match.options.storages.length > 0
+        ? match.options.storages
+        : /ipad/i.test(match.generation)
+          ? FALLBACK_IPAD_STORAGE
+          : FALLBACK_IPHONE_STORAGE,
+    aNumbers: hit.aNumber ? [hit.aNumber] : [],
+    models: [],
   };
 }
 
+/** @deprecated use supplementWithAppleOptions */
+export function supplementWithIosDeviceList(hit: TacHit): IosSupplement | null {
+  return supplementWithAppleOptions(hit);
+}
+
 /**
- * Lookup device marketing info from IMEI via local TAC DB (+ ios-device-list for Apple).
+ * Lookup device marketing info from IMEI via local TAC DB (+ Apple options JSON).
  */
 export function lookupImeiCatalog(imeiRaw: string): ImeiCatalogResult | null {
   const imei = normalizeImei(imeiRaw);
@@ -355,7 +384,7 @@ export function lookupImeiCatalog(imeiRaw: string): ImeiCatalogResult | null {
     };
   }
 
-  const ios = supplementWithIosDeviceList(tacHit);
+  const ios = supplementWithAppleOptions(tacHit);
   const model = ios?.generation || tacHit.model;
 
   return {
@@ -367,8 +396,10 @@ export function lookupImeiCatalog(imeiRaw: string): ImeiCatalogResult | null {
     model,
     colorOptions: ios?.colors ?? [],
     storageOptions: ios?.storages ?? [],
-    sourceNote: ios?.generation
-      ? `TAC ${tac} → ${tacHit.brand} ${model} (supplert med ios-device-list)`
-      : `TAC ${tac} → ${tacHit.brand} ${model}`,
+    sourceNote: ios?.colors?.length
+      ? `TAC ${tac} → ${tacHit.brand} ${model} (farge/lagring fra ios-device-list)`
+      : ios?.storages?.length
+        ? `TAC ${tac} → ${tacHit.brand} ${model} (velg farge manuelt)`
+        : `TAC ${tac} → ${tacHit.brand} ${model}`,
   };
 }

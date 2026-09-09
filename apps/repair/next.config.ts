@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./data/**/*"],
   },
-  serverExternalPackages: ["ios-device-list"],
+  serverExternalPackages: [],
 };
 
 export default nextConfig;
