@@ -18,6 +18,8 @@ primary_region = "arn"
   PORT = "3001"
   NODE_ENV = "production"
   CI = "true"
+  # Fly volume mount — keep OUTSIDE Next public/ (lost+found breaks Next startup)
+  UPLOAD_DIR = "/data/uploads"
 
 [http_service]
   internal_port = 3001
@@ -34,4 +36,4 @@ primary_region = "arn"
 
 [mounts]
   source = "repair_uploads"
-  destination = "/app/public/uploads"
+  destination = "/data/uploads"

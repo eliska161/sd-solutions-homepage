@@ -11,6 +11,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
+import { getUploadsRoot } from "@/lib/uploads";
 
 const categorySchema = z.enum([
   "BEFORE",
@@ -90,9 +91,7 @@ export async function uploadAttachment(input: {
             : "jpg";
 
   const dir = path.join(
-    process.cwd(),
-    "public",
-    "uploads",
+    getUploadsRoot(),
     input.entityType,
     input.entityId,
   );
