@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { ColorStorageFields } from "@/components/forms/ColorStorageFields";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -49,6 +50,8 @@ export function DeviceCreateForm({
       if (catalog?.brand && catalog.model) {
         setBrand(catalog.brand);
         setModel(catalog.model);
+        setStorage("");
+        setColor("");
         setColorOptions(catalog.colorOptions);
         setStorageOptions(catalog.storageOptions);
         setVariant(catalog.ios?.identifier ?? "");
@@ -172,56 +175,14 @@ export function DeviceCreateForm({
           onChange={(e) => setVariant(e.target.value)}
         />
       </div>
-      <div>
-        <Label htmlFor="storage">Lagring</Label>
-        {storageOptions.length > 0 ? (
-          <Select
-            id="storage"
-            className="mt-1.5"
-            value={storage}
-            onChange={(e) => setStorage(e.target.value)}
-          >
-            <option value="">Velg…</option>
-            {storageOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Select>
-        ) : (
-          <Input
-            id="storage"
-            className="mt-1.5"
-            value={storage}
-            onChange={(e) => setStorage(e.target.value)}
-          />
-        )}
-      </div>
-      <div>
-        <Label htmlFor="color">Farge</Label>
-        {colorOptions.length > 0 ? (
-          <Select
-            id="color"
-            className="mt-1.5"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-          >
-            <option value="">Velg…</option>
-            {colorOptions.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
-        ) : (
-          <Input
-            id="color"
-            className="mt-1.5"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-          />
-        )}
-      </div>
+      <ColorStorageFields
+        storage={storage}
+        color={color}
+        storageOptions={storageOptions}
+        colorOptions={colorOptions}
+        onStorageChange={setStorage}
+        onColorChange={setColor}
+      />
       <div>
         <Label htmlFor="batteryHealth">Batterihelse %</Label>
         <Input
