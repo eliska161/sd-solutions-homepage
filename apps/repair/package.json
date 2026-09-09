@@ -5,15 +5,15 @@
   "scripts": {
     "dev": "next dev --turbopack --port 3001",
     "build": "next build --turbopack",
-    "start": "next start --port 3001",
+    "start": "next start",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push --force",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "db:seed": "tsx scripts/seed.ts",
     "seed": "npm run db:seed",
-    "qa:smoke": "tsx --env-file=.env.local scripts/smoke-qa.ts"
+    "qa:smoke": "tsx scripts/smoke-qa.ts"
   },
   "dependencies": {
     "better-auth": "^1.7.3",

@@ -1,55 +1,110 @@
-# SD Solutions Repair Ops — First Launch
+# SD Solutions Repair Ops
 
-Internal system for **repair.sd-solutions.org**.
+Internal system for **repair.sd-solutions.org** — deploy on **Fly.io** + Fly Postgres.
 
-## Start locally
+## Deploy on Fly.io (recommended)
+
+### 1. Install CLI & login
 
 ```bash
-# Postgres must be running (Neon URL also works)
-cd apps/repair
-cp .env.example .env.local   # set DATABASE_URL, BETTER_AUTH_* 
+# macOS
+brew install flyctl
 
-npm install
-npm run db:push
-npm run db:seed
-npm run dev                  # http://localhost:3001
+# or
+curl -L https://fly.io/install.sh | sh
+
+fly auth login
 ```
 
-### Demo login
+### 2. Create app + Postgres (from this folder)
+
+```bash
+cd apps/repair
+
+# Creates the app from fly.toml (confirm name/region if prompted)
+fly launch --no-deploy --copy-config --name sd-solutions-repair --region arn
+
+# Managed Postgres in the same org/region
+fly postgres create --name sd-solutions-repair-db --region arn
+
+# Attach DB → sets DATABASE_URL on the app
+fly postgres attach sd-solutions-repair-db -a sd-solutions-repair
+```
+
+### 3. Set secrets
+
+```bash
+# Generate a secret
+openssl rand -base64 32
+
+fly secrets set \
+  BETTER_AUTH_SECRET="PASTE_SECRET_HERE" \
+  BETTER_AUTH_URL="https://sd-solutions-repair.fly.dev" \
+  NEXT_PUBLIC_APP_URL="https://sd-solutions-repair.fly.dev"
+```
+
+Use your custom domain URLs once DNS is ready (see step 6).
+
+### 4. Deploy
+
+```bash
+fly deploy
+```
+
+### 5. Create tables + seed admin (once)
+
+```bash
+fly ssh console -C "npx drizzle-kit push --force"
+fly ssh console -C "npx tsx scripts/seed.ts"
+```
+
+**Demo login**
 
 - Email: `admin@sd-solutions.org`
 - Password: `RepairAdmin123!`
 
+Change the password after first login.
+
+### 6. Custom domain `repair.sd-solutions.org`
+
+```bash
+fly certs add repair.sd-solutions.org
+```
+
+DNS (at your registrar):
+
+| Type | Name | Value |
+|------|------|--------|
+| CNAME | `repair` | `sd-solutions-repair.fly.dev` |
+
+Then update secrets to the real domain and redeploy:
+
+```bash
+fly secrets set \
+  BETTER_AUTH_URL="https://repair.sd-solutions.org" \
+  NEXT_PUBLIC_APP_URL="https://repair.sd-solutions.org"
+
+fly deploy
+```
+
+### Useful commands
+
+```bash
+fly status
+fly logs
+fly open
+fly secrets list
+```
+
+---
+
 ## What is included
 
-- Auth (Better Auth) + roles ADMIN / TECHNICIAN / VIEWER
-- Dashboard with live counts
-- Customers, devices, repair tickets (REP-YYYY-######)
-- Status workflow + history + activity timeline
-- Diagnostics checklist
-- Notes (internal/customer)
-- Photo/file uploads (local `public/uploads` — swap to Blob/R2 later)
-- Services, parts, inventory ledger, suppliers
-- Quotes (no payment)
-- Flipping: candidates → convert → costs → listing → sale → profit
-- Warranty tracking
-- Global search, audit log hooks, settings
-- Seeded [DEMO] data
+Auth, dashboard, customers, devices, repair tickets, diagnostics, notes, photos, services, parts/inventory, suppliers, quotes (no payment), flipping, warranty, search, settings. Seeded `[DEMO]` data.
 
-## Explicitly NOT in this launch
+## Not included
 
-- Stripe / online payment
-- SMS / transactional email
-- Auto ordering / iFixit scrape
-- Public booking / FINN publish automation
-
-## Deploy
-
-1. Create Neon database
-2. Set env vars on Vercel (root directory: `apps/repair`)
-3. `npm run db:push` (or migrations) against Neon
-4. `npm run db:seed` once for first admin (or create user manually)
-5. Point `repair.sd-solutions.org` to the Vercel project
+Stripe/payment, SMS/email send, auto-order, scraping, public booking, FINN publish.
 
 ## Docs
 
