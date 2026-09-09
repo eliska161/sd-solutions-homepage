@@ -1,7 +1,11 @@
 /**
  * Fly release / production schema migrate (CommonJS so NODE_PATH works).
- * - Empty DB: applies drizzle/migrations
- * - Existing schema (e.g. created earlier): baselines migration journal, no destructive reset
+ *
+ * - Empty DB: applies all drizzle/migrations normally
+ * - Existing schema from earlier db:push / partial deploys:
+ *   baseline ONLY the init migration (0000), then apply later migrations
+ * - Never mark additive migrations as applied without running them
+ * - Idempotent safety net for customer billing columns (street_address etc.)
  */
 const path = require("node:path");
 const { drizzle } = require("drizzle-orm/postgres-js");
@@ -28,8 +32,28 @@ async function publicTableExists(client, tableName) {
   return rows.length > 0;
 }
 
-async function baselineIfNeeded(client) {
+async function publicColumnExists(client, tableName, columnName) {
+  const rows = await client`
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = ${tableName}
+      and column_name = ${columnName}
+    limit 1
+  `;
+  return rows.length > 0;
+}
+
+/**
+ * If the DB was created outside Drizzle migrate (e.g. db:push), mark only the
+ * init migration as applied so recreate-from-scratch SQL is skipped.
+ * Later migrations must still run for real.
+ */
+async function baselineInitMigrationOnly(client) {
   const migrations = readMigrationFiles({ migrationsFolder });
+  const init = migrations[0];
+  if (!init) return;
+
   await client`create schema if not exists drizzle`;
   await client`
     create table if not exists drizzle.__drizzle_migrations (
@@ -39,22 +63,73 @@ async function baselineIfNeeded(client) {
     )
   `;
 
-  for (const migration of migrations) {
-    const existing = await client`
-      select 1 from drizzle.__drizzle_migrations
-      where hash = ${migration.hash}
-      limit 1
+  const existing = await client`
+    select 1 from drizzle.__drizzle_migrations
+    where hash = ${init.hash}
+    limit 1
+  `;
+  if (existing.length === 0) {
+    await client`
+      insert into drizzle.__drizzle_migrations ("hash", "created_at")
+      values (${init.hash}, ${init.folderMillis})
     `;
-    if (existing.length === 0) {
-      await client`
-        insert into drizzle.__drizzle_migrations ("hash", "created_at")
-        values (${migration.hash}, ${migration.folderMillis})
-      `;
-      console.log("==> Baselined migration hash", migration.hash.slice(0, 12) + "…");
-    } else {
-      console.log("==> Migration already recorded");
-    }
+    console.log(
+      "==> Baselined init migration only:",
+      init.hash.slice(0, 12) + "…",
+    );
+  } else {
+    console.log("==> Init migration already recorded");
   }
+}
+
+/**
+ * Recover from earlier bug: baselining ALL migrations marked 0001 applied
+ * without adding columns. Safe to re-run (IF NOT EXISTS / coalesce updates).
+ */
+async function ensureCustomerBillingColumns(client) {
+  const hasCustomers = await publicTableExists(client, "customers");
+  if (!hasCustomers) return;
+
+  const hasStreet = await publicColumnExists(
+    client,
+    "customers",
+    "street_address",
+  );
+  if (hasStreet) {
+    console.log("==> Customer billing columns already present");
+    return;
+  }
+
+  console.log("==> Applying customer billing columns (idempotent repair)");
+  await client`
+    UPDATE "customers"
+    SET "phone" = coalesce(nullif("phone", ''), 'Ukjent')
+    WHERE "phone" IS NULL OR "phone" = ''
+  `;
+  await client`
+    UPDATE "customers"
+    SET "email" = coalesce(nullif("email", ''), 'ukjent@example.invalid')
+    WHERE "email" IS NULL OR "email" = ''
+  `;
+  await client`ALTER TABLE "customers" ALTER COLUMN "phone" SET NOT NULL`;
+  await client`ALTER TABLE "customers" ALTER COLUMN "email" SET NOT NULL`;
+  await client`
+    ALTER TABLE "customers"
+    ADD COLUMN IF NOT EXISTS "street_address" text DEFAULT '' NOT NULL
+  `;
+  await client`
+    ALTER TABLE "customers"
+    ADD COLUMN IF NOT EXISTS "postal_code" text DEFAULT '' NOT NULL
+  `;
+  await client`
+    ALTER TABLE "customers"
+    ADD COLUMN IF NOT EXISTS "city" text DEFAULT '' NOT NULL
+  `;
+  await client`
+    ALTER TABLE "customers"
+    ADD COLUMN IF NOT EXISTS "country" text DEFAULT 'Norge' NOT NULL
+  `;
+  console.log("==> Customer billing columns ready");
 }
 
 async function main() {
@@ -64,11 +139,14 @@ async function main() {
   try {
     const hasUsers = await publicTableExists(client, "users");
     if (hasUsers) {
-      console.log("==> Existing schema detected — baselining migrations (skip recreate)");
-      await baselineIfNeeded(client);
+      console.log(
+        "==> Existing schema detected — baseline init migration only (not later ones)",
+      );
+      await baselineInitMigrationOnly(client);
     }
 
     await migrate(db, { migrationsFolder });
+    await ensureCustomerBillingColumns(client);
     console.log("==> Migrations complete");
   } finally {
     await client.end({ timeout: 5 });
