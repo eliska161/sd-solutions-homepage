@@ -10,7 +10,7 @@ import { MoneyText } from "@/components/ui/MoneyText";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { parseKrToOre } from "@/lib/labels";
-import { attachPartToRepair, orderPartForRepair, receiveOrderedPart, removePartFromRepair } from "@/server/parts";
+import { attachPartToFlip, orderPartForFlip, receiveOrderedPart, removePartFromFlip } from "@/server/parts";
 
 type PartOption = {
   id: string;
@@ -30,12 +30,12 @@ type UsedPart = {
   partSku: string | null;
 };
 
-export function TicketPartsPanel({
-  ticketId,
+export function FlipPartsPanel({
+  refurbishmentId,
   usedParts,
   parts,
 }: {
-  ticketId: string;
+  refurbishmentId: string;
   usedParts: UsedPart[];
   parts: PartOption[];
 }) {
@@ -69,7 +69,7 @@ export function TicketPartsPanel({
   return (
     <div className="space-y-4">
       {usedParts.length === 0 ? (
-        <p className="text-sm text-muted">Ingen deler knyttet til ticketen.</p>
+        <p className="text-sm text-muted">Ingen deler knyttet til flipen.</p>
       ) : (
         usedParts.map((p) => (
           <div
@@ -117,8 +117,8 @@ export function TicketPartsPanel({
                   setError(null);
                   startTransition(async () => {
                     try {
-                      await removePartFromRepair({
-                        ticketId,
+                      await removePartFromFlip({
+                        refurbishmentId,
                         repairPartId: p.id,
                       });
                       router.refresh();
@@ -143,8 +143,8 @@ export function TicketPartsPanel({
           if (!partId) return;
           startTransition(async () => {
             try {
-              await attachPartToRepair({
-                ticketId,
+              await attachPartToFlip({
+                refurbishmentId,
                 partId,
                 quantity: Number(qty) || 1,
               });
@@ -214,8 +214,8 @@ export function TicketPartsPanel({
             setError(null);
             startTransition(async () => {
               try {
-                await orderPartForRepair({
-                  ticketId,
+                await orderPartForFlip({
+                  refurbishmentId,
                   name,
                   details,
                   brand: brand || null,
@@ -232,7 +232,7 @@ export function TicketPartsPanel({
                     | "OTHER",
                   quantity: Number(orderQty) || 1,
                   estimatedCostOre: parseKrToOre(costKr) || 0,
-                  setTicketWaiting: true,
+                  
                 });
                 setOpen(false);
                 resetOrderForm();
@@ -245,7 +245,7 @@ export function TicketPartsPanel({
         >
           <p className="text-[12px] text-muted">
             Oppretter delen i katalogen med 0 på lager og markerer den som{" "}
-            <span className="text-foreground">bestilt</span> på ticketen.
+            <span className="text-foreground">bestilt</span> på flipen.
           </p>
           <div>
             <Label htmlFor="ordName">Hva trengs? *</Label>

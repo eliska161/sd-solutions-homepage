@@ -522,19 +522,7 @@ export async function addServiceToRepair(input: {
     })
     .returning();
 
-  const existingServices = await db
-    .select()
-    .from(repairServices)
-    .where(eq(repairServices.ticketId, data.ticketId));
-  const servicesTotal = existingServices.reduce((s, r) => s + r.priceOre, 0);
-
-  await db
-    .update(repairTickets)
-    .set({
-      customerPriceOre: servicesTotal,
-      updatedAt: new Date(),
-    })
-    .where(eq(repairTickets.id, data.ticketId));
+  await syncCustomerPriceFromServices(data.ticketId);
 
   await addActivity({
     entityType: "repair_ticket",
@@ -546,6 +534,112 @@ export async function addServiceToRepair(input: {
 
   revalidatePath(`/repairs/${data.ticketId}`);
   return row;
+}
+
+/** Sum services minus discount → customerPriceOre. */
+async function syncCustomerPriceFromServices(ticketId: string) {
+  const db = getDb();
+  const [ticket] = await db
+    .select({
+      discountOre: repairTickets.discountOre,
+    })
+    .from(repairTickets)
+    .where(eq(repairTickets.id, ticketId))
+    .limit(1);
+
+  const lines = await db
+    .select()
+    .from(repairServices)
+    .where(eq(repairServices.ticketId, ticketId));
+
+  const servicesTotal = lines.reduce((s, r) => s + r.priceOre, 0);
+  const discount = Math.max(0, ticket?.discountOre ?? 0);
+  const customerPriceOre =
+    lines.length === 0 && discount === 0
+      ? null
+      : Math.max(0, servicesTotal - discount);
+
+  await db
+    .update(repairTickets)
+    .set({
+      customerPriceOre,
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, ticketId));
+}
+
+export async function setRepairDiscount(input: {
+  ticketId: string;
+  discountOre: number;
+  label?: string | null;
+}) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const data = z
+    .object({
+      ticketId: z.string().uuid(),
+      discountOre: z.number().int().positive(),
+      label: z.string().max(200).optional().nullable(),
+    })
+    .parse(input);
+  const db = getDb();
+
+  const ticket = await getRepair(data.ticketId);
+  if (!ticket) throw new Error("Reparasjon ikke funnet");
+
+  await db
+    .update(repairTickets)
+    .set({
+      discountOre: data.discountOre,
+      discountLabel: data.label?.trim() || "Rabatt",
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, data.ticketId));
+
+  await syncCustomerPriceFromServices(data.ticketId);
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: data.ticketId,
+    type: "repair.discount_set",
+    message: `Rabatt: ${Math.round(data.discountOre / 100)} kr`,
+    actorId: session.user.id,
+  });
+
+  revalidatePath(`/repairs/${data.ticketId}`);
+  return { ok: true };
+}
+
+export async function clearRepairDiscount(ticketId: string) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const id = z.string().uuid().parse(ticketId);
+  const db = getDb();
+
+  const ticket = await getRepair(id);
+  if (!ticket) throw new Error("Reparasjon ikke funnet");
+
+  await db
+    .update(repairTickets)
+    .set({
+      discountOre: 0,
+      discountLabel: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, id));
+
+  await syncCustomerPriceFromServices(id);
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: id,
+    type: "repair.discount_cleared",
+    message: "Rabatt fjernet",
+    actorId: session.user.id,
+  });
+
+  revalidatePath(`/repairs/${id}`);
+  return { ok: true };
 }
 
 export async function removeServiceFromRepair(input: {
@@ -585,19 +679,7 @@ export async function removeServiceFromRepair(input: {
     .delete(repairServices)
     .where(eq(repairServices.id, data.repairServiceId));
 
-  const remaining = await db
-    .select()
-    .from(repairServices)
-    .where(eq(repairServices.ticketId, data.ticketId));
-  const servicesTotal = remaining.reduce((s, r) => s + r.priceOre, 0);
-
-  await db
-    .update(repairTickets)
-    .set({
-      customerPriceOre: remaining.length ? servicesTotal : null,
-      updatedAt: new Date(),
-    })
-    .where(eq(repairTickets.id, data.ticketId));
+  await syncCustomerPriceFromServices(data.ticketId);
 
   await addActivity({
     entityType: "repair_ticket",

@@ -39,6 +39,8 @@ export async function getPublicRepairByToken(token: string) {
       customerProblem: repairTickets.customerProblem,
       internalProblem: repairTickets.internalProblem,
       customerPriceOre: repairTickets.customerPriceOre,
+      discountOre: repairTickets.discountOre,
+      discountLabel: repairTickets.discountLabel,
       estimatedCompletionDate: repairTickets.estimatedCompletionDate,
       createdAt: repairTickets.createdAt,
       deviceBrand: devices.brand,
@@ -124,10 +126,17 @@ export async function getPublicRepairByToken(token: string) {
     intakeProblem: row.customerProblem,
     /** Technician-written text after diagnostics (customer-facing). */
     diagnosisText: row.internalProblem?.trim() || null,
-    /** Service total only — never part cost prices. */
+    /** Service total after discount — never part cost prices. */
     customerPriceLabel:
       row.customerPriceOre != null
         ? formatNokFromOre(row.customerPriceOre)
+        : null,
+    discount:
+      (row.discountOre ?? 0) > 0
+        ? {
+            label: row.discountLabel?.trim() || "Rabatt",
+            amountLabel: formatNokFromOre(row.discountOre),
+          }
         : null,
     services: ticketServices
       .map((s) => ({
