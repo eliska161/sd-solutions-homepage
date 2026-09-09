@@ -4,11 +4,18 @@ import { getDb } from "@/lib/db";
 import * as schema from "@/db/schema";
 
 /**
- * Better Auth instance. Requires DATABASE_URL at runtime.
- * Email/password enabled for internal staff; OAuth can be added later.
+ * Better Auth instance backed by postgres.js + Drizzle.
+ * `role` is an additional user field (ADMIN | TECHNICIAN | VIEWER).
  */
 export function createAuth() {
+  const baseURL =
+    process.env.BETTER_AUTH_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "http://localhost:3001";
+
   return betterAuth({
+    baseURL,
+    secret: process.env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(getDb(), {
       provider: "pg",
       schema: {
@@ -31,6 +38,10 @@ export function createAuth() {
         },
       },
     },
+    session: {
+      expiresIn: 60 * 60 * 24 * 14,
+      updateAge: 60 * 60 * 24,
+    },
   });
 }
 
@@ -44,3 +55,13 @@ export function getAuth() {
   }
   return authSingleton;
 }
+
+/** Convenience export for route handlers / scripts. */
+export const auth = {
+  get api() {
+    return getAuth().api;
+  },
+  get handler() {
+    return getAuth().handler;
+  },
+};
