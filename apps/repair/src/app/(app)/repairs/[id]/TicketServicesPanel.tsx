@@ -7,7 +7,10 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { MoneyText } from "@/components/ui/MoneyText";
 import { Select } from "@/components/ui/Select";
-import { addServiceToRepair } from "@/server/repairs";
+import {
+  addServiceToRepair,
+  removeServiceFromRepair,
+} from "@/server/repairs";
 import { createService } from "@/server/services-catalog";
 import { parseKrToOre } from "@/lib/labels";
 
@@ -46,6 +49,18 @@ export function TicketServicesPanel({
 
   const active = catalogServices.filter((s) => s.active);
 
+  function removeService(repairServiceId: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await removeServiceFromRepair({ ticketId, repairServiceId });
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Feil");
+      }
+    });
+  }
+
   return (
     <div className="space-y-4">
       {usedServices.length === 0 ? (
@@ -54,12 +69,23 @@ export function TicketServicesPanel({
         usedServices.map((s) => (
           <div
             key={s.id}
-            className="flex justify-between text-sm border-b border-border pb-2"
+            className="flex items-center justify-between gap-3 text-sm border-b border-border pb-2"
           >
             <span>
               {s.serviceCode} · {s.serviceName}
             </span>
-            <MoneyText ore={s.priceOre} />
+            <div className="flex items-center gap-2">
+              <MoneyText ore={s.priceOre} />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={pending}
+                onClick={() => removeService(s.id)}
+              >
+                Fjern
+              </Button>
+            </div>
           </div>
         ))
       )}
@@ -122,7 +148,9 @@ export function TicketServicesPanel({
             startTransition(async () => {
               try {
                 const created = await createService({
-                  code: code.trim() || `SVC-${Date.now().toString(36).toUpperCase()}`,
+                  code:
+                    code.trim() ||
+                    `SVC-${Date.now().toString(36).toUpperCase()}`,
                   name: name.trim(),
                   customerPriceOre: parseKrToOre(priceKr) || 0,
                   active: true,

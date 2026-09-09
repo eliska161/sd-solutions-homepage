@@ -548,6 +548,109 @@ export async function addServiceToRepair(input: {
   return row;
 }
 
+export async function removeServiceFromRepair(input: {
+  ticketId: string;
+  repairServiceId: string;
+}) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const data = z
+    .object({
+      ticketId: z.string().uuid(),
+      repairServiceId: z.string().uuid(),
+    })
+    .parse(input);
+  const db = getDb();
+
+  const ticket = await getRepair(data.ticketId);
+  if (!ticket) throw new Error("Reparasjon ikke funnet");
+
+  const [existing] = await db
+    .select({
+      id: repairServices.id,
+      serviceName: services.name,
+    })
+    .from(repairServices)
+    .leftJoin(services, eq(services.id, repairServices.serviceId))
+    .where(
+      and(
+        eq(repairServices.id, data.repairServiceId),
+        eq(repairServices.ticketId, data.ticketId),
+      ),
+    )
+    .limit(1);
+  if (!existing) throw new Error("Tjeneste ikke funnet på ticket");
+
+  await db
+    .delete(repairServices)
+    .where(eq(repairServices.id, data.repairServiceId));
+
+  const remaining = await db
+    .select()
+    .from(repairServices)
+    .where(eq(repairServices.ticketId, data.ticketId));
+  const servicesTotal = remaining.reduce((s, r) => s + r.priceOre, 0);
+
+  await db
+    .update(repairTickets)
+    .set({
+      customerPriceOre: remaining.length ? servicesTotal : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, data.ticketId));
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: data.ticketId,
+    type: "repair.service_removed",
+    message: `Tjeneste fjernet: ${existing.serviceName ?? "ukjent"}`,
+    actorId: session.user.id,
+  });
+
+  revalidatePath(`/repairs/${data.ticketId}`);
+  return { ok: true };
+}
+
+export async function removeRepairNote(input: {
+  ticketId: string;
+  noteId: string;
+}) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const data = z
+    .object({
+      ticketId: z.string().uuid(),
+      noteId: z.string().uuid(),
+    })
+    .parse(input);
+  const db = getDb();
+
+  const [existing] = await db
+    .select({ id: repairNotes.id })
+    .from(repairNotes)
+    .where(
+      and(
+        eq(repairNotes.id, data.noteId),
+        eq(repairNotes.ticketId, data.ticketId),
+      ),
+    )
+    .limit(1);
+  if (!existing) throw new Error("Notat ikke funnet");
+
+  await db.delete(repairNotes).where(eq(repairNotes.id, data.noteId));
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: data.ticketId,
+    type: "repair.note_removed",
+    message: "Notat fjernet",
+    actorId: session.user.id,
+  });
+
+  revalidatePath(`/repairs/${data.ticketId}`);
+  return { ok: true };
+}
+
 export async function updateRepairPricing(
   ticketId: string,
   input: {

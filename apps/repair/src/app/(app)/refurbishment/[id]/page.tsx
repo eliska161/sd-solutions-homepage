@@ -23,6 +23,7 @@ import {
   createListing,
   getFlip,
   recordSale,
+  removeFlipCost,
 } from "@/server/flips";
 import { FlipConditionFaultsPanel } from "./FlipConditionFaultsPanel";
 import { FlipDevicePanel } from "./FlipDevicePanel";
@@ -45,6 +46,16 @@ async function addCostAction(formData: FormData) {
       | "OTHER",
     label: String(formData.get("label") || ""),
     amountOre: parseKrToOre(formData.get("amountKr")),
+  });
+  redirect(`/refurbishment/${refurbishmentId}`);
+}
+
+async function removeCostAction(formData: FormData) {
+  "use server";
+  const refurbishmentId = String(formData.get("refurbishmentId"));
+  await removeFlipCost({
+    refurbishmentId,
+    costId: String(formData.get("costId")),
   });
   redirect(`/refurbishment/${refurbishmentId}`);
 }
@@ -276,12 +287,27 @@ export default async function FlipDetailPage({
             {costs.map((c) => (
               <div
                 key={c.id}
-                className="flex justify-between border-b border-border pb-2 text-sm"
+                className="flex items-center justify-between gap-3 border-b border-border pb-2 text-sm"
               >
                 <span>
                   {c.category}: {c.label}
                 </span>
-                <MoneyText ore={c.amountOre} />
+                <div className="flex items-center gap-2">
+                  <MoneyText ore={c.amountOre} />
+                  {c.category !== "PURCHASE" ? (
+                    <form action={removeCostAction}>
+                      <input
+                        type="hidden"
+                        name="refurbishmentId"
+                        value={flip.id}
+                      />
+                      <input type="hidden" name="costId" value={c.id} />
+                      <Button type="submit" variant="ghost" size="sm">
+                        Fjern
+                      </Button>
+                    </form>
+                  ) : null}
+                </div>
               </div>
             ))}
             <form action={addCostAction} className="grid gap-2 sm:grid-cols-3">

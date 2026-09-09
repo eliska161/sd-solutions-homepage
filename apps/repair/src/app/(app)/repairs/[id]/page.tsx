@@ -17,6 +17,7 @@ import { listActivity } from "@/server/activity";
 import {
   listAttachments,
   setAttachmentVisibility,
+  deleteAttachment,
   uploadAttachment,
 } from "@/server/attachments";
 import { getCustomer } from "@/server/customers";
@@ -35,6 +36,7 @@ import {
   listRepairParts,
   listRepairServices,
   listRepairStatusHistory,
+  removeRepairNote,
   updateRepairPricing,
 } from "@/server/repairs";
 import { ensureDefaultServices } from "@/server/services-catalog";
@@ -70,6 +72,16 @@ async function addNoteAction(formData: FormData) {
     visibility: (String(formData.get("visibility") || "INTERNAL") as
       | "INTERNAL"
       | "CUSTOMER"),
+  });
+  redirect(`/repairs/${ticketId}`);
+}
+
+async function removeNoteAction(formData: FormData) {
+  "use server";
+  const ticketId = String(formData.get("ticketId"));
+  await removeRepairNote({
+    ticketId,
+    noteId: String(formData.get("noteId")),
   });
   redirect(`/repairs/${ticketId}`);
 }
@@ -129,6 +141,15 @@ async function togglePhotoVisibilityAction(formData: FormData) {
     | "INTERNAL"
     | "CUSTOMER";
   await setAttachmentVisibility({ attachmentId, visibility });
+  redirect(`/repairs/${ticketId}`);
+}
+
+async function deletePhotoAction(formData: FormData) {
+  "use server";
+  const ticketId = String(formData.get("ticketId"));
+  await deleteAttachment({
+    attachmentId: String(formData.get("attachmentId")),
+  });
   redirect(`/repairs/${ticketId}`);
 }
 
@@ -417,6 +438,17 @@ export default async function RepairDetailPage({
                               : "Vis for kunde"}
                           </Button>
                         </form>
+                        <form action={deletePhotoAction}>
+                          <input type="hidden" name="ticketId" value={ticket.id} />
+                          <input
+                            type="hidden"
+                            name="attachmentId"
+                            value={p.id}
+                          />
+                          <Button type="submit" size="sm" variant="ghost">
+                            Fjern
+                          </Button>
+                        </form>
                       </div>
                     </div>
                   ))}
@@ -493,9 +525,18 @@ export default async function RepairDetailPage({
                     key={n.id}
                     className="rounded-xl border border-border px-3 py-2"
                   >
-                    <p className="text-[11px] text-muted">
-                      {n.visibility} · {formatDate(n.createdAt)}
-                    </p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[11px] text-muted">
+                        {n.visibility} · {formatDate(n.createdAt)}
+                      </p>
+                      <form action={removeNoteAction}>
+                        <input type="hidden" name="ticketId" value={ticket.id} />
+                        <input type="hidden" name="noteId" value={n.id} />
+                        <Button type="submit" variant="ghost" size="sm">
+                          Fjern
+                        </Button>
+                      </form>
+                    </div>
                     <p className="mt-1 text-sm whitespace-pre-wrap">
                       {n.content}
                     </p>

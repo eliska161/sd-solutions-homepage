@@ -1,6 +1,6 @@
 "use server";
 
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -15,7 +15,6 @@ import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
 import { getRepair } from "@/server/repairs";
-import { ilike, or, sql } from "drizzle-orm";
 
 const partTypeSchema = z.enum([
   "OEM",
@@ -389,3 +388,99 @@ export async function orderPartForRepair(input: {
   revalidatePath("/repairs");
   return result;
 }
+
+/** Remove a part line from a ticket. Restores stock for USED lines. */
+export async function removePartFromRepair(input: {
+  ticketId: string;
+  repairPartId: string;
+}) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const data = z
+    .object({
+      ticketId: z.string().uuid(),
+      repairPartId: z.string().uuid(),
+    })
+    .parse(input);
+  const db = getDb();
+
+  const ticket = await getRepair(data.ticketId);
+  if (!ticket) throw new Error("Reparasjon ikke funnet");
+
+  const result = await db.transaction(async (tx) => {
+    const [line] = await tx
+      .select({
+        id: repairParts.id,
+        partId: repairParts.partId,
+        quantity: repairParts.quantity,
+        unitCostOre: repairParts.unitCostOre,
+        status: repairParts.status,
+        partName: parts.name,
+      })
+      .from(repairParts)
+      .leftJoin(parts, eq(parts.id, repairParts.partId))
+      .where(
+        and(
+          eq(repairParts.id, data.repairPartId),
+          eq(repairParts.ticketId, data.ticketId),
+        ),
+      )
+      .limit(1);
+    if (!line) throw new Error("Del ikke funnet på ticket");
+
+    if (line.status === "USED") {
+      const locked = await tx
+        .select()
+        .from(parts)
+        .where(eq(parts.id, line.partId))
+        .for("update");
+      const part = locked[0];
+      if (!part) throw new Error("Del ikke funnet i lager");
+
+      const resulting = part.quantityOnHand + line.quantity;
+      await tx
+        .update(parts)
+        .set({ quantityOnHand: resulting, updatedAt: new Date() })
+        .where(eq(parts.id, line.partId));
+
+      await tx.insert(inventoryTransactions).values({
+        partId: line.partId,
+        action: "RETURNED",
+        quantityDelta: line.quantity,
+        unitCostOre: line.unitCostOre,
+        resultingQuantity: resulting,
+        repairTicketId: data.ticketId,
+        createdById: session.user.id,
+      });
+    }
+
+    await tx.delete(repairParts).where(eq(repairParts.id, line.id));
+
+    const [{ total }] = await tx
+      .select({
+        total: sql<number>`coalesce(sum(${repairParts.quantity} * ${repairParts.unitCostOre}), 0)::int`,
+      })
+      .from(repairParts)
+      .where(eq(repairParts.ticketId, data.ticketId));
+
+    await tx
+      .update(repairTickets)
+      .set({ actualPartsCostOre: total, updatedAt: new Date() })
+      .where(eq(repairTickets.id, data.ticketId));
+
+    return line;
+  });
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: data.ticketId,
+    type: "repair.part_removed",
+    message: `Fjernet del: ${result.quantity} × ${result.partName ?? "ukjent"}`,
+    actorId: session.user.id,
+  });
+
+  revalidatePath("/inventory");
+  revalidatePath(`/repairs/${data.ticketId}`);
+  return { ok: true };
+}
+
