@@ -61,7 +61,7 @@ npm run dev                  # http://localhost:3001
 ### What happens on deploy
 
 1. Docker build uses placeholder env (no real DB needed at build time)
-2. Fly `release_command` runs `scripts/fly-release.sh` → applies committed SQL in `drizzle/migrations` via `fly-db-migrate.mjs`
+2. Fly `release_command` runs `scripts/fly-release.sh` → applies committed SQL in `drizzle/migrations` via `fly-db-migrate.cjs`
 3. App machines start with the new image
 
 No manual SQL paste / demo seed required for schema.
@@ -120,7 +120,6 @@ In Neon SQL Editor:
 ```sql
 UPDATE users SET role = 'ADMIN' WHERE email = 'admin@sd-solutions.org';
 ```
-
 
 ## Docs
 

@@ -3,7 +3,6 @@
  * - Empty DB: applies drizzle/migrations
  * - Existing schema (e.g. created earlier): baselines migration journal, no destructive reset
  */
-const fs = require("node:fs");
 const path = require("node:path");
 const { drizzle } = require("drizzle-orm/postgres-js");
 const { migrate } = require("drizzle-orm/postgres-js/migrator");
@@ -60,7 +59,7 @@ async function baselineIfNeeded(client) {
 
 async function main() {
   console.log("==> Applying Drizzle migrations from", migrationsFolder);
-  const client = postgres(url, { max: 1, prepare: false });
+  const client = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
   const db = drizzle(client);
   try {
     const hasUsers = await publicTableExists(client, "users");

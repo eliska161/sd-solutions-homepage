@@ -1,4 +1,5 @@
 #!/bin/sh
+<<<<<<< HEAD
 # Fly release_command: apply SQL migrations before machines update.
 set -eu
 
@@ -34,3 +35,17 @@ echo "NODE_PATH=${NODE_PATH:-}"
 
 node "$ROOT/scripts/fly-db-migrate.cjs"
 echo "==> Fly release OK"
+=======
+# Fly release_command: apply Drizzle schema to DATABASE_URL before machines start.
+set -eu
+
+if [ -z "${DATABASE_URL:-}" ]; then
+  echo "DATABASE_URL is not set — cannot push schema"
+  exit 1
+fi
+
+echo "==> Drizzle schema push (auto on Fly deploy)"
+export CI=true
+npx drizzle-kit push --force
+echo "==> Schema push complete"
+>>>>>>> origin/main
