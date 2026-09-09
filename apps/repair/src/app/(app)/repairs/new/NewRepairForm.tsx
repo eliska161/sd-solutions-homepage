@@ -46,6 +46,8 @@ export function NewRepairForm({
   const [model, setModel] = useState("");
   const [storage, setStorage] = useState("");
   const [color, setColor] = useState("");
+  const [colorOptions, setColorOptions] = useState<string[]>([]);
+  const [storageOptions, setStorageOptions] = useState<string[]>([]);
   const [imei, setImei] = useState("");
   const [serial, setSerial] = useState("");
   const [deviceId, setDeviceId] = useState("");
@@ -63,22 +65,48 @@ export function NewRepairForm({
       return;
     }
     startTransition(async () => {
-      const found = await lookupDeviceByImeiOrSerial(q);
-      if (!found) {
-        setLookupMsg(
-          "Ingen treff i systemet. Fyll modell manuelt (offisiell IMEI-oppslag krever egen API-nøkkel senere).",
-        );
+      const result = await lookupDeviceByImeiOrSerial(q);
+      const { existing, catalog } = result;
+
+      if (existing) {
+        setCreateNew(false);
+        setDeviceId(existing.id);
+        setBrand(existing.brand);
+        setModel(existing.model);
+        setStorage(existing.storage ?? "");
+        setColor(existing.color ?? "");
+        setImei(existing.imei ?? imei);
+        setSerial(existing.serialNumber ?? serial);
+        setColorOptions([]);
+        setStorageOptions([]);
+        setLookupMsg(`Fant eksisterende enhet: ${existing.brand} ${existing.model}`);
         return;
       }
-      setCreateNew(false);
-      setDeviceId(found.id);
-      setBrand(found.brand);
-      setModel(found.model);
-      setStorage(found.storage ?? "");
-      setColor(found.color ?? "");
-      setImei(found.imei ?? imei);
-      setSerial(found.serialNumber ?? serial);
-      setLookupMsg(`Fant enhet: ${found.brand} ${found.model}`);
+
+      if (catalog?.brand && catalog.model) {
+        setCreateNew(true);
+        setDeviceId("");
+        setBrand(catalog.brand);
+        setModel(catalog.model);
+        setColorOptions(catalog.colorOptions);
+        setStorageOptions(catalog.storageOptions);
+        if (catalog.storageOptions.length === 1) {
+          setStorage(catalog.storageOptions[0] ?? "");
+        }
+        if (catalog.colorOptions.length === 1) {
+          setColor(catalog.colorOptions[0] ?? "");
+        }
+        if (catalog.imei && catalog.imei.length >= 14) {
+          setImei(catalog.imei);
+        }
+        setLookupMsg(catalog.sourceNote);
+        return;
+      }
+
+      setLookupMsg(
+        catalog?.sourceNote ||
+          "Ingen treff. Serienummer finnes bare i vårt system; IMEI bruker lokal TAC-database.",
+      );
     });
   }
 
@@ -269,21 +297,53 @@ export function NewRepairForm({
               </div>
               <div>
                 <Label htmlFor="newStorage">Lagring</Label>
-                <Input
-                  id="newStorage"
-                  className="mt-1.5"
-                  value={storage}
-                  onChange={(e) => setStorage(e.target.value)}
-                />
+                {storageOptions.length > 0 ? (
+                  <Select
+                    id="newStorage"
+                    className="mt-1.5"
+                    value={storage}
+                    onChange={(e) => setStorage(e.target.value)}
+                  >
+                    <option value="">Velg…</option>
+                    {storageOptions.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Input
+                    id="newStorage"
+                    className="mt-1.5"
+                    value={storage}
+                    onChange={(e) => setStorage(e.target.value)}
+                  />
+                )}
               </div>
               <div>
                 <Label htmlFor="newColor">Farge</Label>
-                <Input
-                  id="newColor"
-                  className="mt-1.5"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                />
+                {colorOptions.length > 0 ? (
+                  <Select
+                    id="newColor"
+                    className="mt-1.5"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                  >
+                    <option value="">Velg…</option>
+                    {colorOptions.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Input
+                    id="newColor"
+                    className="mt-1.5"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                  />
+                )}
               </div>
             </div>
           )}

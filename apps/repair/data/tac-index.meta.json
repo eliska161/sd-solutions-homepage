@@ -1,0 +1,7 @@
+{
+  "source": "https://github.com/MoazEb/tac-database",
+  "supplement": "https://github.com/pbakondy/ios-device-list",
+  "entries": 248359,
+  "builtAt": "2026-09-09T18:25:00.000Z",
+  "format": "gzipped JSON object: { tac: [brand, specs] }"
+}
