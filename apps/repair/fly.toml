@@ -1,36 +1,36 @@
-# fly.toml — deploy from apps/repair
-# Working directory: apps/repair
-# Config path: apps/repair/fly.toml
-# Internal port: 3001
+# fly.toml app configuration file generated for sd-solutions-repair on 2026-09-09T17:24:58Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "sd-solutions-repair"
-primary_region = "arn"
+app = 'sd-solutions-repair'
+primary_region = 'arn'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [deploy]
-  # Runs once per deploy with Fly secrets (DATABASE_URL) before app machines update.
-  release_command = "/app/scripts/fly-release.sh"
+  release_command = '/app/scripts/fly-release.sh'
 
 [env]
-  PORT = "3001"
-  NODE_ENV = "production"
-  CI = "true"
+  CI = 'true'
+  NODE_ENV = 'production'
+  PORT = '3001'
+
+[[mounts]]
+  source = 'repair_uploads'
+  destination = '/app/public/uploads'
 
 [http_service]
   internal_port = 3001
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 1
-  processes = ["app"]
+  processes = ['app']
 
 [[vm]]
-  memory = "512mb"
-  cpu_kind = "shared"
+  memory = '512mb'
+  cpu_kind = 'shared'
   cpus = 1
-
-[mounts]
-  source = "repair_uploads"
-  destination = "/app/public/uploads"
+  memory_mb = 512
