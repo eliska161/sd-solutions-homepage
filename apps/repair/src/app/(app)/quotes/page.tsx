@@ -15,7 +15,7 @@ import { createQuote, listQuotes, updateQuoteStatus } from "@/server/quotes";
 
 async function createQuoteAction(formData: FormData) {
   "use server";
-  const quote = await createQuote({
+  await createQuote({
     customerId: String(formData.get("customerId") || ""),
     notes: String(formData.get("notes") || "") || null,
     items: [
@@ -28,7 +28,6 @@ async function createQuoteAction(formData: FormData) {
     ],
   });
   redirect("/quotes");
-  return quote;
 }
 
 async function updateStatusAction(formData: FormData) {

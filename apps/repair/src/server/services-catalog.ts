@@ -100,6 +100,7 @@ export async function updateService(
   });
 
   revalidatePath("/settings");
+  revalidatePath("/services");
   return row;
 }
 

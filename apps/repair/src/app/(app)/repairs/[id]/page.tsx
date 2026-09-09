@@ -19,7 +19,7 @@ import {
   getDiagnosticsForTicket,
   getOrCreateDiagnostics,
 } from "@/server/diagnostics";
-import { listParts, usePartOnRepair } from "@/server/parts";
+import { listParts, usePartOnRepair as consumePartOnRepair } from "@/server/parts";
 import {
   addRepairNote,
   addServiceToRepair,
@@ -71,7 +71,7 @@ async function addServiceAction(formData: FormData) {
 async function addPartAction(formData: FormData) {
   "use server";
   const ticketId = String(formData.get("ticketId"));
-  await usePartOnRepair({
+  await consumePartOnRepair({
     ticketId,
     partId: String(formData.get("partId") || ""),
     quantity: Number(formData.get("quantity") || 1),

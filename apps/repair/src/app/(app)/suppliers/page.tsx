@@ -17,6 +17,9 @@ async function createSupplierAction(formData: FormData) {
     contact: String(formData.get("contact") || "") || null,
     currency: String(formData.get("currency") || "NOK"),
     notes: String(formData.get("notes") || "") || null,
+    active: true,
+    apiSupported: false,
+    defaultShippingOre: 0,
   });
   redirect("/suppliers");
 }

@@ -26,6 +26,7 @@ async function createServiceAction(formData: FormData) {
       parseKrToOre(formData.get("estimatedPartsCostKr")) || null,
     estimatedLaborMinutes: Number(formData.get("estimatedLaborMinutes") || 0) || null,
     warrantyDays: Number(formData.get("warrantyDays") || 90) || null,
+    active: true,
   });
   redirect("/services");
 }

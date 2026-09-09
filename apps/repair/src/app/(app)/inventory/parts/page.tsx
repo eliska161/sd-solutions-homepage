@@ -33,6 +33,7 @@ async function createPartAction(formData: FormData) {
     quantityOnHand: Number(formData.get("quantityOnHand") || 0),
     minimumStock: Number(formData.get("minimumStock") || 0),
     location: String(formData.get("location") || "") || null,
+    active: true,
   });
   redirect("/inventory/parts");
 }
