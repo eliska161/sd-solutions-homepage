@@ -1,25 +1,42 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MoneyText } from "@/components/ui/MoneyText";
-import { listParts } from "@/server/parts";
+import {
+  listOpenOrderedParts,
+  listParts,
+  receiveOrderedPart,
+} from "@/server/parts";
+
+async function receiveOrderedAction(formData: FormData) {
+  "use server";
+  await receiveOrderedPart({
+    repairPartId: String(formData.get("repairPartId") || ""),
+  });
+  redirect("/inventory");
+}
 
 export default async function InventoryPage() {
-  const parts = await listParts();
+  const [parts, ordered] = await Promise.all([
+    listParts(),
+    listOpenOrderedParts(),
+  ]);
   const active = parts.filter((p) => p.active);
   const lowStock = active.filter((p) => p.quantityOnHand <= p.minimumStock);
   const inventoryValueOre = active.reduce(
     (sum, p) => sum + p.quantityOnHand * p.costPriceOre,
     0,
   );
+  const orderedQty = ordered.reduce((s, o) => s + o.quantity, 0);
 
   return (
     <div>
       <PageHeader
         title="Lager"
-        description="Oversikt over deler, verdi og lavt lager."
+        description="Oversikt over deler, bestillinger og lavt lager."
         actions={
           <Link href="/inventory/parts?new=1">
             <Button type="button">Ny del</Button>
@@ -27,11 +44,20 @@ export default async function InventoryPage() {
         }
       />
 
-      <div className="mb-8 grid gap-3 sm:grid-cols-3">
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardBody>
             <p className="text-[13px] text-muted">Aktive SKU</p>
             <p className="mt-2 text-3xl font-medium">{active.length}</p>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody>
+            <p className="text-[13px] text-muted">Bestilt / ventes</p>
+            <p className="mt-2 text-3xl font-medium text-warning">
+              {ordered.length}
+            </p>
+            <p className="mt-1 text-[12px] text-muted">{orderedQty} stk</p>
           </CardBody>
         </Card>
         <Card>
@@ -69,6 +95,53 @@ export default async function InventoryPage() {
           </Button>
         </Link>
       </div>
+
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-medium">Bestilt — ventes på lager</h2>
+        {ordered.length === 0 ? (
+          <EmptyState
+            title="Ingen ventende bestillinger"
+            description="Når du bestiller deler på en reparasjon, dukker de opp her til mottak."
+          />
+        ) : (
+          <div className="space-y-2">
+            {ordered.map((o) => (
+              <div
+                key={o.repairPartId}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/40 bg-warning/5 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">
+                    {o.quantity} × {o.partName}
+                  </p>
+                  <p className="text-[12px] text-muted">
+                    {o.partSku} ·{" "}
+                    {o.ticketNumber
+                      ? o.ticketNumber
+                      : o.flipNumber
+                        ? o.flipNumber
+                        : "Jobb"}
+                    {o.notes ? ` · ${o.notes}` : ""}
+                  </p>
+                  <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-warning">
+                    Bestilt — ventes
+                  </p>
+                </div>
+                <form action={receiveOrderedAction}>
+                  <input
+                    type="hidden"
+                    name="repairPartId"
+                    value={o.repairPartId}
+                  />
+                  <Button type="submit" size="sm">
+                    Motta
+                  </Button>
+                </form>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {lowStock.length === 0 ? (
         <EmptyState

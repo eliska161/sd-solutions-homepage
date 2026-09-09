@@ -36,6 +36,13 @@
       "when": 1788982200000,
       "tag": "0004_ticket_discount",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788982800000,
+      "tag": "0005_shared_job_parts",
+      "breakpoints": true
     }
   ]
 }

@@ -238,6 +238,20 @@ async function ensureTicketDiscount(client) {
   console.log("==> Ticket discount columns ready");
 }
 
+async function ensureSharedJobParts(client) {
+  const hasTable = await publicTableExists(client, "repair_parts");
+  if (!hasTable) return;
+
+  console.log("==> Ensuring shared job parts (ticket + flip)");
+  await client.unsafe(`
+    ALTER TABLE "repair_parts" ALTER COLUMN "ticket_id" DROP NOT NULL;
+    ALTER TABLE "repair_parts" ADD COLUMN IF NOT EXISTS "refurbishment_id" uuid;
+    CREATE INDEX IF NOT EXISTS "repair_parts_refurbishment_id_idx"
+      ON "repair_parts" USING btree ("refurbishment_id");
+  `);
+  console.log("==> Shared job parts ready");
+}
+
 async function main() {
   console.log("==> Applying Drizzle migrations from", migrationsFolder);
   const client = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
@@ -256,6 +270,7 @@ async function main() {
     await ensureRepairPartStatus(client);
     await ensureFlipIntakeDiagnostics(client);
     await ensureTicketDiscount(client);
+    await ensureSharedJobParts(client);
     console.log("==> Migrations complete");
   } finally {
     await client.end({ timeout: 5 });

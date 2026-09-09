@@ -135,9 +135,12 @@ export const repairParts = pgTable(
   "repair_parts",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    ticketId: uuid("ticket_id")
-      .notNull()
-      .references(() => repairTickets.id, { onDelete: "cascade" }),
+    /** Workshop repair ticket — null when used on a flip. */
+    ticketId: uuid("ticket_id").references(() => repairTickets.id, {
+      onDelete: "cascade",
+    }),
+    /** Flip / refurbishment — null when used on a workshop ticket. */
+    refurbishmentId: uuid("refurbishment_id"),
     partId: uuid("part_id")
       .notNull()
       .references(() => parts.id),
@@ -151,6 +154,7 @@ export const repairParts = pgTable(
   },
   (t) => [
     index("repair_parts_ticket_id_idx").on(t.ticketId),
+    index("repair_parts_refurbishment_id_idx").on(t.refurbishmentId),
     index("repair_parts_part_id_idx").on(t.partId),
   ],
 );

@@ -25,10 +25,12 @@ import {
   recordSale,
   removeFlipCost,
 } from "@/server/flips";
+import { listFlipParts, listParts } from "@/server/parts";
 import { FlipConditionFaultsPanel } from "./FlipConditionFaultsPanel";
 import { FlipDevicePanel } from "./FlipDevicePanel";
 import { FlipDiagnosticsPanel } from "./FlipDiagnosticsPanel";
 import { FlipIntakePanel } from "./FlipIntakePanel";
+import { FlipPartsPanel } from "./FlipPartsPanel";
 import { FlipStatusForm } from "./FlipStatusForm";
 
 async function addCostAction(formData: FormData) {
@@ -108,10 +110,12 @@ export default async function FlipDetailPage({
   if (!detail) notFound();
   const { flip, costs, listings, sales } = detail;
 
-  const [intake, diag, photos] = await Promise.all([
+  const [intake, diag, photos, flipParts, catalogParts] = await Promise.all([
     getFlipIntakeInspection(id),
     getDiagnosticsForFlip(id),
     listAttachments("refurbishment", id),
+    listFlipParts(id),
+    listParts(),
   ]);
 
   return (
@@ -206,6 +210,17 @@ export default async function FlipDetailPage({
                 conditionSummary: flip.conditionSummary,
                 faultSummary: flip.faultSummary,
               }}
+            />
+          </CardBody>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <CardHeader title="Deler (samme lager som verksted)" />
+          <CardBody>
+            <FlipPartsPanel
+              refurbishmentId={flip.id}
+              usedParts={flipParts}
+              parts={catalogParts}
             />
           </CardBody>
         </Card>
