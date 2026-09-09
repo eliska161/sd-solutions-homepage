@@ -168,6 +168,9 @@ export const repairTickets = pgTable(
       withTimezone: true,
     }),
     customerPriceOre: integer("customer_price_ore"),
+    /** Discount applied against service total (øre). Reduces customerPriceOre. */
+    discountOre: integer("discount_ore").notNull().default(0),
+    discountLabel: text("discount_label"),
     estimatedPartsCostOre: integer("estimated_parts_cost_ore"),
     actualPartsCostOre: integer("actual_parts_cost_ore"),
     otherCostsOre: integer("other_costs_ore").notNull().default(0),

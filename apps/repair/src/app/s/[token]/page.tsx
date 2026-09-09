@@ -173,6 +173,17 @@ export default async function CustomerStatusPage({
                 </li>
               ))}
             </ul>
+            {data.discount ? (
+              <p className="mt-3 text-sm text-amber-300/90">
+                {data.discount.label}: −{data.discount.amountLabel}
+              </p>
+            ) : null}
+          </Section>
+        ) : data.discount ? (
+          <Section icon={Wrench} label="Tjenester">
+            <p className="text-sm text-amber-300/90">
+              {data.discount.label}: −{data.discount.amountLabel}
+            </p>
           </Section>
         ) : null}
 

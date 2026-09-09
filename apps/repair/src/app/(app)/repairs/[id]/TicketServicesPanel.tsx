@@ -9,7 +9,9 @@ import { MoneyText } from "@/components/ui/MoneyText";
 import { Select } from "@/components/ui/Select";
 import {
   addServiceToRepair,
+  clearRepairDiscount,
   removeServiceFromRepair,
+  setRepairDiscount,
 } from "@/server/repairs";
 import { createService } from "@/server/services-catalog";
 import { parseKrToOre } from "@/lib/labels";
@@ -33,21 +35,30 @@ export function TicketServicesPanel({
   ticketId,
   usedServices,
   catalogServices,
+  discountOre = 0,
+  discountLabel = null,
 }: {
   ticketId: string;
   usedServices: UsedService[];
   catalogServices: ServiceOption[];
+  discountOre?: number;
+  discountLabel?: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [serviceId, setServiceId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(catalogServices.length === 0);
+  const [showDiscount, setShowDiscount] = useState(false);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [priceKr, setPriceKr] = useState("");
+  const [discountKr, setDiscountKr] = useState("");
+  const [discountNote, setDiscountNote] = useState("Rabatt");
 
   const active = catalogServices.filter((s) => s.active);
+  const servicesSum = usedServices.reduce((s, r) => s + r.priceOre, 0);
+  const net = Math.max(0, servicesSum - Math.max(0, discountOre));
 
   function removeService(repairServiceId: string) {
     setError(null);
@@ -88,6 +99,44 @@ export function TicketServicesPanel({
             </div>
           </div>
         ))
+      )}
+
+      {discountOre > 0 ? (
+        <div className="flex items-center justify-between gap-3 text-sm border-b border-border pb-2">
+          <span className="text-warning">
+            {discountLabel?.trim() || "Rabatt"}
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-warning">
+              − <MoneyText ore={discountOre} />
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={pending}
+              onClick={() => {
+                setError(null);
+                startTransition(async () => {
+                  try {
+                    await clearRepairDiscount(ticketId);
+                    router.refresh();
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Feil");
+                  }
+                });
+              }}
+            >
+              Fjern
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {(usedServices.length > 0 || discountOre > 0) && (
+        <p className="text-sm text-muted">
+          Kundepris: <MoneyText ore={net} />
+        </p>
       )}
 
       {active.length > 0 ? (
@@ -132,12 +181,96 @@ export function TicketServicesPanel({
           >
             Ny tjeneste
           </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowDiscount((v) => !v)}
+          >
+            Rabatt
+          </Button>
         </form>
       ) : (
-        <p className="text-sm text-muted">
-          Ingen tjenester i katalogen ennå. Opprett en nedenfor.
-        </p>
+        <div className="flex flex-wrap gap-2">
+          <p className="text-sm text-muted">
+            Ingen tjenester i katalogen ennå. Opprett en nedenfor.
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowDiscount((v) => !v)}
+          >
+            Rabatt
+          </Button>
+        </div>
       )}
+
+      {showDiscount ? (
+        <form
+          className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setError(null);
+            const ore = parseKrToOre(discountKr);
+            if (ore <= 0) {
+              setError("Oppgi rabattbeløp");
+              return;
+            }
+            startTransition(async () => {
+              try {
+                await setRepairDiscount({
+                  ticketId,
+                  discountOre: ore,
+                  label: discountNote.trim() || "Rabatt",
+                });
+                setDiscountKr("");
+                setShowDiscount(false);
+                router.refresh();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Feil");
+              }
+            });
+          }}
+        >
+          <p className="sm:col-span-2 text-sm font-medium">
+            Rabatt (trekkes fra kundepris)
+          </p>
+          <div>
+            <Label htmlFor="discountKr">Beløp (kr) *</Label>
+            <Input
+              id="discountKr"
+              className="mt-1.5"
+              value={discountKr}
+              onChange={(e) => setDiscountKr(e.target.value)}
+              placeholder="200"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="discountNote">Beskrivelse</Label>
+            <Input
+              id="discountNote"
+              className="mt-1.5"
+              value={discountNote}
+              onChange={(e) => setDiscountNote(e.target.value)}
+              placeholder="Rabatt"
+            />
+          </div>
+          <div className="sm:col-span-2 flex gap-2">
+            <Button type="submit" disabled={pending}>
+              Lagre rabatt
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowDiscount(false)}
+            >
+              Avbryt
+            </Button>
+          </div>
+        </form>
+      ) : null}
 
       {showCreate ? (
         <form

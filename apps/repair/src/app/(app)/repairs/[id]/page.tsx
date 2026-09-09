@@ -359,6 +359,8 @@ export default async function RepairDetailPage({
                 ticketId={ticket.id}
                 usedServices={usedServices}
                 catalogServices={catalogServices}
+                discountOre={ticket.discountOre ?? 0}
+                discountLabel={ticket.discountLabel}
               />
             </CardBody>
           </Card>

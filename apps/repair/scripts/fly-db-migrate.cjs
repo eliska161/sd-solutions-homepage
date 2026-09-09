@@ -216,6 +216,28 @@ async function ensureFlipIntakeDiagnostics(client) {
   console.log("==> Flip intake / condition schema ready");
 }
 
+async function ensureTicketDiscount(client) {
+  const hasTickets = await publicTableExists(client, "repair_tickets");
+  if (!hasTickets) return;
+
+  const hasDiscount = await publicColumnExists(
+    client,
+    "repair_tickets",
+    "discount_ore",
+  );
+  if (hasDiscount) {
+    console.log("==> repair_tickets.discount_ore already present");
+    return;
+  }
+
+  console.log("==> Adding repair_tickets discount columns (idempotent)");
+  await client.unsafe(`
+    ALTER TABLE "repair_tickets" ADD COLUMN IF NOT EXISTS "discount_ore" integer DEFAULT 0 NOT NULL;
+    ALTER TABLE "repair_tickets" ADD COLUMN IF NOT EXISTS "discount_label" text;
+  `);
+  console.log("==> Ticket discount columns ready");
+}
+
 async function main() {
   console.log("==> Applying Drizzle migrations from", migrationsFolder);
   const client = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
@@ -233,6 +255,7 @@ async function main() {
     await ensureCustomerBillingColumns(client);
     await ensureRepairPartStatus(client);
     await ensureFlipIntakeDiagnostics(client);
+    await ensureTicketDiscount(client);
     console.log("==> Migrations complete");
   } finally {
     await client.end({ timeout: 5 });
