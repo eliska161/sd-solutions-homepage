@@ -2,6 +2,9 @@ import { requireSession } from "@/lib/session";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 
+/** All authenticated pages need the DB at request time — never prerender at build. */
+export const dynamic = "force-dynamic";
+
 export default async function AppLayout({
   children,
 }: {
