@@ -244,6 +244,7 @@ export async function usePartOnRepair(input: {
         partId: data.partId,
         quantity: data.quantity,
         unitCostOre: part.costPriceOre,
+        status: "USED",
       })
       .returning();
 
@@ -273,4 +274,117 @@ export async function usePartOnRepair(input: {
   revalidatePath("/inventory");
   revalidatePath(`/repairs/${data.ticketId}`);
   return { part: result.part, repairPart: result.repairPart };
+}
+
+/** Create a catalog part with 0 stock and attach it to the ticket as ORDERED (bestilt). */
+export async function orderPartForRepair(input: {
+  ticketId: string;
+  name: string;
+  details?: string | null;
+  brand?: string | null;
+  category?: string | null;
+  partType?: z.infer<typeof partTypeSchema>;
+  quantity?: number;
+  estimatedCostOre?: number;
+  setTicketWaiting?: boolean;
+}) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const schema = z.object({
+    ticketId: z.string().uuid(),
+    name: z.string().min(2, "Navn på del er påkrevd"),
+    details: z.string().optional().nullable(),
+    brand: z.string().optional().nullable(),
+    category: z.string().optional().nullable(),
+    partType: partTypeSchema.default("OTHER"),
+    quantity: z.number().int().positive().default(1),
+    estimatedCostOre: z.number().int().min(0).default(0),
+    setTicketWaiting: z.boolean().default(true),
+  });
+  const data = schema.parse(input);
+
+  const ticket = await getRepair(data.ticketId);
+  if (!ticket) throw new Error("Reparasjon ikke funnet");
+
+  const db = getDb();
+  const sku = `ORD-${Date.now().toString(36).toUpperCase()}`;
+  const notes = data.details?.trim() || null;
+
+  const result = await db.transaction(async (tx) => {
+    const [part] = await tx
+      .insert(parts)
+      .values({
+        sku,
+        name: data.name.trim(),
+        category: data.category?.trim() || "Bestilt",
+        brand: data.brand?.trim() || null,
+        partType: data.partType,
+        costPriceOre: data.estimatedCostOre,
+        quantityOnHand: 0,
+        minimumStock: 0,
+        location: "BESTILT",
+        active: true,
+      })
+      .returning();
+
+    const [repairPart] = await tx
+      .insert(repairParts)
+      .values({
+        ticketId: data.ticketId,
+        partId: part.id,
+        quantity: data.quantity,
+        unitCostOre: data.estimatedCostOre,
+        status: "ORDERED",
+        notes,
+      })
+      .returning();
+
+    const [{ total }] = await tx
+      .select({
+        total: sql<number>`coalesce(sum(${repairParts.quantity} * ${repairParts.unitCostOre}), 0)::int`,
+      })
+      .from(repairParts)
+      .where(eq(repairParts.ticketId, data.ticketId));
+
+    const ticketPatch: {
+      actualPartsCostOre: number;
+      updatedAt: Date;
+      status?: typeof ticket.status;
+    } = {
+      actualPartsCostOre: total,
+      updatedAt: new Date(),
+    };
+
+    if (
+      data.setTicketWaiting &&
+      ticket.status !== "WAITING_FOR_PART" &&
+      ticket.status !== "COMPLETED" &&
+      ticket.status !== "CANCELLED" &&
+      ticket.status !== "RETURNED"
+    ) {
+      ticketPatch.status = "WAITING_FOR_PART";
+    }
+
+    await tx
+      .update(repairTickets)
+      .set(ticketPatch)
+      .where(eq(repairTickets.id, data.ticketId));
+
+    return { part, repairPart };
+  });
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: data.ticketId,
+    type: "repair.part_ordered",
+    message: `Bestilt del: ${data.quantity} × ${data.name.trim()}`,
+    actorId: session.user.id,
+    meta: { partId: result.part.id, notes },
+  });
+
+  revalidatePath("/inventory");
+  revalidatePath("/inventory/parts");
+  revalidatePath(`/repairs/${data.ticketId}`);
+  revalidatePath("/repairs");
+  return result;
 }

@@ -26,10 +26,9 @@ import {
   getOrCreateDiagnostics,
 } from "@/server/diagnostics";
 import { getIntakeInspection } from "@/server/intake";
-import { listParts, usePartOnRepair as consumePartOnRepair } from "@/server/parts";
+import { listParts } from "@/server/parts";
 import {
   addRepairNote,
-  addServiceToRepair,
   getRepair,
   getRepairAssigneeName,
   listRepairNotes,
@@ -38,15 +37,18 @@ import {
   listRepairStatusHistory,
   updateRepairPricing,
 } from "@/server/repairs";
-import { listServices } from "@/server/services-catalog";
+import { ensureDefaultServices } from "@/server/services-catalog";
 import { listTechnicians } from "@/server/users";
 import {
   createWarrantyForRepair,
   getWarrantyForTicket,
 } from "@/server/warranty";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
+import { CustomerDiagnosisForm } from "./CustomerDiagnosisForm";
 import { IntakePanel } from "./IntakePanel";
 import { RepairStatusForm } from "./RepairStatusForm";
+import { TicketPartsPanel } from "./TicketPartsPanel";
+import { TicketServicesPanel } from "./TicketServicesPanel";
 import {
   CustomerLinkCard,
   TechnicianEtaForm,
@@ -68,27 +70,6 @@ async function addNoteAction(formData: FormData) {
     visibility: (String(formData.get("visibility") || "INTERNAL") as
       | "INTERNAL"
       | "CUSTOMER"),
-  });
-  redirect(`/repairs/${ticketId}`);
-}
-
-async function addServiceAction(formData: FormData) {
-  "use server";
-  const ticketId = String(formData.get("ticketId"));
-  await addServiceToRepair({
-    ticketId,
-    serviceId: String(formData.get("serviceId") || ""),
-  });
-  redirect(`/repairs/${ticketId}`);
-}
-
-async function addPartAction(formData: FormData) {
-  "use server";
-  const ticketId = String(formData.get("ticketId"));
-  await consumePartOnRepair({
-    ticketId,
-    partId: String(formData.get("partId") || ""),
-    quantity: Number(formData.get("quantity") || 1),
   });
   redirect(`/repairs/${ticketId}`);
 }
@@ -188,7 +169,7 @@ export default async function RepairDetailPage({
     listRepairStatusHistory(id),
     listRepairParts(id),
     listRepairServices(id),
-    listServices(true),
+    ensureDefaultServices(),
     listParts(),
     getDiagnosticsForTicket(id),
     listActivity({ entityType: "repair_ticket", entityId: id, limit: 40 }),
@@ -329,7 +310,7 @@ export default async function RepairDetailPage({
                 ) : null
               }
             />
-            <CardBody>
+            <CardBody className="space-y-6">
               {diag ? (
                 <DiagnosticsPanel
                   ticketId={ticket.id}
@@ -341,87 +322,34 @@ export default async function RepairDetailPage({
                   description="Start sjekklisten for denne ticketen."
                 />
               )}
+              <div className="border-t border-border pt-5">
+                <CustomerDiagnosisForm
+                  ticketId={ticket.id}
+                  initialValue={ticket.internalProblem}
+                />
+              </div>
             </CardBody>
           </Card>
 
           <Card>
             <CardHeader title="Tjenester" />
-            <CardBody className="space-y-4">
-              {usedServices.length === 0 ? (
-                <p className="text-sm text-muted">Ingen tjenester lagt til.</p>
-              ) : (
-                usedServices.map((s) => (
-                  <div
-                    key={s.id}
-                    className="flex justify-between text-sm border-b border-border pb-2"
-                  >
-                    <span>
-                      {s.serviceCode} · {s.serviceName}
-                    </span>
-                    <MoneyText ore={s.priceOre} />
-                  </div>
-                ))
-              )}
-              <form action={addServiceAction} className="flex flex-wrap gap-2">
-                <input type="hidden" name="ticketId" value={ticket.id} />
-                <Select name="serviceId" required className="max-w-sm flex-1">
-                  <option value="">Velg tjeneste…</option>
-                  {catalogServices
-                    .filter((s) => s.active)
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({Math.round(s.customerPriceOre / 100)} kr)
-                      </option>
-                    ))}
-                </Select>
-                <Button type="submit" variant="secondary">
-                  Legg til
-                </Button>
-              </form>
+            <CardBody>
+              <TicketServicesPanel
+                ticketId={ticket.id}
+                usedServices={usedServices}
+                catalogServices={catalogServices}
+              />
             </CardBody>
           </Card>
 
           <Card>
             <CardHeader title="Deler" />
-            <CardBody className="space-y-4">
-              {usedParts.length === 0 ? (
-                <p className="text-sm text-muted">Ingen deler brukt.</p>
-              ) : (
-                usedParts.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex justify-between text-sm border-b border-border pb-2"
-                  >
-                    <span>
-                      {p.quantity} × {p.partName} ({p.partSku})
-                    </span>
-                    <MoneyText ore={p.quantity * p.unitCostOre} />
-                  </div>
-                ))
-              )}
-              <form action={addPartAction} className="flex flex-wrap gap-2">
-                <input type="hidden" name="ticketId" value={ticket.id} />
-                <Select name="partId" required className="max-w-sm flex-1">
-                  <option value="">Velg del…</option>
-                  {parts
-                    .filter((p) => p.active && p.quantityOnHand > 0)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.quantityOnHand} på lager)
-                      </option>
-                    ))}
-                </Select>
-                <Input
-                  name="quantity"
-                  type="number"
-                  min={1}
-                  defaultValue={1}
-                  className="w-24"
-                />
-                <Button type="submit" variant="secondary">
-                  Bruk del
-                </Button>
-              </form>
+            <CardBody>
+              <TicketPartsPanel
+                ticketId={ticket.id}
+                usedParts={usedParts}
+                parts={parts}
+              />
             </CardBody>
           </Card>
 
