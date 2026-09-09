@@ -10,7 +10,7 @@ import { MoneyText } from "@/components/ui/MoneyText";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { parseKrToOre } from "@/lib/labels";
-import { orderPartForRepair, usePartOnRepair } from "@/server/parts";
+import { attachPartToRepair, orderPartForRepair } from "@/server/parts";
 
 type PartOption = {
   id: string;
@@ -98,7 +98,7 @@ export function TicketPartsPanel({
           if (!partId) return;
           startTransition(async () => {
             try {
-              await usePartOnRepair({
+              await attachPartToRepair({
                 ticketId,
                 partId,
                 quantity: Number(qty) || 1,

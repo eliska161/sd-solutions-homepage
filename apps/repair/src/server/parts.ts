@@ -189,7 +189,8 @@ export async function receiveStock(input: {
   return result;
 }
 
-export async function usePartOnRepair(input: {
+/** Attach an in-stock part to a repair (consumes inventory). */
+export async function attachPartToRepair(input: {
   ticketId: string;
   partId: string;
   quantity: number;

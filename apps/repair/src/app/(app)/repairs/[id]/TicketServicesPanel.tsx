@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { MoneyText } from "@/components/ui/MoneyText";
 import { Select } from "@/components/ui/Select";
-import { Textarea } from "@/components/ui/Textarea";
 import { addServiceToRepair } from "@/server/repairs";
 import { createService } from "@/server/services-catalog";
 import { parseKrToOre } from "@/lib/labels";
