@@ -11,6 +11,7 @@ primary_region = "arn"
 
 [deploy]
   # Runs once per deploy with Fly secrets (DATABASE_URL) before app machines update.
+  # Uses committed SQL migrations (no interactive drizzle-kit push).
   release_command = "/app/scripts/fly-release.sh"
 
 [env]
