@@ -313,23 +313,30 @@ function findAppleGeneration(model: string): {
 export function supplementWithAppleOptions(hit: TacHit): IosSupplement | null {
   if (hit.brand.toLowerCase() !== "apple") return null;
 
+  const isIpad = /ipad/i.test(hit.model);
   const match = findAppleGeneration(hit.model);
   if (!match) {
-    const isIpad = /ipad/i.test(hit.model);
     return {
       generation: hit.model,
       identifier: null,
-      colors: [],
+      colors: isIpad ? [] : FALLBACK_IPHONE_COLORS,
       storages: isIpad ? FALLBACK_IPAD_STORAGE : FALLBACK_IPHONE_STORAGE,
       aNumbers: hit.aNumber ? [hit.aNumber] : [],
       models: [],
     };
   }
 
+  const colors =
+    match.options.colors.length > 0
+      ? match.options.colors
+      : isIpad || /ipad/i.test(match.generation)
+        ? []
+        : FALLBACK_IPHONE_COLORS;
+
   return {
     generation: match.generation,
     identifier: match.options.identifier,
-    colors: match.options.colors,
+    colors,
     storages:
       match.options.storages.length > 0
         ? match.options.storages
