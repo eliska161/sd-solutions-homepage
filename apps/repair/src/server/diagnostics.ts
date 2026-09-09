@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { diagnosticResults, diagnostics } from "@/db/schema";
@@ -11,6 +11,7 @@ import {
 import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
+import { getFlip } from "@/server/flips";
 import { getRepair } from "@/server/repairs";
 
 const resultEnum = z.enum([
@@ -20,6 +21,17 @@ const resultEnum = z.enum([
   "NOT_APPLICABLE",
   "UNKNOWN",
 ]);
+
+async function seedDiagnosticResults(diagnosticsId: string) {
+  const db = getDb();
+  await db.insert(diagnosticResults).values(
+    DIAGNOSTIC_CHECKS.map((check) => ({
+      diagnosticsId,
+      checkKey: check.key,
+      result: "NOT_TESTED" as const,
+    })),
+  );
+}
 
 export async function getOrCreateDiagnostics(ticketId: string) {
   const session = await requireSession();
@@ -32,7 +44,7 @@ export async function getOrCreateDiagnostics(ticketId: string) {
   const existing = await db
     .select()
     .from(diagnostics)
-    .where(eq(diagnostics.ticketId, ticketId))
+    .where(and(eq(diagnostics.ticketId, ticketId), isNull(diagnostics.refurbishmentId)))
     .limit(1);
 
   if (existing[0]) return existing[0];
@@ -45,20 +57,50 @@ export async function getOrCreateDiagnostics(ticketId: string) {
     })
     .returning();
 
-  await db.insert(diagnosticResults).values(
-    DIAGNOSTIC_CHECKS.map((check) => ({
-      diagnosticsId: row.id,
-      checkKey: check.key,
-      result: "NOT_TESTED" as const,
-    })),
-  );
+  await seedDiagnosticResults(row.id);
 
   revalidatePath(`/repairs/${ticketId}`);
   return row;
 }
 
+export async function getOrCreateFlipDiagnostics(refurbishmentId: string) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const db = getDb();
+
+  const detail = await getFlip(refurbishmentId);
+  if (!detail) throw new Error("Flip ikke funnet");
+
+  const existing = await db
+    .select()
+    .from(diagnostics)
+    .where(
+      and(
+        eq(diagnostics.refurbishmentId, refurbishmentId),
+        isNotNull(diagnostics.refurbishmentId),
+      ),
+    )
+    .limit(1);
+
+  if (existing[0]) return existing[0];
+
+  const [row] = await db
+    .insert(diagnostics)
+    .values({
+      refurbishmentId,
+      technicianId: session.user.id,
+    })
+    .returning();
+
+  await seedDiagnosticResults(row.id);
+
+  revalidatePath(`/refurbishment/${refurbishmentId}`);
+  return row;
+}
+
 export async function upsertDiagnosticResult(input: {
-  ticketId: string;
+  ticketId?: string;
+  refurbishmentId?: string;
   checkKey: string;
   result: z.infer<typeof resultEnum>;
   note?: string | null;
@@ -69,10 +111,15 @@ export async function upsertDiagnosticResult(input: {
   if (!isDiagnosticCheckKey(input.checkKey)) {
     throw new Error("Ugyldig diagnostikk-sjekk");
   }
+  if (!input.ticketId && !input.refurbishmentId) {
+    throw new Error("Mangler ticket eller flip");
+  }
   const result = resultEnum.parse(input.result);
   const db = getDb();
 
-  const diag = await getOrCreateDiagnostics(input.ticketId);
+  const diag = input.refurbishmentId
+    ? await getOrCreateFlipDiagnostics(input.refurbishmentId)
+    : await getOrCreateDiagnostics(input.ticketId!);
 
   const [existing] = await db
     .select()
@@ -107,7 +154,11 @@ export async function upsertDiagnosticResult(input: {
       .returning();
   }
 
-  revalidatePath(`/repairs/${input.ticketId}`);
+  if (input.refurbishmentId) {
+    revalidatePath(`/refurbishment/${input.refurbishmentId}`);
+  } else if (input.ticketId) {
+    revalidatePath(`/repairs/${input.ticketId}`);
+  }
   return row;
 }
 
@@ -118,7 +169,27 @@ export async function getDiagnosticsForTicket(ticketId: string) {
   const [diag] = await db
     .select()
     .from(diagnostics)
-    .where(eq(diagnostics.ticketId, ticketId))
+    .where(and(eq(diagnostics.ticketId, ticketId), isNull(diagnostics.refurbishmentId)))
+    .limit(1);
+
+  if (!diag) return null;
+
+  const results = await db
+    .select()
+    .from(diagnosticResults)
+    .where(eq(diagnosticResults.diagnosticsId, diag.id));
+
+  return { diagnostics: diag, results };
+}
+
+export async function getDiagnosticsForFlip(refurbishmentId: string) {
+  await requireSession();
+  const db = getDb();
+
+  const [diag] = await db
+    .select()
+    .from(diagnostics)
+    .where(eq(diagnostics.refurbishmentId, refurbishmentId))
     .limit(1);
 
   if (!diag) return null;

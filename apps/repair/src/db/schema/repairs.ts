@@ -274,7 +274,10 @@ export const diagnostics = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("diagnostics_ticket_id_idx").on(t.ticketId)],
+  (t) => [
+    index("diagnostics_ticket_id_idx").on(t.ticketId),
+    index("diagnostics_refurbishment_id_idx").on(t.refurbishmentId),
+  ],
 );
 
 export const diagnosticResults = pgTable("diagnostic_results", {

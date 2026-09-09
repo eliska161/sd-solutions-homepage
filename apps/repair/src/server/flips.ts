@@ -242,6 +242,151 @@ export async function getFlip(id: string) {
   return { flip, costs, listings, sales };
 }
 
+const updateFlipDeviceSchema = z.object({
+  refurbishmentId: z.string().uuid(),
+  model: z.string().min(1).optional(),
+  storage: z.string().optional().nullable(),
+  color: z.string().optional().nullable(),
+  serialNumber: z.string().optional().nullable(),
+  imei: z.string().optional().nullable(),
+  batteryHealth: z.number().int().min(0).max(100).optional().nullable(),
+  activationLockClear: z.boolean().optional(),
+  findMyOff: z.boolean().optional(),
+  notes: z.string().optional().nullable(),
+});
+
+export async function updateFlipDevice(
+  input: z.infer<typeof updateFlipDeviceSchema>,
+) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const data = updateFlipDeviceSchema.parse(input);
+  const db = getDb();
+
+  const before = await getFlip(data.refurbishmentId);
+  if (!before) throw new Error("Flip ikke funnet");
+
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (data.model !== undefined) patch.model = data.model.trim();
+  if (data.storage !== undefined) patch.storage = data.storage?.trim() || null;
+  if (data.color !== undefined) patch.color = data.color?.trim() || null;
+  if (data.serialNumber !== undefined) {
+    patch.serialNumber = data.serialNumber?.trim() || null;
+  }
+  if (data.imei !== undefined) {
+    const digits = (data.imei ?? "").replace(/\D/g, "");
+    patch.imei = digits || null;
+  }
+  if (data.batteryHealth !== undefined) patch.batteryHealth = data.batteryHealth;
+  if (data.activationLockClear !== undefined) {
+    patch.activationLockClear = data.activationLockClear;
+  }
+  if (data.findMyOff !== undefined) patch.findMyOff = data.findMyOff;
+  if (data.notes !== undefined) patch.notes = data.notes?.trim() || null;
+
+  const [row] = await db
+    .update(refurbishments)
+    .set(patch)
+    .where(eq(refurbishments.id, data.refurbishmentId))
+    .returning();
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    entityType: "refurbishment",
+    entityId: data.refurbishmentId,
+    action: "device_update",
+    before: before.flip,
+    after: row,
+  });
+
+  revalidatePath(`/refurbishment/${data.refurbishmentId}`);
+  return row;
+}
+
+const updateFlipConditionSchema = z.object({
+  refurbishmentId: z.string().uuid(),
+  conditionGrade: z.string().min(1),
+  cosmeticFaultKeys: z.array(z.string()).default([]),
+  repairFaultKeys: z.array(z.string()).default([]),
+  conditionComment: z.string().optional().nullable(),
+  faultComment: z.string().optional().nullable(),
+});
+
+export async function updateFlipConditionFaults(
+  input: z.infer<typeof updateFlipConditionSchema>,
+) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const data = updateFlipConditionSchema.parse(input);
+  const db = getDb();
+
+  const before = await getFlip(data.refurbishmentId);
+  if (!before) throw new Error("Flip ikke funnet");
+
+  const {
+    formatConditionSummary,
+    formatProblemSummary,
+    CONDITION_GRADES,
+    COSMETIC_FAULTS,
+    REPAIR_FAULTS,
+  } = await import("@/lib/intake-options");
+
+  const gradeOk = CONDITION_GRADES.some((g) => g.key === data.conditionGrade);
+  if (!gradeOk) throw new Error("Ugyldig tilstandskarakter");
+
+  const cosmeticKeys = new Set(COSMETIC_FAULTS.map((f) => f.key));
+  const repairKeys = new Set(REPAIR_FAULTS.map((f) => f.key));
+  const cosmeticFaultKeys = data.cosmeticFaultKeys.filter((k) =>
+    cosmeticKeys.has(k),
+  );
+  const repairFaultKeys = data.repairFaultKeys.filter((k) => repairKeys.has(k));
+
+  const conditionSummary = formatConditionSummary(
+    data.conditionGrade,
+    cosmeticFaultKeys,
+    data.conditionComment,
+  );
+  const faultSummary = formatProblemSummary(
+    repairFaultKeys,
+    data.faultComment,
+  );
+
+  const [row] = await db
+    .update(refurbishments)
+    .set({
+      conditionGrade: data.conditionGrade,
+      cosmeticFaultKeys,
+      repairFaultKeys,
+      conditionComment: data.conditionComment?.trim() || null,
+      faultComment: data.faultComment?.trim() || null,
+      conditionSummary,
+      faultSummary,
+      updatedAt: new Date(),
+    })
+    .where(eq(refurbishments.id, data.refurbishmentId))
+    .returning();
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    entityType: "refurbishment",
+    entityId: data.refurbishmentId,
+    action: "condition_faults_update",
+    before: before.flip,
+    after: row,
+  });
+
+  await addActivity({
+    entityType: "refurbishment",
+    entityId: data.refurbishmentId,
+    type: "flip.condition_updated",
+    message: "Tilstand og feil oppdatert",
+    actorId: session.user.id,
+  });
+
+  revalidatePath(`/refurbishment/${data.refurbishmentId}`);
+  return row;
+}
+
 export async function updateFlipStatus(
   id: string,
   status: z.infer<typeof flipStatusSchema>,
