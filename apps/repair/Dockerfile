@@ -42,8 +42,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/fly-db-migrate.cjs ./scri
 # Local TAC IMEI lookup index (+ meta)
 COPY --from=builder --chown=nextjs:nodejs /app/data ./data
 
-# ios-device-list for Apple color/storage supplement (not always traced into standalone)
+# ios-device-list + its runtime deps (standalone does not trace these)
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/ios-device-list ./node_modules/ios-device-list
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/lodash.uniq ./node_modules/lodash.uniq
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/lodash.clonedeep ./node_modules/lodash.clonedeep
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/lodash.flatten ./node_modules/lodash.flatten
 
 # Minimal deps for release_command migrate (not part of Next standalone)
 WORKDIR /app/migrate-node
@@ -55,7 +58,8 @@ WORKDIR /app
 RUN mkdir -p /app/public/uploads /data/uploads \
   && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts /app/data /app/node_modules /data/uploads \
   && test -f /app/scripts/fly-db-migrate.cjs \
-  && test -f /app/data/tac-index.json.gz
+  && test -f /app/data/tac-index.json.gz \
+  && node -e "require('ios-device-list'); require('lodash.uniq'); console.log('ios-device-list ok')"
 
 USER nextjs
 EXPOSE 3001
