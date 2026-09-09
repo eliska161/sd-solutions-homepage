@@ -34,8 +34,17 @@ export const COSMETIC_FAULTS: CatalogOption[] = [
 
 /** Repair faults to fix — add as many as needed at intake (internal). */
 export const REPAIR_FAULTS: CatalogOption[] = [
-  { key: "screen_cracked_glass", label: "Skjerm: Kun glass", group: "Skjerm" },
-  { key: "screen_cracked_lcd", label: "Skjerm: LCD/OLED skadet", group: "Skjerm" },
+  // Knust glass = always full screen assembly replacement (no glass-only jobs).
+  {
+    key: "screen_cracked_glass",
+    label: "Skjerm: Knust / sprekk (skjermbytte)",
+    group: "Skjerm",
+  },
+  {
+    key: "screen_cracked_lcd",
+    label: "Skjerm: LCD/OLED skadet (skjermbytte)",
+    group: "Skjerm",
+  },
   { key: "screen_cracked_touch", label: "Skjerm: Touch feiler", group: "Skjerm" },
   { key: "screen_flicker", label: "Skjerm: Flimrer", group: "Skjerm" },
   { key: "screen_lines", label: "Skjerm: Streker / flekker", group: "Skjerm" },

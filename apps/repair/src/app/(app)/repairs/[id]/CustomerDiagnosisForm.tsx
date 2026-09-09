@@ -49,7 +49,7 @@ export function CustomerDiagnosisForm({
           rows={4}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="F.eks. Skjermglass knust, touch OK. Batterihelse 78 %. Anbefaler glassbytte."
+          placeholder="F.eks. Skjerm knust — anbefaler skjermbytte. Batterihelse 78 %."
         />
       </div>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
