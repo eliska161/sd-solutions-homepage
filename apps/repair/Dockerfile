@@ -46,8 +46,8 @@ RUN npm init -y >/dev/null 2>&1 \
   && chown -R nextjs:nodejs /app/migrate-node
 
 WORKDIR /app
-RUN mkdir -p /app/public/uploads \
-  && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts \
+RUN mkdir -p /app/public/uploads /data/uploads \
+  && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts /data/uploads \
   && test -f /app/scripts/fly-db-migrate.cjs
 
 USER nextjs
