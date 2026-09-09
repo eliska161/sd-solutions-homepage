@@ -49,6 +49,23 @@ npm run dev                  # http://localhost:3001
 
 ## Deploy on Fly.io + Neon (recommended)
 
+### Fly UI fields
+
+| Field | Value |
+|---|---|
+| Branch | `main` (or this PR branch) |
+| Internal port | `3001` |
+| Working directory | `apps/repair` |
+| Config path | `apps/repair/fly.toml` |
+
+### What happens on deploy
+
+1. Docker build uses placeholder env (no real DB needed at build time)
+2. Fly `release_command` runs `scripts/fly-release.sh` → **`drizzle-kit push --force`** against `DATABASE_URL` secret
+3. App machines start with the new image
+
+No manual SQL paste / demo seed required for schema. Create the first admin after deploy (sign-up API + `UPDATE users SET role = 'ADMIN'`).
+
 ### 1. Neon database
 
 1. Create a project in [Neon](https://neon.tech)
@@ -56,52 +73,16 @@ npm run dev                  # http://localhost:3001
 
 ### 2. Fly app
 
-From `apps/repair`:
+From Fly dashboard (or CLI):
 
-```bash
-# One-time
-fly auth login
-fly apps create sd-solutions-repair   # or keep name in fly.toml
-fly volumes create repair_uploads --region arn --size 3
+- App: `sd-solutions-repair`
+- Volume: `repair_uploads` → `/app/public/uploads`
+- Secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`
 
-fly secrets set \
-  DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" \
-  BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
-  BETTER_AUTH_URL="https://repair.sd-solutions.org" \
-  NEXT_PUBLIC_APP_URL="https://repair.sd-solutions.org"
+### 3. Custom domain
 
-fly deploy
-```
+Add `repair.sd-solutions.org` under Certificates and point DNS as Fly shows.
 
-### 3. Schema + seed (after first deploy)
-
-```bash
-fly ssh console -C "node -e \"console.log('shell ok')\""
-# Prefer running push/seed from your laptop against Neon:
-npm run db:push
-npm run db:seed
-```
-
-`db:push` / `db:seed` use `DATABASE_URL` from `.env.local` on your machine — point that at the same Neon DB as Fly.
-
-### 4. Custom domain
-
-```bash
-fly certs add repair.sd-solutions.org
-```
-
-Point DNS (CNAME/A) as Fly instructs. Ensure `BETTER_AUTH_URL` matches the public HTTPS URL.
-
-### Alternative: Fly Postgres instead of Neon
-
-```bash
-fly postgres create --name sd-repair-db --region arn
-fly postgres attach sd-repair-db -a sd-solutions-repair
-# then db:push + db:seed against the attached DATABASE_URL
-fly deploy
-```
-
-Uploads use the Fly volume mounted at `/app/public/uploads`. For multi-machine scale, move to object storage later.
 
 ## Docs
 

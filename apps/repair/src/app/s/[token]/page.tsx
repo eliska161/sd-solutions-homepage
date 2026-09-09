@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { formatDate, formatDateOnly } from "@/lib/labels";
 import { getPublicRepairByToken } from "@/server/public-status";
 
+export const dynamic = "force-dynamic";
+
 export default async function CustomerStatusPage({
   params,
 }: {
