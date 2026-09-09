@@ -35,6 +35,7 @@ import {
   createWarrantyForRepair,
   getWarrantyForTicket,
 } from "@/server/warranty";
+import { listAttachments, uploadAttachment } from "@/server/attachments";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { RepairStatusForm } from "./RepairStatusForm";
 
@@ -98,6 +99,24 @@ async function createWarrantyAction(formData: FormData) {
   redirect(`/repairs/${ticketId}`);
 }
 
+async function uploadPhotoAction(formData: FormData) {
+  "use server";
+  const ticketId = String(formData.get("ticketId"));
+  await uploadAttachment({
+    entityType: "repair_ticket",
+    entityId: ticketId,
+    category: String(formData.get("category") || "OTHER") as
+      | "BEFORE"
+      | "DURING"
+      | "AFTER"
+      | "DAMAGE"
+      | "SERIAL_NUMBER"
+      | "OTHER",
+    formData,
+  });
+  redirect(`/repairs/${ticketId}`);
+}
+
 export default async function RepairDetailPage({
   params,
 }: {
@@ -119,6 +138,7 @@ export default async function RepairDetailPage({
     diag,
     activity,
     warranty,
+    photos,
   ] = await Promise.all([
     getCustomer(ticket.customerId),
     getDevice(ticket.deviceId),
@@ -131,6 +151,7 @@ export default async function RepairDetailPage({
     getDiagnosticsForTicket(id),
     listActivity({ entityType: "repair_ticket", entityId: id, limit: 30 }),
     getWarrantyForTicket(id),
+    listAttachments("repair_ticket", id),
   ]);
 
   const customerPrice = ticket.customerPriceOre ?? 0;
@@ -340,6 +361,80 @@ export default async function RepairDetailPage({
                 />
                 <Button type="submit" variant="secondary">
                   Bruk del
+                </Button>
+              </form>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Bilder & filer" />
+            <CardBody className="space-y-4">
+              {photos.length === 0 ? (
+                <p className="text-sm text-muted">Ingen filer lastet opp.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {photos.map((p) => (
+                    <a
+                      key={p.id}
+                      href={p.storagePath}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block overflow-hidden rounded-xl border border-border"
+                    >
+                      {p.mimeType.startsWith("image/") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.storagePath}
+                          alt={p.fileName}
+                          className="h-28 w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-28 items-center justify-center px-2 text-center text-[12px] text-muted">
+                          {p.fileName}
+                        </div>
+                      )}
+                      <p className="truncate px-2 py-1 text-[11px] text-muted">
+                        {p.category || "OTHER"}
+                      </p>
+                    </a>
+                  ))}
+                </div>
+              )}
+              <form
+                action={uploadPhotoAction}
+                encType="multipart/form-data"
+                className="flex flex-wrap items-end gap-2"
+              >
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <div>
+                  <Label htmlFor="category">Kategori</Label>
+                  <Select
+                    id="category"
+                    name="category"
+                    defaultValue="BEFORE"
+                    className="mt-1.5 w-44"
+                  >
+                    <option value="BEFORE">Før</option>
+                    <option value="DAMAGE">Skade</option>
+                    <option value="DURING">Under</option>
+                    <option value="AFTER">Etter</option>
+                    <option value="SERIAL_NUMBER">Serienummer</option>
+                    <option value="OTHER">Annet</option>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="file">Fil</Label>
+                  <Input
+                    id="file"
+                    name="file"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    required
+                    className="mt-1.5"
+                  />
+                </div>
+                <Button type="submit" variant="secondary">
+                  Last opp
                 </Button>
               </form>
             </CardBody>
