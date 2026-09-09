@@ -87,9 +87,14 @@ export const customers = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     name: text("name").notNull(),
-    phone: text("phone"),
-    email: text("email"),
+    phone: text("phone").notNull(),
+    email: text("email").notNull(),
+    /** Legacy single-line address; kept in sync from structured billing fields. */
     address: text("address"),
+    streetAddress: text("street_address").notNull().default(""),
+    postalCode: text("postal_code").notNull().default(""),
+    city: text("city").notNull().default(""),
+    country: text("country").notNull().default("Norge"),
     notes: text("notes"),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })

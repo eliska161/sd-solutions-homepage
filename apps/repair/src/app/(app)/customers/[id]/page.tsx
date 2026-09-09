@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { BillingAddressFields } from "@/components/forms/BillingAddressFields";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -9,19 +10,19 @@ import { Label } from "@/components/ui/Label";
 import { RepairStatusBadge } from "@/components/ui/StatusBadge";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatDate } from "@/lib/labels";
-import {
-  getCustomerProfile,
-  updateCustomer,
-} from "@/server/customers";
+import { getCustomerProfile, updateCustomer } from "@/server/customers";
 
 async function updateCustomerAction(formData: FormData) {
   "use server";
   const id = String(formData.get("id"));
   await updateCustomer(id, {
     name: String(formData.get("name") || ""),
-    phone: String(formData.get("phone") || "") || null,
-    email: String(formData.get("email") || "") || null,
-    address: String(formData.get("address") || "") || null,
+    phone: String(formData.get("phone") || ""),
+    email: String(formData.get("email") || ""),
+    streetAddress: String(formData.get("streetAddress") || ""),
+    postalCode: String(formData.get("postalCode") || ""),
+    city: String(formData.get("city") || ""),
+    country: String(formData.get("country") || "Norge"),
     notes: String(formData.get("notes") || "") || null,
   });
   redirect(`/customers/${id}`);
@@ -74,12 +75,12 @@ export default async function CustomerDetailPage({
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
-          <CardHeader title="Rediger kunde" />
+          <CardHeader title="Faktureringsinformasjon" />
           <CardBody>
             <form action={updateCustomerAction} className="grid gap-3">
               <input type="hidden" name="id" value={customer.id} />
               <div>
-                <Label htmlFor="name">Navn</Label>
+                <Label htmlFor="name">Navn *</Label>
                 <Input
                   id="name"
                   name="name"
@@ -89,35 +90,36 @@ export default async function CustomerDetailPage({
                 />
               </div>
               <div>
-                <Label htmlFor="phone">Telefon</Label>
+                <Label htmlFor="phone">Telefon *</Label>
                 <Input
                   id="phone"
                   name="phone"
                   defaultValue={customer.phone ?? ""}
+                  required
                   className="mt-1.5"
                 />
               </div>
               <div>
-                <Label htmlFor="email">E-post</Label>
+                <Label htmlFor="email">E-post *</Label>
                 <Input
                   id="email"
                   name="email"
                   type="email"
                   defaultValue={customer.email ?? ""}
+                  required
                   className="mt-1.5"
                 />
               </div>
+              <BillingAddressFields
+                defaults={{
+                  streetAddress: customer.streetAddress ?? "",
+                  postalCode: customer.postalCode ?? "",
+                  city: customer.city ?? "",
+                  country: customer.country ?? "Norge",
+                }}
+              />
               <div>
-                <Label htmlFor="address">Adresse</Label>
-                <Input
-                  id="address"
-                  name="address"
-                  defaultValue={customer.address ?? ""}
-                  className="mt-1.5"
-                />
-              </div>
-              <div>
-                <Label htmlFor="notes">Notater</Label>
+                <Label htmlFor="notes">Interne notater</Label>
                 <Textarea
                   id="notes"
                   name="notes"

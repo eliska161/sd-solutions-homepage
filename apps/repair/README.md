@@ -61,10 +61,20 @@ npm run dev                  # http://localhost:3001
 ### What happens on deploy
 
 1. Docker build uses placeholder env (no real DB needed at build time)
-2. Fly `release_command` runs `scripts/fly-release.sh` → applies committed SQL in `drizzle/migrations` via `fly-db-migrate.cjs`
+2. Fly `release_command` runs `node /app/scripts/fly-db-migrate.cjs` (SQL migrations)
 3. App machines start with the new image
 
-No manual SQL paste / demo seed required for schema.
+### Auto-deploy from GitHub (Fly)
+
+Ja — i Fly-dashboardet:
+
+1. App → **Settings** → **GitHub** / **Continuous deployment**
+2. Connect repo `eliska161/sd-solutions-homepage`
+3. Branch: `main` (etter merge)
+4. Root / working directory: `apps/repair`
+5. Config path: `apps/repair/fly.toml`
+
+Da deployer Fly automatisk ved hver push til valgt branch.
 
 ### 1. Neon database
 
