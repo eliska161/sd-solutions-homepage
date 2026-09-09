@@ -49,11 +49,11 @@ npm run dev                  # http://localhost:3001
 
 ## Deploy on Fly.io + Neon (recommended)
 
-### Fly UI fields
+### Fly UI / GitHub deploy fields
 
 | Field | Value |
 |---|---|
-| Branch | `main` (or this PR branch) |
+| Branch | `cursor/fly-release-domain-d9bc` (this PR) or `main` after merge |
 | Internal port | `3001` |
 | Working directory | `apps/repair` |
 | Config path | `apps/repair/fly.toml` |
@@ -61,28 +61,65 @@ npm run dev                  # http://localhost:3001
 ### What happens on deploy
 
 1. Docker build uses placeholder env (no real DB needed at build time)
-2. Fly `release_command` runs `scripts/fly-release.sh` → **`drizzle-kit push --force`** against `DATABASE_URL` secret
+2. Fly `release_command` runs `scripts/fly-release.sh` → applies committed SQL in `drizzle/migrations` via `fly-db-migrate.cjs`
 3. App machines start with the new image
 
-No manual SQL paste / demo seed required for schema. Create the first admin after deploy (sign-up API + `UPDATE users SET role = 'ADMIN'`).
+No manual SQL paste / demo seed required for schema.
 
 ### 1. Neon database
 
 1. Create a project in [Neon](https://neon.tech)
-2. Copy the pooled `DATABASE_URL` (sslmode=require)
+2. Copy the pooled `DATABASE_URL` (`sslmode=require`)
+3. Set Fly secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`
 
-### 2. Fly app
+### 2. Volume + IPs + domain (CLI — not reliable in Fly UI)
 
-From Fly dashboard (or CLI):
+From `apps/repair`:
 
-- App: `sd-solutions-repair`
-- Volume: `repair_uploads` → `/app/public/uploads`
-- Secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`
+```bash
+chmod +x scripts/fly-setup-infra.sh
+./scripts/fly-setup-infra.sh
+```
 
-### 3. Custom domain
+This runs (idempotent):
 
-Add `repair.sd-solutions.org` under Certificates and point DNS as Fly shows.
+```bash
+fly ips allocate-v4 --shared -a sd-solutions-repair
+fly ips allocate-v6 -a sd-solutions-repair
+fly volumes create repair_uploads --region arn --size 3 --app sd-solutions-repair --yes
+fly certs add repair.sd-solutions.org -a sd-solutions-repair
+```
 
+Then add the DNS records `fly certs show repair.sd-solutions.org -a sd-solutions-repair` prints.
+
+### 3. Deploy
+
+```bash
+cd apps/repair
+fly deploy -a sd-solutions-repair --config fly.toml
+```
+
+### 4. First admin (no demo seed)
+
+After the app is up, in browser console on `/login`:
+
+```js
+await fetch('/api/auth/sign-up/email', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({
+    email: 'admin@sd-solutions.org',
+    password: 'DittSterkePassordHer',
+    name: 'SD Admin'
+  })
+}).then(r => r.json())
+```
+
+In Neon SQL Editor:
+
+```sql
+UPDATE users SET role = 'ADMIN' WHERE email = 'admin@sd-solutions.org';
+```
 
 ## Docs
 

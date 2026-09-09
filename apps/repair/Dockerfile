@@ -24,6 +24,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3001
 ENV HOSTNAME=0.0.0.0
 ENV CI=true
+# Used by release migrate script (standalone Next image does not ship these packages).
+ENV NODE_PATH=/app/migrate-node/node_modules
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
@@ -32,14 +34,21 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Schema push tools for Fly release_command (drizzle-kit push)
-COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
-COPY --from=builder /app/src/db ./src/db
-COPY --from=builder /app/scripts/fly-release.sh ./scripts/fly-release.sh
+# SQL migrations + release scripts
+COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/fly-db-migrate.cjs ./scripts/fly-db-migrate.cjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/fly-release.sh ./scripts/fly-release.sh
+
+# Minimal deps for release_command migrate (not part of Next standalone)
+WORKDIR /app/migrate-node
+RUN npm init -y >/dev/null 2>&1 \
+  && npm install --omit=dev --no-fund --no-audit drizzle-orm@0.45.2 postgres@3.4.9 \
+  && chown -R nextjs:nodejs /app/migrate-node
+
+WORKDIR /app
 RUN chmod +x ./scripts/fly-release.sh \
-  && npm install --omit=dev --no-save drizzle-kit@0.31.10 dotenv@17.4.2 typescript@5 \
   && mkdir -p /app/public/uploads \
-  && chown -R nextjs:nodejs /app
+  && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts
 
 USER nextjs
 EXPOSE 3001
