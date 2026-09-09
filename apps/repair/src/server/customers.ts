@@ -10,13 +10,29 @@ import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
 
+function composeAddress(input: {
+  streetAddress: string;
+  postalCode: string;
+  city: string;
+  country: string;
+}) {
+  return [
+    input.streetAddress.trim(),
+    `${input.postalCode.trim()} ${input.city.trim()}`.trim(),
+    input.country.trim(),
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
 const customerInputSchema = z.object({
   name: z.string().min(1, "Navn er påkrevd"),
-  phone: z.string().optional().nullable(),
-  email: z
-    .union([z.string().email("Ugyldig e-post"), z.literal(""), z.null()])
-    .optional(),
-  address: z.string().optional().nullable(),
+  phone: z.string().min(5, "Telefonnummer er påkrevd"),
+  email: z.string().email("Ugyldig e-post"),
+  streetAddress: z.string().min(2, "Gateadresse er påkrevd"),
+  postalCode: z.string().min(2, "Postnummer er påkrevd"),
+  city: z.string().min(2, "Sted er påkrevd"),
+  country: z.string().min(2, "Land er påkrevd").default("Norge"),
   notes: z.string().optional().nullable(),
 });
 
@@ -95,14 +111,19 @@ export async function createCustomer(input: z.infer<typeof customerInputSchema>)
   assertCanWrite(session.user.role);
   const data = customerInputSchema.parse(input);
   const db = getDb();
+  const address = composeAddress(data);
 
   const [row] = await db
     .insert(customers)
     .values({
       name: data.name,
-      phone: data.phone || null,
-      email: data.email || null,
-      address: data.address || null,
+      phone: data.phone,
+      email: data.email,
+      streetAddress: data.streetAddress,
+      postalCode: data.postalCode,
+      city: data.city,
+      country: data.country,
+      address,
       notes: data.notes || null,
       lastActivityAt: new Date(),
     })
@@ -138,14 +159,19 @@ export async function updateCustomer(
 
   const before = await getCustomer(id);
   if (!before) throw new Error("Kunde ikke funnet");
+  const address = composeAddress(data);
 
   const [row] = await db
     .update(customers)
     .set({
       name: data.name,
-      phone: data.phone || null,
-      email: data.email || null,
-      address: data.address || null,
+      phone: data.phone,
+      email: data.email,
+      streetAddress: data.streetAddress,
+      postalCode: data.postalCode,
+      city: data.city,
+      country: data.country,
+      address,
       notes: data.notes || null,
       lastActivityAt: new Date(),
     })

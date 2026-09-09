@@ -51,6 +51,20 @@ export async function getDevice(id: string) {
   return row ?? null;
 }
 
+/** Lookup existing device by IMEI or serial (exact, trimmed). */
+export async function lookupDeviceByImeiOrSerial(query: string) {
+  await requireSession();
+  const q = query.trim();
+  if (q.length < 5) return null;
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(devices)
+    .where(or(eq(devices.imei, q), eq(devices.serialNumber, q)))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function getDeviceHistory(deviceId: string) {
   await requireSession();
   const db = getDb();

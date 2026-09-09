@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BillingAddressFields } from "@/components/forms/BillingAddressFields";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { DataTable, Td } from "@/components/ui/DataTable";
@@ -14,9 +15,12 @@ async function createCustomerAction(formData: FormData) {
   "use server";
   const row = await createCustomer({
     name: String(formData.get("name") || ""),
-    phone: String(formData.get("phone") || "") || null,
-    email: String(formData.get("email") || "") || null,
-    address: String(formData.get("address") || "") || null,
+    phone: String(formData.get("phone") || ""),
+    email: String(formData.get("email") || ""),
+    streetAddress: String(formData.get("streetAddress") || ""),
+    postalCode: String(formData.get("postalCode") || ""),
+    city: String(formData.get("city") || ""),
+    country: String(formData.get("country") || "Norge"),
     notes: String(formData.get("notes") || "") || null,
   });
   redirect(`/customers/${row.id}`);
@@ -36,7 +40,7 @@ export default async function CustomersPage({
     <div>
       <PageHeader
         title="Kunder"
-        description="Kunderegister for verkstedet."
+        description="Faktureringsinfo er obligatorisk for alle kunder."
         actions={
           <Link href="/customers?new=1">
             <Button type="button">Ny kunde</Button>
@@ -62,26 +66,33 @@ export default async function CustomersPage({
           className="mb-8 grid gap-4 rounded-2xl border border-border bg-surface p-5 sm:grid-cols-2"
         >
           <div className="sm:col-span-2">
-            <p className="text-sm font-medium text-foreground">Ny kunde</p>
+            <p className="text-sm font-medium text-foreground">
+              Ny kunde — faktureringsinformasjon
+            </p>
           </div>
           <div>
             <Label htmlFor="name">Navn *</Label>
             <Input id="name" name="name" required className="mt-1.5" />
           </div>
           <div>
-            <Label htmlFor="phone">Telefon</Label>
-            <Input id="phone" name="phone" className="mt-1.5" />
-          </div>
-          <div>
-            <Label htmlFor="email">E-post</Label>
-            <Input id="email" name="email" type="email" className="mt-1.5" />
-          </div>
-          <div>
-            <Label htmlFor="address">Adresse</Label>
-            <Input id="address" name="address" className="mt-1.5" />
+            <Label htmlFor="phone">Telefon *</Label>
+            <Input id="phone" name="phone" required className="mt-1.5" />
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="notes">Notater</Label>
+            <Label htmlFor="email">E-post *</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              required
+              className="mt-1.5"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <BillingAddressFields />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="notes">Interne notater</Label>
             <Textarea id="notes" name="notes" className="mt-1.5" />
           </div>
           <div className="flex gap-2 sm:col-span-2">
@@ -110,7 +121,7 @@ export default async function CustomersPage({
           }
         />
       ) : (
-        <DataTable headers={["Navn", "Telefon", "E-post", "Sist aktivitet"]}>
+        <DataTable headers={["Navn", "Telefon", "E-post", "Adresse", "Sist"]}>
           {customers.map((c) => (
             <tr key={c.id} className="hover:bg-white/[0.03]">
               <Td>
@@ -123,6 +134,9 @@ export default async function CustomersPage({
               </Td>
               <Td className="text-muted">{c.phone || "—"}</Td>
               <Td className="text-muted">{c.email || "—"}</Td>
+              <Td className="max-w-xs truncate text-muted">
+                {c.address || "—"}
+              </Td>
               <Td className="text-muted">
                 {formatDate(c.lastActivityAt ?? c.createdAt)}
               </Td>
