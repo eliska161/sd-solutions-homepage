@@ -10,15 +10,9 @@ primary_region = "arn"
   dockerfile = "Dockerfile"
 
 [deploy]
-<<<<<<< HEAD
   # Avoid shell scripts (Windows CRLF → exit 127 "not found" on Linux).
   # NODE_PATH is set in the image for migrate-node packages.
   release_command = "node /app/scripts/fly-db-migrate.cjs"
-=======
-  # Runs once per deploy with Fly secrets (DATABASE_URL) before app machines update.
-  # Uses committed SQL migrations (no interactive drizzle-kit push).
-  release_command = "/app/scripts/fly-release.sh"
->>>>>>> origin/main
 
 [env]
   PORT = "3001"
