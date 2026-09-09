@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { MoneyText } from "@/components/ui/MoneyText";
@@ -11,12 +12,22 @@ import { FlipStatusBadge } from "@/components/ui/StatusBadge";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatDate, parseKrToOre } from "@/lib/labels";
 import { formatRoiBps } from "@/lib/money";
+import { listAttachments } from "@/server/attachments";
+import {
+  getDiagnosticsForFlip,
+  getOrCreateFlipDiagnostics,
+} from "@/server/diagnostics";
+import { getFlipIntakeInspection } from "@/server/flip-intake";
 import {
   addFlipCost,
   createListing,
   getFlip,
   recordSale,
 } from "@/server/flips";
+import { FlipConditionFaultsPanel } from "./FlipConditionFaultsPanel";
+import { FlipDevicePanel } from "./FlipDevicePanel";
+import { FlipDiagnosticsPanel } from "./FlipDiagnosticsPanel";
+import { FlipIntakePanel } from "./FlipIntakePanel";
 import { FlipStatusForm } from "./FlipStatusForm";
 
 async function addCostAction(formData: FormData) {
@@ -68,6 +79,13 @@ async function recordSaleAction(formData: FormData) {
   redirect(`/refurbishment/${refurbishmentId}`);
 }
 
+async function ensureFlipDiagnosticsAction(formData: FormData) {
+  "use server";
+  const refurbishmentId = String(formData.get("refurbishmentId"));
+  await getOrCreateFlipDiagnostics(refurbishmentId);
+  redirect(`/refurbishment/${refurbishmentId}`);
+}
+
 export default async function FlipDetailPage({
   params,
 }: {
@@ -77,6 +95,12 @@ export default async function FlipDetailPage({
   const detail = await getFlip(id);
   if (!detail) notFound();
   const { flip, costs, listings, sales } = detail;
+
+  const [intake, diag, photos] = await Promise.all([
+    getFlipIntakeInspection(id),
+    getDiagnosticsForFlip(id),
+    listAttachments("refurbishment", id),
+  ]);
 
   return (
     <div>
@@ -131,6 +155,115 @@ export default async function FlipDetailPage({
                   ? formatRoiBps(flip.estimatedRoiBps)
                   : "—"}
             </p>
+          </CardBody>
+        </Card>
+      </div>
+
+      <div className="mb-6 grid gap-6 xl:grid-cols-2">
+        <Card>
+          <CardHeader title="Enhet" />
+          <CardBody>
+            <FlipDevicePanel
+              refurbishmentId={flip.id}
+              initial={{
+                model: flip.model,
+                storage: flip.storage,
+                color: flip.color,
+                serialNumber: flip.serialNumber,
+                imei: flip.imei,
+                batteryHealth: flip.batteryHealth,
+                activationLockClear: flip.activationLockClear,
+                findMyOff: flip.findMyOff,
+                notes: flip.notes,
+              }}
+            />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader title="Tilstand og feil" />
+          <CardBody>
+            <FlipConditionFaultsPanel
+              refurbishmentId={flip.id}
+              initial={{
+                conditionGrade: flip.conditionGrade,
+                cosmeticFaultKeys: flip.cosmeticFaultKeys ?? [],
+                repairFaultKeys: flip.repairFaultKeys ?? [],
+                conditionComment: flip.conditionComment,
+                faultComment: flip.faultComment,
+                conditionSummary: flip.conditionSummary,
+                faultSummary: flip.faultSummary,
+              }}
+            />
+          </CardBody>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <CardHeader title="Mottakskontroll" />
+          <CardBody>
+            <FlipIntakePanel refurbishmentId={flip.id} intake={intake} />
+          </CardBody>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <CardHeader
+            title="Diagnostikk"
+            actions={
+              !diag ? (
+                <form action={ensureFlipDiagnosticsAction}>
+                  <input type="hidden" name="refurbishmentId" value={flip.id} />
+                  <Button type="submit" size="sm" variant="secondary">
+                    Start diagnostikk
+                  </Button>
+                </form>
+              ) : null
+            }
+          />
+          <CardBody>
+            {diag ? (
+              <FlipDiagnosticsPanel
+                refurbishmentId={flip.id}
+                results={diag.results}
+              />
+            ) : (
+              <EmptyState
+                title="Ingen diagnostikk ennå"
+                description="Start sjekklisten for denne flip-telefonen."
+              />
+            )}
+          </CardBody>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <CardHeader title="Bilder" />
+          <CardBody>
+            {photos.length === 0 ? (
+              <p className="text-sm text-muted">
+                Ingen bilder ennå — last opp under mottakskontroll.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {photos.map((p) => (
+                  <a
+                    key={p.id}
+                    href={p.storagePath}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="overflow-hidden rounded-xl border border-border"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.storagePath}
+                      alt={p.description || p.fileName}
+                      className="aspect-square w-full object-cover"
+                    />
+                    <p className="truncate px-2 py-1 text-[11px] text-muted">
+                      {p.category}
+                    </p>
+                  </a>
+                ))}
+              </div>
+            )}
           </CardBody>
         </Card>
       </div>
@@ -216,7 +349,16 @@ export default async function FlipDetailPage({
               </div>
               <div>
                 <Label htmlFor="description">Beskrivelse</Label>
-                <Textarea id="description" name="description" className="mt-1.5" />
+                <Textarea
+                  id="description"
+                  name="description"
+                  className="mt-1.5"
+                  defaultValue={
+                    [flip.conditionSummary, flip.faultSummary]
+                      .filter(Boolean)
+                      .join("\n\n") || undefined
+                  }
+                />
               </div>
               <Button type="submit" variant="secondary" size="sm">
                 Opprett listing
