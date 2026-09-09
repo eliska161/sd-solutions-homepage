@@ -34,7 +34,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# SQL migrations + release migrate script
+# SQL migrations + release migrate script (node — avoid Windows CRLF shell 127)
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 RUN mkdir -p /app/scripts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/fly-db-migrate.cjs ./scripts/fly-db-migrate.cjs
