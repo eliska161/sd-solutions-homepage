@@ -1,0 +1,52 @@
+export const NAV = [
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+  },
+  {
+    label: "Reparasjoner",
+    href: "/repairs",
+    children: [
+      { label: "Alle", href: "/repairs" },
+      { label: "Nye", href: "/repairs?status=NEW" },
+      { label: "Diagnostikk", href: "/repairs?status=DIAGNOSTICS" },
+      { label: "Venter på kunde", href: "/repairs?status=WAITING_FOR_CUSTOMER" },
+      { label: "Venter på deler", href: "/repairs?status=WAITING_FOR_PART" },
+      { label: "Under reparasjon", href: "/repairs?status=IN_REPAIR" },
+      { label: "Testing", href: "/repairs?status=TESTING" },
+      { label: "Klar for henting", href: "/repairs?status=READY_FOR_PICKUP" },
+      { label: "Fullført", href: "/repairs?status=COMPLETED" },
+    ],
+  },
+  { label: "Kunder", href: "/customers" },
+  { label: "Enheter", href: "/devices" },
+  {
+    label: "Lager",
+    href: "/inventory",
+    children: [
+      { label: "Oversikt", href: "/inventory" },
+      { label: "Deler", href: "/inventory/parts" },
+      { label: "Bevegelser", href: "/inventory/movements" },
+      { label: "Innkjøp", href: "/inventory/purchase-orders" },
+      { label: "Leverandører", href: "/inventory/suppliers" },
+    ],
+  },
+  {
+    label: "Refurbishment",
+    href: "/refurbishment",
+    children: [
+      { label: "Flip-dashboard", href: "/refurbishment" },
+      { label: "Kandidater", href: "/refurbishment/candidates" },
+      { label: "Aktive flips", href: "/refurbishment/active" },
+      { label: "Klar for salg", href: "/refurbishment/ready" },
+      { label: "Listet", href: "/refurbishment/listed" },
+      { label: "Solgt", href: "/refurbishment/sold" },
+      { label: "Arkiv", href: "/refurbishment/archive" },
+    ],
+  },
+  { label: "Salg", href: "/sales" },
+  { label: "Tilbud", href: "/quotes" },
+  { label: "Garanti", href: "/warranty" },
+  { label: "Rapporter", href: "/reports" },
+  { label: "Innstillinger", href: "/settings" },
+] as const;
