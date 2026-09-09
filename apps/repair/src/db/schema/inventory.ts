@@ -41,6 +41,12 @@ export const purchaseOrderStatusEnum = pgEnum("purchase_order_status", [
   "CANCELLED",
 ]);
 
+export const repairPartStatusEnum = pgEnum("repair_part_status", [
+  "USED",
+  "ORDERED",
+  "CANCELLED",
+]);
+
 export const priceSourceEnum = pgEnum("price_source", [
   "MANUAL",
   "CSV",
@@ -137,6 +143,8 @@ export const repairParts = pgTable(
       .references(() => parts.id),
     quantity: integer("quantity").notNull().default(1),
     unitCostOre: integer("unit_cost_ore").notNull().default(0),
+    status: repairPartStatusEnum("status").notNull().default("USED"),
+    notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

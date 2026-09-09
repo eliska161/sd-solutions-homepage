@@ -30,6 +30,67 @@ export async function listServices(includeInactive = false) {
     .orderBy(desc(services.createdAt));
 }
 
+const DEFAULT_SERVICES = [
+  {
+    code: "DIAG",
+    name: "Diagnostikk",
+    description: "Feilsøking / diagnostikk",
+    customerPriceOre: 0,
+  },
+  {
+    code: "SCREEN-GENERIC",
+    name: "Skjermbytte",
+    description: "Bytte av skjerm (pris justeres per modell)",
+    customerPriceOre: 249900,
+  },
+  {
+    code: "BATTERY-GENERIC",
+    name: "Batteribytte",
+    description: "Bytte av batteri",
+    customerPriceOre: 129900,
+  },
+  {
+    code: "PORT-GENERIC",
+    name: "Ladeport",
+    description: "Reparasjon / bytte av ladeport",
+    customerPriceOre: 149900,
+  },
+  {
+    code: "GLASS-BACK",
+    name: "Bakglass",
+    description: "Bytte bakglass",
+    customerPriceOre: 199900,
+  },
+] as const;
+
+/** Upsert a small default service catalog when the list is empty. */
+export async function ensureDefaultServices() {
+  await requireSession();
+  const db = getDb();
+  const existing = await db.select({ id: services.id }).from(services).limit(1);
+  if (existing.length > 0) {
+    return listServices(true);
+  }
+
+  for (const s of DEFAULT_SERVICES) {
+    await db
+      .insert(services)
+      .values({
+        code: s.code,
+        name: s.name,
+        description: s.description,
+        customerPriceOre: s.customerPriceOre,
+        warrantyDays: 90,
+        active: true,
+      })
+      .onConflictDoNothing({ target: services.code });
+  }
+
+  revalidatePath("/services");
+  revalidatePath("/repairs");
+  return listServices(true);
+}
+
 export async function createService(input: z.infer<typeof serviceInputSchema>) {
   const session = await requireSession();
   assertCanWrite(session.user.role);
@@ -61,6 +122,7 @@ export async function createService(input: z.infer<typeof serviceInputSchema>) {
   revalidatePath("/settings");
   revalidatePath("/services");
   revalidatePath("/quotes");
+  revalidatePath("/repairs");
   return row;
 }
 

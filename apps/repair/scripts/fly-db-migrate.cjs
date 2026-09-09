@@ -132,6 +132,34 @@ async function ensureCustomerBillingColumns(client) {
   console.log("==> Customer billing columns ready");
 }
 
+async function ensureRepairPartStatus(client) {
+  const hasTable = await publicTableExists(client, "repair_parts");
+  if (!hasTable) return;
+
+  await client.unsafe(`
+    DO $$ BEGIN
+      CREATE TYPE "repair_part_status" AS ENUM('USED', 'ORDERED', 'CANCELLED');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+  `);
+
+  const hasStatus = await publicColumnExists(client, "repair_parts", "status");
+  if (!hasStatus) {
+    console.log("==> Adding repair_parts.status / notes (idempotent repair)");
+    await client.unsafe(`
+      ALTER TABLE "repair_parts"
+      ADD COLUMN IF NOT EXISTS "status" "repair_part_status" DEFAULT 'USED' NOT NULL
+    `);
+    await client.unsafe(`
+      ALTER TABLE "repair_parts"
+      ADD COLUMN IF NOT EXISTS "notes" text
+    `);
+  } else {
+    console.log("==> repair_parts.status already present");
+  }
+}
+
 async function main() {
   console.log("==> Applying Drizzle migrations from", migrationsFolder);
   const client = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
@@ -147,6 +175,7 @@ async function main() {
 
     await migrate(db, { migrationsFolder });
     await ensureCustomerBillingColumns(client);
+    await ensureRepairPartStatus(client);
     console.log("==> Migrations complete");
   } finally {
     await client.end({ timeout: 5 });

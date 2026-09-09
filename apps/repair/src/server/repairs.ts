@@ -458,6 +458,8 @@ export async function listRepairParts(ticketId: string) {
       partId: repairParts.partId,
       quantity: repairParts.quantity,
       unitCostOre: repairParts.unitCostOre,
+      status: repairParts.status,
+      notes: repairParts.notes,
       createdAt: repairParts.createdAt,
       partName: parts.name,
       partSku: parts.sku,
