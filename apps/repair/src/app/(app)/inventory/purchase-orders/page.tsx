@@ -1,11 +1,11 @@
 import { ModulePlaceholder } from "@/components/layout/ModulePlaceholder";
 
-export default function Page() {
+export default function PurchaseOrdersPage() {
   return (
     <ModulePlaceholder
-      title="Innkjøp"
-      description="Purchase orders og mottak."
-      phase="fase 10"
+      title="Innkjøpsordrer"
+      description="PO-flyt kommer i en senere fase. Bruk Motta lager under Deler inntil videre."
+      phase="fase 4"
     />
   );
 }

@@ -77,6 +77,17 @@ export async function listClaims(status?: z.infer<typeof claimStatusSchema>) {
     .orderBy(desc(warrantyClaims.createdAt));
 }
 
+export async function getWarrantyForTicket(ticketId: string) {
+  await requireSession();
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(warranties)
+    .where(eq(warranties.ticketId, ticketId))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function createClaim(input: {
   warrantyId: string;
   description: string;

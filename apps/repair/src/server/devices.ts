@@ -3,7 +3,7 @@
 import { desc, eq, ilike, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { devices } from "@/db/schema";
+import { devices, repairTickets } from "@/db/schema";
 import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
@@ -49,6 +49,16 @@ export async function getDevice(id: string) {
   const db = getDb();
   const [row] = await db.select().from(devices).where(eq(devices.id, id)).limit(1);
   return row ?? null;
+}
+
+export async function getDeviceHistory(deviceId: string) {
+  await requireSession();
+  const db = getDb();
+  return db
+    .select()
+    .from(repairTickets)
+    .where(eq(repairTickets.deviceId, deviceId))
+    .orderBy(desc(repairTickets.createdAt));
 }
 
 export async function createDevice(input: z.infer<typeof deviceInputSchema>) {

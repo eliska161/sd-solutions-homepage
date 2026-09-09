@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { quoteItems, quotes } from "@/db/schema";
@@ -9,6 +9,12 @@ import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
+
+export async function listQuotes() {
+  await requireSession();
+  const db = getDb();
+  return db.select().from(quotes).orderBy(desc(quotes.createdAt));
+}
 
 const quoteItemInput = z.object({
   kind: z.enum(["SERVICE", "PART", "CUSTOM"]).default("CUSTOM"),

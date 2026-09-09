@@ -3,7 +3,7 @@
 import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { customers, repairTickets } from "@/db/schema";
+import { customers, devices, repairTickets } from "@/db/schema";
 import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
@@ -54,6 +54,40 @@ export async function getCustomer(id: string) {
     .where(eq(customers.id, id))
     .limit(1);
   return row ?? null;
+}
+
+export async function getCustomerProfile(id: string) {
+  await requireSession();
+  const db = getDb();
+  const customer = await getCustomer(id);
+  if (!customer) return null;
+
+  const customerDevices = await db
+    .select()
+    .from(devices)
+    .where(eq(devices.customerId, id))
+    .orderBy(desc(devices.createdAt));
+
+  const customerRepairs = await db
+    .select()
+    .from(repairTickets)
+    .where(eq(repairTickets.customerId, id))
+    .orderBy(desc(repairTickets.createdAt));
+
+  const openRepairs = customerRepairs.filter(
+    (r) => !["COMPLETED", "CANCELLED", "RETURNED"].includes(r.status),
+  ).length;
+
+  return {
+    customer,
+    devices: customerDevices,
+    repairs: customerRepairs,
+    stats: {
+      deviceCount: customerDevices.length,
+      repairCount: customerRepairs.length,
+      openRepairs,
+    },
+  };
 }
 
 export async function createCustomer(input: z.infer<typeof customerInputSchema>) {

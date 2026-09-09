@@ -5,9 +5,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   customers,
+  parts,
   repairNotes,
+  repairParts,
+  repairServices,
   repairTicketStatusHistory,
   repairTickets,
+  services,
 } from "@/db/schema";
 import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
@@ -228,4 +232,145 @@ export async function listRepairNotes(ticketId: string) {
     .from(repairNotes)
     .where(eq(repairNotes.ticketId, ticketId))
     .orderBy(desc(repairNotes.createdAt));
+}
+
+export async function listRepairStatusHistory(ticketId: string) {
+  await requireSession();
+  const db = getDb();
+  return db
+    .select()
+    .from(repairTicketStatusHistory)
+    .where(eq(repairTicketStatusHistory.ticketId, ticketId))
+    .orderBy(desc(repairTicketStatusHistory.createdAt));
+}
+
+export async function listRepairParts(ticketId: string) {
+  await requireSession();
+  const db = getDb();
+  return db
+    .select({
+      id: repairParts.id,
+      ticketId: repairParts.ticketId,
+      partId: repairParts.partId,
+      quantity: repairParts.quantity,
+      unitCostOre: repairParts.unitCostOre,
+      createdAt: repairParts.createdAt,
+      partName: parts.name,
+      partSku: parts.sku,
+    })
+    .from(repairParts)
+    .leftJoin(parts, eq(parts.id, repairParts.partId))
+    .where(eq(repairParts.ticketId, ticketId))
+    .orderBy(desc(repairParts.createdAt));
+}
+
+export async function listRepairServices(ticketId: string) {
+  await requireSession();
+  const db = getDb();
+  return db
+    .select({
+      id: repairServices.id,
+      ticketId: repairServices.ticketId,
+      serviceId: repairServices.serviceId,
+      priceOre: repairServices.priceOre,
+      createdAt: repairServices.createdAt,
+      serviceName: services.name,
+      serviceCode: services.code,
+    })
+    .from(repairServices)
+    .leftJoin(services, eq(services.id, repairServices.serviceId))
+    .where(eq(repairServices.ticketId, ticketId))
+    .orderBy(desc(repairServices.createdAt));
+}
+
+export async function addServiceToRepair(input: {
+  ticketId: string;
+  serviceId: string;
+}) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const data = z
+    .object({
+      ticketId: z.string().uuid(),
+      serviceId: z.string().uuid(),
+    })
+    .parse(input);
+  const db = getDb();
+
+  const ticket = await getRepair(data.ticketId);
+  if (!ticket) throw new Error("Reparasjon ikke funnet");
+
+  const [service] = await db
+    .select()
+    .from(services)
+    .where(eq(services.id, data.serviceId))
+    .limit(1);
+  if (!service) throw new Error("Tjeneste ikke funnet");
+
+  const [row] = await db
+    .insert(repairServices)
+    .values({
+      ticketId: data.ticketId,
+      serviceId: data.serviceId,
+      priceOre: service.customerPriceOre,
+    })
+    .returning();
+
+  const existingServices = await db
+    .select()
+    .from(repairServices)
+    .where(eq(repairServices.ticketId, data.ticketId));
+  const servicesTotal = existingServices.reduce((s, r) => s + r.priceOre, 0);
+
+  await db
+    .update(repairTickets)
+    .set({
+      customerPriceOre: servicesTotal,
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, data.ticketId));
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: data.ticketId,
+    type: "repair.service_added",
+    message: `Tjeneste lagt til: ${service.name}`,
+    actorId: session.user.id,
+  });
+
+  revalidatePath(`/repairs/${data.ticketId}`);
+  return row;
+}
+
+export async function updateRepairPricing(
+  ticketId: string,
+  input: {
+    customerPriceOre?: number | null;
+    otherCostsOre?: number;
+  },
+) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const db = getDb();
+  const before = await getRepair(ticketId);
+  if (!before) throw new Error("Reparasjon ikke funnet");
+
+  const [row] = await db
+    .update(repairTickets)
+    .set({
+      customerPriceOre:
+        input.customerPriceOre === undefined
+          ? before.customerPriceOre
+          : input.customerPriceOre,
+      otherCostsOre:
+        input.otherCostsOre === undefined
+          ? before.otherCostsOre
+          : input.otherCostsOre,
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, ticketId))
+    .returning();
+
+  revalidatePath(`/repairs/${ticketId}`);
+  return row;
 }

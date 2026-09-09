@@ -59,6 +59,7 @@ export async function createService(input: z.infer<typeof serviceInputSchema>) {
   });
 
   revalidatePath("/settings");
+  revalidatePath("/services");
   revalidatePath("/quotes");
   return row;
 }
