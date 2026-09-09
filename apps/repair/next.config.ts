@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  outputFileTracingIncludes: {
+    "/**": ["./data/**/*"],
+  },
+  serverExternalPackages: ["ios-device-list"],
 };
 
 export default nextConfig;

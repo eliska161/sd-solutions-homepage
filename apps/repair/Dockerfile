@@ -39,6 +39,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 RUN mkdir -p /app/scripts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/fly-db-migrate.cjs ./scripts/fly-db-migrate.cjs
 
+# Local TAC IMEI lookup index (+ meta)
+COPY --from=builder --chown=nextjs:nodejs /app/data ./data
+
+# ios-device-list for Apple color/storage supplement (not always traced into standalone)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/ios-device-list ./node_modules/ios-device-list
+
 # Minimal deps for release_command migrate (not part of Next standalone)
 WORKDIR /app/migrate-node
 RUN npm init -y >/dev/null 2>&1 \
@@ -47,8 +53,9 @@ RUN npm init -y >/dev/null 2>&1 \
 
 WORKDIR /app
 RUN mkdir -p /app/public/uploads /data/uploads \
-  && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts /data/uploads \
-  && test -f /app/scripts/fly-db-migrate.cjs
+  && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts /app/data /app/node_modules /data/uploads \
+  && test -f /app/scripts/fly-db-migrate.cjs \
+  && test -f /app/data/tac-index.json.gz
 
 USER nextjs
 EXPOSE 3001

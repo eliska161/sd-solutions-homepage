@@ -39,6 +39,7 @@ npm run dev                  # http://localhost:3001
 - Warranty tracking
 - Global search, audit log hooks, settings
 - Seeded [DEMO] data
+- IMEI autofill via local TAC database ([MoazEb/tac-database](https://github.com/MoazEb/tac-database)) + Apple supplement ([ios-device-list](https://github.com/pbakondy/ios-device-list))
 
 ## Explicitly NOT in this launch
 
