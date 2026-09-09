@@ -1,0 +1,7 @@
+# Force LF so Fly Linux release scripts never get Windows CRLF (exit 127).
+* text=auto eol=lf
+*.sh text eol=lf
+*.cjs text eol=lf
+*.mjs text eol=lf
+Dockerfile text eol=lf
+fly.toml text eol=lf

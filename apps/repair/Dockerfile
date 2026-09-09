@@ -34,10 +34,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# SQL migrations + release scripts
+# SQL migrations + release migrate script (node — avoid Windows CRLF shell 127)
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
+RUN mkdir -p /app/scripts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/fly-db-migrate.cjs ./scripts/fly-db-migrate.cjs
-COPY --from=builder --chown=nextjs:nodejs /app/scripts/fly-release.sh ./scripts/fly-release.sh
 
 # Minimal deps for release_command migrate (not part of Next standalone)
 WORKDIR /app/migrate-node
@@ -46,9 +46,9 @@ RUN npm init -y >/dev/null 2>&1 \
   && chown -R nextjs:nodejs /app/migrate-node
 
 WORKDIR /app
-RUN chmod +x ./scripts/fly-release.sh \
-  && mkdir -p /app/public/uploads \
-  && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts
+RUN mkdir -p /app/public/uploads \
+  && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts \
+  && test -f /app/scripts/fly-db-migrate.cjs
 
 USER nextjs
 EXPOSE 3001
