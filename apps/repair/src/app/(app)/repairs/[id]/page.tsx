@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { DownloadSummaryLink } from "@/components/DownloadSummaryLink";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -216,7 +217,12 @@ export default async function RepairDetailPage({
       <PageHeader
         title={ticket.ticketNumber}
         description={ticket.customerProblem}
-        actions={<RepairStatusBadge status={ticket.status} />}
+        actions={
+          <>
+            <DownloadSummaryLink href={`/api/repairs/${ticket.id}/summary`} />
+            <RepairStatusBadge status={ticket.status} />
+          </>
+        }
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-3">

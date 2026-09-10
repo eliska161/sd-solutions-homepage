@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { DownloadSummaryLink } from "@/components/DownloadSummaryLink";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -123,7 +124,14 @@ export default async function FlipDetailPage({
       <PageHeader
         title={flip.flipNumber}
         description={flip.model}
-        actions={<FlipStatusBadge status={flip.status} />}
+        actions={
+          <>
+            <DownloadSummaryLink
+              href={`/api/refurbishment/${flip.id}/summary`}
+            />
+            <FlipStatusBadge status={flip.status} />
+          </>
+        }
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-3">

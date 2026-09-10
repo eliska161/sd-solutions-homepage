@@ -7,9 +7,9 @@ const nextConfig: NextConfig = {
     root: path.join(__dirname),
   },
   outputFileTracingIncludes: {
-    "/**": ["./data/**/*"],
+    "/**": ["./data/**/*", "./assets/fonts/**/*"],
   },
-  serverExternalPackages: [],
+  serverExternalPackages: ["pdfkit"],
 };
 
 export default nextConfig;
