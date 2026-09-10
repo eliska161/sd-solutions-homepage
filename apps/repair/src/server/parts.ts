@@ -15,7 +15,7 @@ import { assertCanWrite } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
 import { getRepair } from "@/server/repairs";
 import { getFlip } from "@/server/flips";
-import { and, desc, eq, ilike, isNotNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -524,17 +524,18 @@ async function syncFlipPartsCost(
   tx: any,
   refurbishmentId: string,
 ) {
-  const used = await tx
+  // Include ORDERED so estimated part cost hits flip costs when bestilt from the flip.
+  const lines = await tx
     .select()
     .from(repairParts)
     .where(
       and(
         eq(repairParts.refurbishmentId, refurbishmentId),
-        eq(repairParts.status, "USED"),
+        inArray(repairParts.status, ["USED", "ORDERED"]),
       ),
     );
 
-  // Replace PART cost lines that are inventory-linked with current used totals
+  // Replace PART cost lines that are inventory-linked with current used/ordered totals
   await tx
     .delete(refurbishmentCosts)
     .where(
@@ -545,16 +546,17 @@ async function syncFlipPartsCost(
       ),
     );
 
-  for (const line of used) {
+  for (const line of lines) {
     const [part] = await tx
       .select({ name: parts.name })
       .from(parts)
       .where(eq(parts.id, line.partId))
       .limit(1);
+    const name = part?.name ?? "Del";
     await tx.insert(refurbishmentCosts).values({
       refurbishmentId,
       category: "PART",
-      label: part?.name ?? "Del",
+      label: line.status === "ORDERED" ? `Bestilt: ${name}` : name,
       amountOre: line.quantity * line.unitCostOre,
       partId: line.partId,
     });
@@ -891,6 +893,8 @@ export async function orderPartForFlip(input: {
           ne(refurbishments.status, "ARCHIVED"),
         ),
       );
+
+    await syncFlipPartsCost(tx, data.refurbishmentId);
 
     return { part, repairPart };
   });
