@@ -45,6 +45,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/data ./data
 # Fonts for PDF summaries (æøå)
 COPY --from=builder --chown=nextjs:nodejs /app/assets ./assets
 
+# pdfkit: Next file tracing often omits the CJS entry (js/pdfkit.js) → MODULE_NOT_FOUND in prod
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfkit ./node_modules/pdfkit
+
 # Minimal deps for release_command migrate (not part of Next standalone)
 WORKDIR /app/migrate-node
 RUN npm init -y >/dev/null 2>&1 \
@@ -57,7 +60,8 @@ RUN mkdir -p /app/public/uploads /data/uploads \
   && test -f /app/scripts/fly-db-migrate.cjs \
   && test -f /app/data/tac-index.json.gz \
   && test -f /app/data/apple-device-options.json \
-  && test -f /app/assets/fonts/LiberationSans-Regular.ttf
+  && test -f /app/assets/fonts/LiberationSans-Regular.ttf \
+  && test -f /app/node_modules/pdfkit/js/pdfkit.js
 
 USER nextjs
 EXPOSE 3001

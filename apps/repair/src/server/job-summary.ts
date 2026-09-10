@@ -132,13 +132,16 @@ function intakeSections(
 
   const checks = Object.entries(intake.checklist ?? {}).map(
     ([key, value]) => {
+      if (!value || typeof value !== "object") {
+        return `${checkLabel(key, checklistCatalog)}: ${String(value ?? "—")}`;
+      }
       const note = value.note?.trim() ? ` — ${value.note.trim()}` : "";
       return `${checkLabel(key, checklistCatalog)}: ${resultLabel(value.result)}${note}`;
     },
   );
 
   const failChecks = Object.entries(intake.checklist ?? {})
-    .filter(([, v]) => v.result === "FAIL")
+    .filter(([, v]) => v && typeof v === "object" && v.result === "FAIL")
     .map(([key, value]) => {
       const note = value.note?.trim() ? ` — ${value.note.trim()}` : "";
       return `${checkLabel(key, checklistCatalog)}${note}`;
@@ -499,12 +502,12 @@ export async function buildFlipSummaryDocument(
     .filter(Boolean)
     .join(" ");
 
-  const cosmetic = (flip.cosmeticFaultKeys ?? []).map((k) =>
-    labelForOption(COSMETIC_FAULTS, k),
-  );
-  const repairFaults = (flip.repairFaultKeys ?? []).map((k) =>
-    labelForOption(REPAIR_FAULTS, k),
-  );
+  const cosmetic = (
+    Array.isArray(flip.cosmeticFaultKeys) ? flip.cosmeticFaultKeys : []
+  ).map((k) => labelForOption(COSMETIC_FAULTS, k));
+  const repairFaults = (
+    Array.isArray(flip.repairFaultKeys) ? flip.repairFaultKeys : []
+  ).map((k) => labelForOption(REPAIR_FAULTS, k));
 
   const sections: SummarySection[] = [
     {
