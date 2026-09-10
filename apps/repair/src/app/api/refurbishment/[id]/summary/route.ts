@@ -12,20 +12,26 @@ export async function GET(
 ) {
   await requireSession();
   const { id } = await context.params;
-  const doc = await buildFlipSummaryDocument(id);
-  if (!doc) {
-    return new NextResponse("Flip ikke funnet", { status: 404 });
+
+  try {
+    const doc = await buildFlipSummaryDocument(id);
+    if (!doc) {
+      return new NextResponse("Flip ikke funnet", { status: 404 });
+    }
+
+    const pdf = await renderJobSummaryPdf(doc);
+    const filename = `${doc.title.replace(/[^\w\-æøåÆØÅ.]+/gi, "_")}.pdf`;
+
+    return new NextResponse(new Uint8Array(pdf), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (err) {
+    console.error("[flip summary pdf]", id, err);
+    return new NextResponse("Kunne ikke lage sammendrag", { status: 500 });
   }
-
-  const pdf = await renderJobSummaryPdf(doc);
-  const filename = `${doc.title.replace(/[^\w\-æøåÆØÅ.]+/gi, "_")}.pdf`;
-
-  return new NextResponse(new Uint8Array(pdf), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "no-store",
-    },
-  });
 }

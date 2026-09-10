@@ -1,3 +1,4 @@
+import { existsSync } from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
 import { formatDate, formatDateOnly } from "@/lib/labels";
@@ -32,11 +33,23 @@ const COLORS = {
   white: "#ffffff",
 };
 
+function resolveFontFile(filename: string): string {
+  const candidates = [
+    path.join(process.cwd(), "assets", "fonts", filename),
+    path.join(process.cwd(), "apps", "repair", "assets", "fonts", filename),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error(
+    `PDF-font mangler: ${filename} (søkte ${candidates.join(", ")})`,
+  );
+}
+
 function fontPaths() {
-  const root = path.join(process.cwd(), "assets", "fonts");
   return {
-    regular: path.join(root, "LiberationSans-Regular.ttf"),
-    bold: path.join(root, "LiberationSans-Bold.ttf"),
+    regular: resolveFontFile("LiberationSans-Regular.ttf"),
+    bold: resolveFontFile("LiberationSans-Bold.ttf"),
   };
 }
 
@@ -66,11 +79,11 @@ function drawHeader(doc: PDFKit.PDFDocument, data: JobSummaryDocument) {
   doc.text(data.title, left, doc.y, { width });
   doc.moveDown(0.25);
   doc.font(fonts.regular).fontSize(10).fillColor(COLORS.muted);
-  doc.text(data.subtitle, { width });
+  doc.text(data.subtitle || "—", { width });
   doc.moveDown(0.35);
 
   const badgeY = doc.y;
-  const badgeText = data.statusLabel;
+  const badgeText = data.statusLabel || "—";
   doc.font(fonts.bold).fontSize(9);
   const badgeW = Math.min(width, doc.widthOfString(badgeText) + 16);
   doc
