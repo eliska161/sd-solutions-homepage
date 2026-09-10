@@ -42,6 +42,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/fly-db-migrate.cjs ./scri
 # Local TAC IMEI lookup index + Apple color/storage options
 COPY --from=builder --chown=nextjs:nodejs /app/data ./data
 
+# Fonts for PDF summaries (æøå)
+COPY --from=builder --chown=nextjs:nodejs /app/assets ./assets
+
 # Minimal deps for release_command migrate (not part of Next standalone)
 WORKDIR /app/migrate-node
 RUN npm init -y >/dev/null 2>&1 \
@@ -50,10 +53,11 @@ RUN npm init -y >/dev/null 2>&1 \
 
 WORKDIR /app
 RUN mkdir -p /app/public/uploads /data/uploads \
-  && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts /app/data /data/uploads \
+  && chown -R nextjs:nodejs /app/public/uploads /app/drizzle /app/scripts /app/data /app/assets /data/uploads \
   && test -f /app/scripts/fly-db-migrate.cjs \
   && test -f /app/data/tac-index.json.gz \
-  && test -f /app/data/apple-device-options.json
+  && test -f /app/data/apple-device-options.json \
+  && test -f /app/assets/fonts/LiberationSans-Regular.ttf
 
 USER nextjs
 EXPOSE 3001
