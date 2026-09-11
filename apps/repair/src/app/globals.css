@@ -88,8 +88,7 @@ body {
 }
 
 .customer-status .cs-display {
-  font-family: var(--font-customer-display), "Newsreader", "Source Serif 4", Georgia, serif;
-  font-optical-sizing: auto;
+  font-family: var(--font-customer-display), "Space Grotesk", "Avenir Next", sans-serif;
 }
 
 @keyframes cs-fade-up {
