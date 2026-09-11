@@ -44,9 +44,86 @@ body {
   color: var(--text);
 }
 
-/* Public customer status — light minimal shell (Gemwise / OnePlus-inspired). */
+/* Public customer status — calm repair-tracker shell. */
 .customer-status {
-  background: #f4f6f8;
-  color: #18181b;
+  --cs-ink: #14201f;
+  --cs-muted: #5b6b69;
+  --cs-line: rgba(20, 32, 31, 0.08);
+  --cs-teal: #0f766e;
+  --cs-teal-soft: #d7efeb;
+  --cs-amber: #b45309;
+  --cs-amber-soft: #fef3c7;
+  --cs-ready: #047857;
+  --cs-ready-soft: #d1fae5;
+  --cs-alert: #b91c1c;
+  --cs-alert-soft: #fee2e2;
+  --cs-card: rgba(255, 255, 255, 0.86);
+  color: var(--cs-ink);
+  background:
+    radial-gradient(900px 420px at 12% -8%, rgba(15, 118, 110, 0.14), transparent 55%),
+    radial-gradient(700px 360px at 100% 0%, rgba(20, 184, 166, 0.08), transparent 50%),
+    linear-gradient(180deg, #eef5f4 0%, #f3f6f7 42%, #eef1f3 100%);
+}
+
+.customer-status::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+  z-index: 0;
+}
+
+.customer-status > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes cs-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cs-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(15, 118, 110, 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(15, 118, 110, 0);
+  }
+}
+
+.customer-status .cs-enter {
+  animation: cs-fade-up 0.45s ease-out both;
+}
+
+.customer-status .cs-enter-delay {
+  animation: cs-fade-up 0.5s ease-out 0.08s both;
+}
+
+.customer-status .cs-enter-delay-2 {
+  animation: cs-fade-up 0.5s ease-out 0.16s both;
+}
+
+.customer-status .cs-pulse {
+  animation: cs-pulse 2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-status .cs-enter,
+  .customer-status .cs-enter-delay,
+  .customer-status .cs-enter-delay-2,
+  .customer-status .cs-pulse {
+    animation: none;
+  }
 }
 

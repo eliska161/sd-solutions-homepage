@@ -48,3 +48,23 @@ export function customerStatusLabel(status: string): string {
     REPAIR_STATUS_LABELS[status as keyof typeof REPAIR_STATUS_LABELS] ?? status
   );
 }
+
+/** Soft badge tones for the public status pill — inspired by carrier/repair trackers. */
+export function customerStatusTone(
+  status: string,
+): "progress" | "waiting" | "ready" | "done" | "alert" {
+  switch (status) {
+    case "CANCELLED":
+    case "RETURNED":
+      return "alert";
+    case "WAITING_FOR_CUSTOMER":
+    case "WAITING_FOR_PART":
+      return "waiting";
+    case "READY_FOR_PICKUP":
+      return "ready";
+    case "COMPLETED":
+      return "done";
+    default:
+      return "progress";
+  }
+}
