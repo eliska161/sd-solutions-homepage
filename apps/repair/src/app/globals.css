@@ -44,9 +44,97 @@ body {
   color: var(--text);
 }
 
-/* Public customer status — light minimal shell (Gemwise / OnePlus-inspired). */
+/* Public customer status — workshop tracker shell. */
 .customer-status {
-  background: #f4f6f8;
-  color: #18181b;
+  --cs-ink: #12201e;
+  --cs-muted: #5a6c69;
+  --cs-line: rgba(18, 32, 30, 0.1);
+  --cs-teal: #0f6f68;
+  --cs-teal-soft: #d8efeb;
+  --cs-amber: #a16207;
+  --cs-amber-soft: #fef3c7;
+  --cs-ready: #047857;
+  --cs-ready-soft: #d1fae5;
+  --cs-alert: #b91c1c;
+  --cs-alert-soft: #fee2e2;
+  --cs-card: rgba(255, 255, 255, 0.78);
+  --cs-panel: rgba(255, 255, 255, 0.55);
+  color: var(--cs-ink);
+  font-family: var(--font-customer-sans), "Avenir Next", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(920px 440px at 8% -10%, rgba(15, 111, 104, 0.16), transparent 58%),
+    radial-gradient(760px 380px at 100% 4%, rgba(15, 111, 104, 0.07), transparent 52%),
+    linear-gradient(165deg, #ebf4f2 0%, #f2f5f4 46%, #e8eeec 100%);
+}
+
+.customer-status::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  opacity: 0.28;
+  background-image:
+    linear-gradient(rgba(18, 32, 30, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 32, 30, 0.03) 1px, transparent 1px),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  background-size: 48px 48px, 48px 48px, auto;
+  mix-blend-mode: soft-light;
+  z-index: 0;
+}
+
+.customer-status > * {
+  position: relative;
+  z-index: 1;
+}
+
+.customer-status .cs-display {
+  font-family: var(--font-customer-display), "Newsreader", "Source Serif 4", Georgia, serif;
+  font-optical-sizing: auto;
+}
+
+@keyframes cs-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cs-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(15, 118, 110, 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(15, 118, 110, 0);
+  }
+}
+
+.customer-status .cs-enter {
+  animation: cs-fade-up 0.45s ease-out both;
+}
+
+.customer-status .cs-enter-delay {
+  animation: cs-fade-up 0.5s ease-out 0.08s both;
+}
+
+.customer-status .cs-enter-delay-2 {
+  animation: cs-fade-up 0.5s ease-out 0.16s both;
+}
+
+.customer-status .cs-pulse {
+  animation: cs-pulse 2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-status .cs-enter,
+  .customer-status .cs-enter-delay,
+  .customer-status .cs-enter-delay-2,
+  .customer-status .cs-pulse {
+    animation: none;
+  }
 }
 

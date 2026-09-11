@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans } from "next/font/google";
+import { Newsreader, Schibsted_Grotesk } from "next/font/google";
 
-const plex = IBM_Plex_Sans({
+const display = Newsreader({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-customer",
+  weight: ["500", "600", "700"],
+  variable: "--font-customer-display",
+});
+
+const sans = Schibsted_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-customer-sans",
 });
 
 export const metadata: Metadata = {
@@ -19,8 +25,7 @@ export default function CustomerStatusLayout({
 }) {
   return (
     <div
-      className={`${plex.variable} customer-status min-h-screen text-zinc-900`}
-      style={{ fontFamily: "var(--font-customer), system-ui, sans-serif" }}
+      className={`${display.variable} ${sans.variable} customer-status min-h-screen`}
     >
       {children}
     </div>
