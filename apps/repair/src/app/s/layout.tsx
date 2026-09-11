@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Newsreader, Schibsted_Grotesk } from "next/font/google";
+import { Schibsted_Grotesk, Space_Grotesk } from "next/font/google";
 
-const display = Newsreader({
+const display = Space_Grotesk({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   variable: "--font-customer-display",
