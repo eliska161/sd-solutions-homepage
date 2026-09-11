@@ -18,7 +18,7 @@ const STATUS_PILL: Record<
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--cs-muted)]">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--cs-muted)]">
       {children}
     </p>
   );
@@ -33,7 +33,7 @@ function Panel({
 }) {
   return (
     <section
-      className={`rounded-[1.35rem] border border-[var(--cs-line)] bg-[var(--cs-card)] px-5 py-5 shadow-[0_1px_2px_rgba(20,32,31,0.04),0_12px_32px_rgba(20,32,31,0.05)] backdrop-blur-sm ${className}`}
+      className={`rounded-[1.5rem] border border-[var(--cs-line)] bg-[var(--cs-card)] px-5 py-5 shadow-[0_1px_2px_rgba(18,32,30,0.04),0_18px_40px_rgba(18,32,30,0.06)] backdrop-blur-md sm:px-6 sm:py-6 ${className}`}
     >
       {children}
     </section>
@@ -62,51 +62,60 @@ export default async function CustomerStatusPage({
   );
 
   return (
-    <main className="mx-auto max-w-md px-5 py-10 sm:py-12 lg:max-w-4xl lg:px-8 lg:py-14">
-      <header className="cs-enter mb-8 lg:mb-10">
-        <p className="text-[15px] font-semibold tracking-[-0.02em] text-[var(--cs-teal)]">
-          SD Solutions
-        </p>
-        <h1 className="mt-2 text-[30px] font-semibold leading-[1.1] tracking-[-0.035em] text-[var(--cs-ink)] lg:text-[34px]">
-          Reparasjonsstatus
-        </h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--cs-muted)]">
-          Følg saken din hos verkstedet — samme oversikt du ville fått over
-          disk.
-        </p>
+    <main className="mx-auto max-w-md px-5 py-10 sm:py-12 lg:max-w-4xl lg:px-8 lg:py-16">
+      <header className="cs-enter mb-9 lg:mb-12">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="cs-display text-[17px] font-semibold tracking-[-0.02em] text-[var(--cs-teal)]">
+              SD Solutions
+            </p>
+            <h1 className="cs-display mt-3 max-w-lg text-[2.15rem] font-semibold leading-[1.05] tracking-[-0.04em] text-[var(--cs-ink)] sm:text-[2.5rem] lg:text-[2.75rem]">
+              Reparasjonsstatus
+            </h1>
+          </div>
+          <div
+            aria-hidden
+            className="mb-1 hidden h-12 w-12 shrink-0 rounded-2xl border border-[var(--cs-line)] bg-[var(--cs-panel)] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] sm:block"
+          >
+            <div className="flex h-full items-center justify-center">
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--cs-teal)] cs-pulse" />
+            </div>
+          </div>
+        </div>
+        <div className="mt-5 h-px w-16 bg-[var(--cs-teal)]/35" />
       </header>
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start lg:gap-5">
         <Panel className="cs-enter-delay lg:col-span-7">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--cs-muted)]">
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--cs-muted)]">
                 Saksnummer
               </p>
-              <p className="mt-1 text-xl font-semibold tracking-tight text-[var(--cs-ink)]">
+              <p className="cs-display mt-1 text-[1.65rem] font-semibold tracking-[-0.03em] text-[var(--cs-ink)]">
                 REP-{ticketShort}
               </p>
-              <p className="mt-1 text-sm leading-snug text-[var(--cs-muted)]">
+              <p className="mt-1.5 text-[15px] leading-snug text-[var(--cs-muted)]">
                 {data.deviceLabel}
               </p>
             </div>
             <span
-              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${STATUS_PILL[tone]}`}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold tracking-wide ${STATUS_PILL[tone]}`}
             >
               {data.statusLabel}
             </span>
           </div>
 
-          <div className="mt-5">
-            <div className="mb-2 flex items-center justify-between gap-3 text-[11px] text-[var(--cs-muted)]">
-              <span>
+          <div className="mt-6 rounded-2xl border border-[var(--cs-line)] bg-[var(--cs-panel)] px-4 py-3.5">
+            <div className="mb-2 flex items-center justify-between gap-3 text-[12px] text-[var(--cs-muted)]">
+              <span className="font-medium">
                 {currentStep
-                  ? `Nå: ${currentStep.label}`
+                  ? `Nå · ${currentStep.label}`
                   : "Status oppdateres fortløpende"}
               </span>
-              <span>{Math.min(progressPct, 100)}%</span>
+              <span className="tabular-nums">{Math.min(progressPct, 100)}%</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
+            <div className="h-2 overflow-hidden rounded-full bg-black/[0.06]">
               <div
                 className="h-full rounded-full bg-[var(--cs-teal)] transition-[width] duration-500"
                 style={{ width: `${Math.min(progressPct, 100)}%` }}
@@ -114,39 +123,48 @@ export default async function CustomerStatusPage({
             </div>
           </div>
 
-          {data.diagnosisText ? (
-            <p className="mt-5 text-sm leading-relaxed text-zinc-700">
-              {data.diagnosisText}
+          <div className="mt-5 rounded-2xl border border-dashed border-[var(--cs-line)] bg-white/40 px-4 py-3.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--cs-muted)]">
+              Diagnose
             </p>
-          ) : (
-            <p className="mt-5 text-sm leading-relaxed text-zinc-400">
-              Diagnostikk pågår. Problembeskrivelse kommer når undersøkelsen er
-              ferdig.
-            </p>
-          )}
+            {data.diagnosisText ? (
+              <p className="mt-2 text-[15px] leading-relaxed text-zinc-700">
+                {data.diagnosisText}
+              </p>
+            ) : (
+              <p className="mt-2 text-[15px] leading-relaxed text-zinc-400">
+                Diagnostikk pågår. Problembeskrivelse kommer når undersøkelsen
+                er ferdig.
+              </p>
+            )}
+          </div>
 
-          <dl className="mt-5 grid gap-3 border-t border-[var(--cs-line)] pt-4 sm:grid-cols-3">
+          <dl className="mt-5 grid gap-4 border-t border-[var(--cs-line)] pt-4 sm:grid-cols-3">
             <div>
-              <dt className="text-[11px] text-[var(--cs-muted)]">Tekniker</dt>
-              <dd className="mt-1 text-sm font-medium text-[var(--cs-ink)]">
+              <dt className="text-[11px] uppercase tracking-[0.12em] text-[var(--cs-muted)]">
+                Tekniker
+              </dt>
+              <dd className="mt-1.5 text-[15px] font-medium text-[var(--cs-ink)]">
                 {data.technicianName}
               </dd>
             </div>
             <div>
-              <dt className="text-[11px] text-[var(--cs-muted)]">
+              <dt className="text-[11px] uppercase tracking-[0.12em] text-[var(--cs-muted)]">
                 Estimert ferdig
               </dt>
-              <dd className="mt-1 text-sm font-medium text-[var(--cs-ink)]">
+              <dd className="mt-1.5 text-[15px] font-medium text-[var(--cs-ink)]">
                 {formatDateOnly(data.estimatedCompletionDate)}
               </dd>
             </div>
             <div>
-              <dt className="text-[11px] text-[var(--cs-muted)]">Pris</dt>
+              <dt className="text-[11px] uppercase tracking-[0.12em] text-[var(--cs-muted)]">
+                Pris
+              </dt>
               <dd
                 className={
                   data.customerPriceLabel
-                    ? "mt-1 text-sm font-semibold text-[var(--cs-ink)]"
-                    : "mt-1 text-sm font-medium text-zinc-400"
+                    ? "cs-display mt-1.5 text-[1.2rem] font-semibold tracking-[-0.02em] text-[var(--cs-ink)]"
+                    : "mt-1.5 text-[15px] font-medium text-zinc-400"
                 }
               >
                 {data.customerPriceLabel ?? "Avventer"}
@@ -208,16 +226,16 @@ export default async function CustomerStatusPage({
                     <p
                       className={
                         step.state === "todo"
-                          ? "text-sm text-zinc-400"
+                          ? "text-[15px] text-zinc-400"
                           : step.state === "current"
-                            ? "text-sm font-semibold text-[var(--cs-ink)]"
-                            : "text-sm text-zinc-700"
+                            ? "text-[15px] font-semibold text-[var(--cs-ink)]"
+                            : "text-[15px] text-zinc-700"
                       }
                     >
                       {step.label}
                     </p>
                     {step.state === "current" ? (
-                      <p className="mt-0.5 text-[11px] text-[var(--cs-teal)]">
+                      <p className="mt-0.5 text-[11px] font-medium tracking-wide text-[var(--cs-teal)]">
                         Pågår nå
                       </p>
                     ) : null}
@@ -243,7 +261,7 @@ export default async function CustomerStatusPage({
                   {data.services.map((s) => (
                     <li
                       key={s.id}
-                      className="flex items-start gap-2 text-sm text-[var(--cs-ink)]"
+                      className="flex items-start gap-2 text-[15px] text-[var(--cs-ink)]"
                     >
                       <span
                         aria-hidden
@@ -254,7 +272,7 @@ export default async function CustomerStatusPage({
                   ))}
                 </ul>
                 {data.discount ? (
-                  <p className="mt-2.5 text-sm text-[var(--cs-muted)]">
+                  <p className="mt-2.5 text-[15px] text-[var(--cs-muted)]">
                     {data.discount.label}: −{data.discount.amountLabel}
                   </p>
                 ) : null}
@@ -268,7 +286,7 @@ export default async function CustomerStatusPage({
                   {data.parts.map((p) => (
                     <li
                       key={p.id}
-                      className="flex items-center justify-between gap-3 text-sm text-[var(--cs-ink)]"
+                      className="flex items-center justify-between gap-3 text-[15px] text-[var(--cs-ink)]"
                     >
                       <span>
                         {p.quantity > 1 ? `${p.quantity} × ` : ""}
@@ -304,10 +322,10 @@ export default async function CustomerStatusPage({
                   key={u.id}
                   className="border-b border-[var(--cs-line)] pb-4 last:border-0 last:pb-0"
                 >
-                  <p className="text-[11px] text-[var(--cs-muted)]">
+                  <p className="text-[11px] tracking-wide text-[var(--cs-muted)]">
                     {formatDate(u.createdAt)}
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700">
+                  <p className="mt-1.5 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
                     {u.content}
                   </p>
                 </li>
@@ -347,9 +365,16 @@ export default async function CustomerStatusPage({
         ) : null}
       </div>
 
-      <footer className="cs-enter-delay-2 mt-10 text-center text-[11px] text-[var(--cs-muted)] lg:mt-12">
-        <p>SD Solutions · Slåttmyrvegen 49, 2406 Elverum</p>
-        <p className="mt-1">Spørsmål? Kontakt verkstedet direkte.</p>
+      <footer className="cs-enter-delay-2 mt-12 border-t border-[var(--cs-line)] pt-6 text-center lg:mt-14">
+        <p className="cs-display text-[15px] font-medium tracking-[-0.02em] text-[var(--cs-ink)]">
+          SD Solutions
+        </p>
+        <p className="mt-1 text-[12px] text-[var(--cs-muted)]">
+          Slåttmyrvegen 49, 2406 Elverum
+        </p>
+        <p className="mt-1 text-[12px] text-[var(--cs-muted)]">
+          Spørsmål? Kontakt verkstedet direkte.
+        </p>
       </footer>
     </main>
   );
