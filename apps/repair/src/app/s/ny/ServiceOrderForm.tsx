@@ -48,9 +48,6 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   }, [model, models, lookupColors, lookupStorages]);
 
   const selected = modelChoices.find((m) => m.name === model);
-  const postageOre =
-    (inboundMethod === "POST" ? CUSTOMER_POSTAGE_ORE : 0) +
-    (outboundMethod === "POST" ? CUSTOMER_POSTAGE_ORE : 0);
 
   const storageOptions = useMemo(() => {
     const fromLookup = lookupStorages.filter(Boolean);
@@ -333,9 +330,6 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
         <legend className="text-sm font-semibold text-foreground">
           Innlevering og utlevering
         </legend>
-        <p className="text-[13px] text-muted">
-          Post koster {formatNokFromOre(CUSTOMER_POSTAGE_ORE)} ekstra hver vei.
-        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <Label htmlFor="inboundMethod">Innlevering</Label>
@@ -348,7 +342,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
               }
             >
               <option value="IN_PERSON">Leveres i butikk</option>
-              <option value="POST">Sendes med post (+69 kr)</option>
+              <option value="POST">Send selv (0 kr)</option>
             </Select>
           </div>
           <div>
@@ -362,17 +356,12 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
               }
             >
               <option value="IN_PERSON">Hentes i butikk</option>
-              <option value="POST">Returneres med post (+69 kr)</option>
+              <option value="POST">
+                Sendes tilbake ({formatNokFromOre(CUSTOMER_POSTAGE_ORE)})
+              </option>
             </Select>
           </div>
         </div>
-        {postageOre > 0 ? (
-          <p className="text-sm font-medium text-foreground">
-            Porto: {formatNokFromOre(postageOre)}
-          </p>
-        ) : (
-          <p className="text-sm text-muted">Ingen porto — fysisk inn/ut.</p>
-        )}
       </fieldset>
 
       {error ? (

@@ -7,6 +7,7 @@ import { customerStatusTone } from "@/lib/customer-progress";
 import { formatDate, formatDateOnly } from "@/lib/labels";
 import { getPublicRepairByToken } from "@/server/public-status";
 import { CustomerUpdateForm } from "./CustomerUpdateForm";
+import { workshopAddressOneLine } from "@/lib/workshop";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,7 @@ export default async function CustomerStatusPage({
       {ny === "1" ? (
         <p className="mb-4 rounded border border-border bg-surface px-4 py-3 text-sm">
           {data.inboundMethod === "POST"
-            ? "Serviceordre opprettet. Vent på oppdatering via e-post innen én virkedag."
+            ? `Serviceordre opprettet. Send enheten til ${workshopAddressOneLine()}. Merk pakken med ${data.ticketNumber}.`
             : data.dropoffLabel
               ? `Serviceordre opprettet. Lever inn ${data.dropoffLabel}.`
               : "Serviceordre opprettet. Vi tar den inn når enheten er levert."}
@@ -124,7 +125,7 @@ export default async function CustomerStatusPage({
                 <dt className="text-[13px] text-muted">Innlevering</dt>
                 <dd className="mt-0.5">
                   {data.inboundMethod === "POST"
-                    ? `Post${data.inboundPostageLabel ? ` (${data.inboundPostageLabel})` : ""}`
+                    ? "Send selv"
                     : data.dropoffLabel
                       ? `Butikk · ${data.dropoffLabel}`
                       : "Butikk"}
@@ -146,9 +147,22 @@ export default async function CustomerStatusPage({
               <div>
                 <dt className="text-[13px] text-muted">Utlevering</dt>
                 <dd className="mt-0.5">
-                  {data.outboundMethod === "POST"
-                    ? `Post${data.outboundPostageLabel ? ` (${data.outboundPostageLabel})` : ""}`
-                    : "Butikk"}
+                  {data.outboundMethod === "POST" ? (
+                    <>
+                      Sendes tilbake
+                      {data.outboundPostageLabel
+                        ? ` (${data.outboundPostageLabel})`
+                        : ""}
+                      {data.returnTrackingNumber ? (
+                        <>
+                          <br />
+                          Sporing: {data.returnTrackingNumber}
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    "Butikk"
+                  )}
                 </dd>
               </div>
             </dl>

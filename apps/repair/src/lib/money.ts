@@ -1,6 +1,6 @@
 /** All money in the DB is integer øre (1 kr = 100 øre). */
 
-/** Customer postage for post in / post out (69 kr each). */
+/** Customer postage for return by post (69 kr). Inbound «send selv» is 0. */
 export const CUSTOMER_POSTAGE_ORE = 6900;
 
 export function krToOre(kr: number): number {

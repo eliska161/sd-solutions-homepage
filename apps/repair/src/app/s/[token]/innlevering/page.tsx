@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import { WORKSHOP, workshopAddressLines } from "@/lib/workshop";
+import { WORKSHOP, workshopAddressLines, workshopAddressOneLine } from "@/lib/workshop";
 import { getPublicDropoffContext } from "@/server/public-service-order";
 import { DropoffForm } from "./DropoffForm";
 
@@ -21,15 +21,18 @@ export default async function InnleveringPage({
     return (
       <div>
         <PageHeader
-          title="Sendes med post"
+          title="Send selv"
           description={data.ticketNumber}
         />
         <Card>
-          <CardHeader title="Neste steg" />
+          <CardHeader title="Sending" />
           <CardBody className="space-y-4 text-sm">
             <p>
-              Vent på oppdatering via e-post innen én virkedag. Ikke send
-              enheten før du har fått beskjed.
+              Send enheten til {workshopAddressOneLine()}.
+            </p>
+            <p>
+              Merk pakken med referansenummer{" "}
+              <span className="font-medium">{data.ticketNumber}</span>.
             </p>
             <Link
               href={`/s/${token}?ny=1`}

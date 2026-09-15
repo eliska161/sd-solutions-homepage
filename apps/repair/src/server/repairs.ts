@@ -405,7 +405,7 @@ export async function updateCustomerDiagnosis(
 export async function updateRepairStatus(
   ticketId: string,
   status: z.infer<typeof repairStatusSchema>,
-  note?: string,
+  options?: { note?: string; returnTrackingNumber?: string },
 ) {
   const session = await requireSession();
   assertCanWrite(session.user.role);
@@ -415,6 +415,11 @@ export async function updateRepairStatus(
   const before = await getRepair(ticketId);
   if (!before) throw new Error("Reparasjon ikke funnet");
 
+  const tracking =
+    options?.returnTrackingNumber !== undefined
+      ? options.returnTrackingNumber.trim() || null
+      : undefined;
+
   const [row] = await db
     .update(repairTickets)
     .set({
@@ -422,6 +427,7 @@ export async function updateRepairStatus(
       updatedAt: new Date(),
       completedAt:
         nextStatus === "COMPLETED" ? new Date() : before.completedAt,
+      ...(tracking !== undefined ? { returnTrackingNumber: tracking } : {}),
     })
     .where(eq(repairTickets.id, ticketId))
     .returning();
@@ -431,7 +437,7 @@ export async function updateRepairStatus(
     fromStatus: before.status,
     toStatus: nextStatus,
     changedById: session.user.id,
-    note: note || null,
+    note: options?.note || null,
   });
 
   await writeAuditLog({
@@ -454,6 +460,9 @@ export async function updateRepairStatus(
   revalidatePath("/repairs");
   revalidatePath(`/repairs/${ticketId}`);
   revalidatePath("/dashboard");
+  if (row.publicAccessToken) {
+    revalidatePath(`/s/${row.publicAccessToken}`);
+  }
 
   if (before.status !== nextStatus) {
     if (nextStatus === "WAITING_FOR_CUSTOMER") {
@@ -463,6 +472,64 @@ export async function updateRepairStatus(
     } else if (nextStatus === "COMPLETED") {
       notifyRepairCompleted(ticketId);
     }
+  }
+
+  return row;
+}
+
+export async function updateReturnTracking(
+  ticketId: string,
+  trackingNumber: string,
+) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const db = getDb();
+  const before = await getRepair(ticketId);
+  if (!before) throw new Error("Reparasjon ikke funnet");
+
+  const next = trackingNumber.trim() || null;
+  if ((before.returnTrackingNumber?.trim() || null) === next) {
+    return before;
+  }
+
+  const [row] = await db
+    .update(repairTickets)
+    .set({
+      returnTrackingNumber: next,
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, ticketId))
+    .returning();
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    entityType: "repair_ticket",
+    entityId: ticketId,
+    action: "return_tracking",
+    before: { returnTrackingNumber: before.returnTrackingNumber },
+    after: { returnTrackingNumber: row.returnTrackingNumber },
+  });
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: ticketId,
+    type: "repair.tracking",
+    message: next
+      ? `Sporingsnummer retur: ${next}`
+      : "Sporingsnummer retur fjernet",
+    actorId: session.user.id,
+  });
+
+  revalidatePath(`/repairs/${ticketId}`);
+  if (row.publicAccessToken) {
+    revalidatePath(`/s/${row.publicAccessToken}`);
+  }
+
+  if (
+    next &&
+    row.outboundMethod === "POST" &&
+    (row.status === "READY_FOR_PICKUP" || row.status === "COMPLETED")
+  ) {
+    notifyReadyForPickup(ticketId);
   }
 
   return row;

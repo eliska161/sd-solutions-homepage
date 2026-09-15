@@ -52,6 +52,7 @@ export async function getPublicRepairByToken(token: string) {
       dropoffSlot: repairTickets.dropoffSlot,
       inboundPostageOre: repairTickets.inboundPostageOre,
       outboundPostageOre: repairTickets.outboundPostageOre,
+      returnTrackingNumber: repairTickets.returnTrackingNumber,
       deviceBrand: devices.brand,
       deviceModel: devices.model,
       deviceVariant: devices.variant,
@@ -206,6 +207,7 @@ export async function getPublicRepairByToken(token: string) {
       row.outboundPostageOre > 0
         ? formatNokFromOre(row.outboundPostageOre)
         : null,
+    returnTrackingNumber: row.returnTrackingNumber?.trim() || null,
   };
 }
 

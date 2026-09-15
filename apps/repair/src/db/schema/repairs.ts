@@ -202,6 +202,8 @@ export const repairTickets = pgTable(
       .default("IN_PERSON"),
     inboundPostageOre: integer("inbound_postage_ore").notNull().default(0),
     outboundPostageOre: integer("outbound_postage_ore").notNull().default(0),
+    /** Carrier tracking for return shipment to the customer. */
+    returnTrackingNumber: text("return_tracking_number"),
     /** Customer drop-off date (YYYY-MM-DD, Europe/Oslo calendar). */
     dropoffOn: text("dropoff_on"),
     /** One-hour window, e.g. 14:00–15:00. */

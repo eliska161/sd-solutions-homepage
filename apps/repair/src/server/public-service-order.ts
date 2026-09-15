@@ -189,11 +189,9 @@ export async function createPublicServiceOrder(
     };
   }
 
-  const inboundPostageOre =
-    data.inboundMethod === "POST" ? CUSTOMER_POSTAGE_ORE : 0;
+  const inboundPostageOre = 0;
   const outboundPostageOre =
     data.outboundMethod === "POST" ? CUSTOMER_POSTAGE_ORE : 0;
-  const postageOre = inboundPostageOre + outboundPostageOre;
 
   const db = getDb();
   const email = data.email.toLowerCase();
@@ -288,7 +286,7 @@ export async function createPublicServiceOrder(
       outboundMethod: data.outboundMethod,
       inboundPostageOre,
       outboundPostageOre,
-      otherCostsOre: postageOre,
+      otherCostsOre: outboundPostageOre,
       receivedAt: null,
     })
     .returning();
