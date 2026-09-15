@@ -6,6 +6,11 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
 import { getSetting, setSetting } from "@/server/settings";
+import {
+  elksAlphaSender,
+  elksIsConfigured,
+} from "@/lib/elks";
+import { publicAppOrigin } from "@/lib/mail";
 
 type CompanyInfo = {
   name?: string;
@@ -36,6 +41,9 @@ export default async function SettingsPage() {
       address: "Elverum",
       email: "admin@sd-solutions.org",
     };
+  const webhookUrl = `${publicAppOrigin()}/api/webhooks/elks`;
+  const sender = elksAlphaSender();
+  const smsReady = elksIsConfigured();
 
   return (
     <div>
@@ -122,6 +130,36 @@ export default async function SettingsPage() {
               </p>
               <p>
                 <span className="text-foreground">VIEWER</span> — kun lesing.
+              </p>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="SMS (46elks)" />
+            <CardBody className="space-y-3 text-sm">
+              <p>
+                Avsender <code className="text-foreground">{sender}</code> er
+                enveis. Kunder kan ikke svare. Ca. €0,064 per SMS-del til Norge.
+              </p>
+              <p className="text-muted">
+                Utsending:{" "}
+                {smsReady
+                  ? "API-brukernavn og passord er satt"
+                  : "mangler Fly-secrets"}
+              </p>
+              <div>
+                <Label htmlFor="elks-webhook">Leverings-webhook</Label>
+                <Input
+                  id="elks-webhook"
+                  className="mt-1.5 font-mono text-[12px]"
+                  readOnly
+                  value={webhookUrl}
+                />
+              </div>
+              <p className="text-[12px] text-muted">
+                Fly-secrets: ELKS_API_USERNAME, ELKS_API_PASSWORD. Valgfritt
+                ELKS_FROM og ELKS_WEBHOOK_SECRET. Appen setter webhook selv ved
+                sending.
               </p>
             </CardBody>
           </Card>

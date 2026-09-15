@@ -40,11 +40,11 @@ npm run dev                  # http://localhost:3001
 - Global search, audit log hooks, settings
 - Seeded [DEMO] data
 - IMEI autofill via local TAC database ([MoazEb/tac-database](https://github.com/MoazEb/tac-database)) + Apple supplement ([ios-device-list](https://github.com/pbakondy/ios-device-list))
+- E-post (Resend) og SMS (46elks, se [docs/ELKS.md](./docs/ELKS.md))
 
 ## Explicitly NOT in this launch
 
 - Stripe / online payment
-- SMS
 - Auto ordering / iFixit scrape
 - Public booking / FINN publish automation
 
@@ -81,7 +81,7 @@ Da deployer Fly automatisk ved hver push til valgt branch.
 
 1. Create a project in [Neon](https://neon.tech)
 2. Copy the pooled `DATABASE_URL` (`sslmode=require`)
-3. Set Fly secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `RESEND_API_KEY`
+3. Set Fly secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `RESEND_API_KEY`, `ELKS_API_USERNAME`, `ELKS_API_PASSWORD`
 
 ### 2. Volume + IPs + domain (CLI — not reliable in Fly UI)
 
