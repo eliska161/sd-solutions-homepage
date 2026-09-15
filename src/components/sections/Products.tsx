@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { type ReactNode } from "react";
-import { ArrowRight, ArrowUpRight, MonitorSmartphone, Smartphone } from "lucide-react";
+import { ArrowRight, ArrowUpRight, MonitorSmartphone } from "lucide-react";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { Section } from "@/components/ui/Section";
 
@@ -64,23 +64,6 @@ const products: Product[] = [
     icon: <MonitorSmartphone className="h-4 w-4" strokeWidth={1.5} />,
     href: "#kontakt",
     ctaLabel: "Les mer",
-  },
-  {
-    name: "iPhone-reparasjon",
-    description: [
-      "Vi tilbyr iPhone-reparasjon: skjermbytte, batteribytte, ladeport, kamera og diagnostikk.",
-      "Tydelig pris før vi starter, med fokus på kvalitetsdeler og ærlig vurdering av feilen.",
-    ],
-    features: [
-      "Skjermbytte",
-      "Batteribytte",
-      "Ladeport",
-      "Kamera og lyd",
-      "Diagnostikk",
-    ],
-    icon: <Smartphone className="h-4 w-4" strokeWidth={1.5} />,
-    href: "/reparasjon",
-    ctaLabel: "Se reparasjon",
   },
 ];
 
@@ -173,7 +156,7 @@ export function Products() {
         </h2>
       </FadeIn>
 
-      <div className="mt-16 grid gap-16 lg:mt-20 lg:grid-cols-3 lg:gap-0">
+      <div className="mt-16 grid gap-16 lg:mt-20 lg:grid-cols-2 lg:gap-0">
         {products.map((product, index) => (
           <ProductBlock
             key={product.name}

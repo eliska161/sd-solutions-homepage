@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
 const tones = {
-  default: "bg-white/[0.06] text-foreground",
-  muted: "bg-white/[0.04] text-muted",
+  default: "bg-black/[0.06] text-foreground",
+  muted: "bg-black/[0.04] text-muted",
   accent: "bg-accent/15 text-accent",
   success: "bg-success/15 text-success",
   warning: "bg-warning/15 text-warning",
@@ -21,7 +21,7 @@ export function Badge({
   return (
     <span
       className={[
-        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium tracking-wide",
+        "inline-flex items-center rounded px-2 py-0.5 text-[11px] font-medium",
         tones[tone],
         className,
       ].join(" ")}

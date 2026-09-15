@@ -47,7 +47,7 @@ async function FlipListPage({
       ) : (
         <DataTable headers={["Flip", "Modell", "Status", "Est. profit"]}>
           {flips.map((f) => (
-            <tr key={f.id} className="hover:bg-white/[0.03]">
+            <tr key={f.id} className="hover:bg-black/[0.03]">
               <Td>
                 <Link
                   href={`/refurbishment/${f.id}`}

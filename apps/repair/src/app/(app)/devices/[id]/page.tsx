@@ -80,7 +80,7 @@ export default async function DeviceDetailPage({
                 <Link
                   key={r.id}
                   href={`/repairs/${r.id}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 hover:bg-white/[0.03]"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 hover:bg-black/[0.03]"
                 >
                   <div>
                     <p className="text-sm">{r.ticketNumber}</p>

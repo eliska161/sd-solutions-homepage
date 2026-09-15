@@ -85,7 +85,7 @@ export function BillingAddressFields({ defaults }: Props) {
               <li key={s.label}>
                 <button
                   type="button"
-                  className="block w-full px-3 py-2 text-left text-sm hover:bg-white/[0.06]"
+                  className="block w-full px-3 py-2 text-left text-sm hover:bg-black/[0.04]"
                   onClick={() => apply(s)}
                 >
                   {s.label}

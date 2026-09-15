@@ -11,8 +11,7 @@ export function CTA() {
             La oss bygge noe bra.
           </h2>
           <p className="mx-auto mt-6 max-w-sm text-[15px] leading-[1.75] text-muted">
-            Interessert i programvare, iPhone-reparasjon eller en skreddersydd
-            løsning? Velg type henvendelse, så tilpasser vi skjemaet.
+            Programvare, Kartarkiv eller SD Kiosk.
           </p>
         </div>
       </FadeIn>

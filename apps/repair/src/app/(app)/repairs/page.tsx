@@ -11,11 +11,15 @@ import { listRepairs, type RepairListFilters } from "@/server/repairs";
 export default async function RepairsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; pending?: string }>;
 }) {
   const params = await searchParams;
   const status = params.status as RepairListFilters["status"] | undefined;
-  const repairs = await listRepairs(status ? { status } : {});
+  const pending = params.pending === "1";
+  const repairs = await listRepairs({
+    ...(status ? { status } : {}),
+    ...(pending ? { pendingReceive: true } : {}),
+  });
 
   return (
     <div>
@@ -59,10 +63,10 @@ export default async function RepairsPage({
         />
       ) : (
         <DataTable
-          headers={["Ticket", "Problem", "Tekniker", "Estimert ferdig", "Status", "Opprettet"]}
+          headers={["Ticket", "Problem", "Kilde", "Inn", "Tekniker", "Status", "Opprettet"]}
         >
           {repairs.map((r) => (
-            <tr key={r.id} className="hover:bg-white/[0.03]">
+            <tr key={r.id} className="hover:bg-black/[0.03]">
               <Td>
                 <Link
                   href={`/repairs/${r.id}`}
@@ -75,13 +79,14 @@ export default async function RepairsPage({
                 {r.customerProblem}
               </Td>
               <Td className="text-muted">
-                {r.assigneeName || "Tekniker ikke tildelt"}
+                {r.source === "CUSTOMER_PORTAL" ? "Nettside" : "Verksted"}
+                {!r.receivedAt ? " · venter" : ""}
               </Td>
               <Td className="text-muted">
-                {r.estimatedCompletionDate
-                  ? formatDate(r.estimatedCompletionDate).split(",")[0] ||
-                    formatDate(r.estimatedCompletionDate)
-                  : "—"}
+                {r.inboundMethod === "POST" ? "Post" : "Butikk"}
+              </Td>
+              <Td className="text-muted">
+                {r.assigneeName || "Tekniker ikke tildelt"}
               </Td>
               <Td>
                 <RepairStatusBadge status={r.status} />

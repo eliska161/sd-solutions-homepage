@@ -12,6 +12,7 @@ export type CustomerProgressStep = {
 /** Map internal repair status to customer-facing progress steps. */
 export function buildCustomerProgress(
   status: keyof typeof REPAIR_STATUS_LABELS | string,
+  options?: { received?: boolean; outboundPost?: boolean },
 ): CustomerProgressStep[] {
   if (status === "CANCELLED" || status === "RETURNED") {
     return CUSTOMER_PROGRESS_STEPS.map((step) => ({
@@ -28,17 +29,30 @@ export function buildCustomerProgress(
   if (status === "COMPLETED") {
     currentIndex = CUSTOMER_PROGRESS_STEPS.length - 1;
   }
+  const received = options?.received !== false;
+  if (!received) currentIndex = 0;
 
-  return CUSTOMER_PROGRESS_STEPS.map((step, index) => ({
-    key: step.key,
-    label: step.label,
-    state:
-      index < currentIndex
-        ? ("done" as const)
-        : index === currentIndex
-          ? ("current" as const)
-          : ("todo" as const),
-  }));
+  const outboundPost = Boolean(options?.outboundPost);
+
+  return CUSTOMER_PROGRESS_STEPS.map((step, index) => {
+    let label: string = step.label;
+    if (step.key === "RECEIVED" && !received) {
+      label = "Bestilt — venter innlevering";
+    }
+    if (step.key === "READY" && outboundPost) {
+      label = "Klar for utsending";
+    }
+    return {
+      key: step.key,
+      label,
+      state:
+        index < currentIndex
+          ? ("done" as const)
+          : index === currentIndex
+            ? ("current" as const)
+            : ("todo" as const),
+    };
+  });
 }
 
 export function customerStatusLabel(status: string): string {

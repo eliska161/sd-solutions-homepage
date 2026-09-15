@@ -3,6 +3,8 @@
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -37,55 +39,45 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-6">
-      <div className="w-full max-w-sm rounded-2xl border border-border bg-surface px-6 py-8">
-        <p className="text-[11px] font-medium tracking-[0.08em] text-muted uppercase">
-          SD Solutions Repair
-        </p>
-        <h1 className="mt-3 text-2xl font-medium tracking-[-0.03em] text-foreground">
-          Logg inn
-        </h1>
-        <p className="mt-3 text-sm leading-relaxed text-muted">
-          Intern tilgang for verkstedet. Bruk e-post og passord.
-        </p>
-
-        <form onSubmit={onSubmit} className="mt-8 space-y-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="w-full max-w-sm overflow-hidden rounded border border-border bg-white shadow">
+        <div className="bg-[#1b1e24] px-5 py-3 text-white">
+          <p className="text-[11px] uppercase tracking-wide text-white/60">
+            SD Solutions
+          </p>
+          <h1 className="mt-1 text-lg font-semibold">Logg inn</h1>
+        </div>
+        <form onSubmit={onSubmit} className="space-y-4 px-5 py-5">
           <label className="block text-sm">
             <span className="text-muted">E-post</span>
-            <input
+            <Input
               type="email"
               autoComplete="username"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3 text-foreground outline-none focus:border-white/30"
+              className="mt-1.5"
             />
           </label>
           <label className="block text-sm">
             <span className="text-muted">Passord</span>
-            <input
+            <Input
               type="password"
               autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3 text-foreground outline-none focus:border-white/30"
+              className="mt-1.5"
             />
           </label>
-
           {error ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="text-sm text-danger" role="alert">
               {error}
             </p>
           ) : null}
-
-          <button
-            type="submit"
-            disabled={pending}
-            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-white text-sm font-medium text-black transition-colors hover:bg-white/90 disabled:opacity-60"
-          >
+          <Button type="submit" disabled={pending} className="w-full">
             {pending ? "Logger inn…" : "Logg inn"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

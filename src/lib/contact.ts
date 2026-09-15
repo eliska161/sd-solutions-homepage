@@ -2,12 +2,7 @@ export const INQUIRY_TYPES = [
   {
     id: "general",
     label: "Generell henvendelse",
-    description: "Spørsmål, produkter eller annet",
-  },
-  {
-    id: "repair",
-    label: "iPhone-reparasjon",
-    description: "Skjerm, batteri, ladeport eller diagnostikk",
+    description: "Spørsmål eller annet",
   },
   {
     id: "custom",

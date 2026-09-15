@@ -252,6 +252,33 @@ async function ensureSharedJobParts(client) {
   console.log("==> Shared job parts ready");
 }
 
+async function ensureServiceOrderColumns(client) {
+  const hasTickets = await publicTableExists(client, "repair_tickets");
+  if (!hasTickets) return;
+
+  console.log("==> Ensuring customer service-order columns");
+  await client.unsafe(`
+    DO $$ BEGIN
+      CREATE TYPE "repair_source" AS ENUM('STAFF', 'CUSTOMER_PORTAL');
+    EXCEPTION WHEN duplicate_object THEN null;
+    END $$;
+    DO $$ BEGIN
+      CREATE TYPE "repair_delivery_method" AS ENUM('IN_PERSON', 'POST');
+    EXCEPTION WHEN duplicate_object THEN null;
+    END $$;
+    ALTER TABLE "repair_tickets" ADD COLUMN IF NOT EXISTS "source" "repair_source" DEFAULT 'STAFF' NOT NULL;
+    ALTER TABLE "repair_tickets" ADD COLUMN IF NOT EXISTS "inbound_method" "repair_delivery_method" DEFAULT 'IN_PERSON' NOT NULL;
+    ALTER TABLE "repair_tickets" ADD COLUMN IF NOT EXISTS "outbound_method" "repair_delivery_method" DEFAULT 'IN_PERSON' NOT NULL;
+    ALTER TABLE "repair_tickets" ADD COLUMN IF NOT EXISTS "inbound_postage_ore" integer DEFAULT 0 NOT NULL;
+    ALTER TABLE "repair_tickets" ADD COLUMN IF NOT EXISTS "outbound_postage_ore" integer DEFAULT 0 NOT NULL;
+    ALTER TABLE "repair_tickets" ADD COLUMN IF NOT EXISTS "received_at" timestamptz;
+    UPDATE "repair_tickets"
+    SET "received_at" = "created_at"
+    WHERE "received_at" IS NULL AND "source" = 'STAFF';
+  `);
+  console.log("==> Service-order columns ready");
+}
+
 async function main() {
   console.log("==> Applying Drizzle migrations from", migrationsFolder);
   const client = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
@@ -271,6 +298,7 @@ async function main() {
     await ensureFlipIntakeDiagnostics(client);
     await ensureTicketDiscount(client);
     await ensureSharedJobParts(client);
+    await ensureServiceOrderColumns(client);
     console.log("==> Migrations complete");
   } finally {
     await client.end({ timeout: 5 });

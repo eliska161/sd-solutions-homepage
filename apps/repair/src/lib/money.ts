@@ -1,5 +1,8 @@
 /** All money in the DB is integer øre (1 kr = 100 øre). */
 
+/** Customer postage for post in / post out (69 kr each). */
+export const CUSTOMER_POSTAGE_ORE = 6900;
+
 export function krToOre(kr: number): number {
   return Math.round(kr * 100);
 }

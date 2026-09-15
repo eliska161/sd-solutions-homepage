@@ -63,7 +63,7 @@ export default async function DashboardPage() {
           <Link
             key={item.label}
             href={item.href}
-            className="rounded-2xl border border-border bg-surface px-5 py-5 transition-colors hover:border-white/16"
+            className="rounded-2xl border border-border bg-surface px-5 py-5 transition-colors hover:border-black/15"
           >
             <p className="text-[13px] text-muted">{item.label}</p>
             <p className="mt-3 text-3xl font-medium tracking-[-0.04em] text-foreground">
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
                 <Link
                   key={r.id}
                   href={`/repairs/${r.id}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 hover:bg-white/[0.03]"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 hover:bg-black/[0.03]"
                 >
                   <div>
                     <p className="text-sm text-foreground">{r.ticketNumber}</p>
@@ -145,7 +145,7 @@ export default async function DashboardPage() {
                 <Link
                   key={c.id}
                   href={`/customers/${c.id}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 hover:bg-white/[0.03]"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 hover:bg-black/[0.03]"
                 >
                   <div>
                     <p className="text-sm text-foreground">{c.name}</p>
@@ -189,7 +189,7 @@ export default async function DashboardPage() {
                 <Link
                   key={f.id}
                   href={`/refurbishment/${f.id}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 hover:bg-white/[0.03]"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 hover:bg-black/[0.03]"
                 >
                   <div>
                     <p className="text-sm text-foreground">{f.flipNumber}</p>

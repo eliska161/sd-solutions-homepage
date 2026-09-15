@@ -65,7 +65,7 @@ export default async function DevicesPage({
       ) : (
         <DataTable headers={["Enhet", "IMEI / SN", "Eierskap", "Batteri"]}>
           {devices.map((d) => (
-            <tr key={d.id} className="hover:bg-white/[0.03]">
+            <tr key={d.id} className="hover:bg-black/[0.03]">
               <Td>
                 <Link
                   href={`/devices/${d.id}`}

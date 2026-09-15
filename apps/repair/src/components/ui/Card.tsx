@@ -9,10 +9,9 @@ export function Card({
 }) {
   return (
     <div
-      className={[
-        "rounded-2xl border border-border bg-surface",
-        className,
-      ].join(" ")}
+      className={["overflow-hidden rounded border border-border bg-surface shadow-sm", className].join(
+        " ",
+      )}
     >
       {children}
     </div>
@@ -29,11 +28,11 @@ export function CardHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col gap-2 bg-[#1b1e24] px-4 py-2.5 text-white sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h2 className="text-sm font-medium text-foreground">{title}</h2>
+        <h2 className="text-[13px] font-semibold">{title}</h2>
         {description ? (
-          <p className="mt-1 text-[13px] text-muted">{description}</p>
+          <p className="mt-0.5 text-[12px] text-white/65">{description}</p>
         ) : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
@@ -48,5 +47,5 @@ export function CardBody({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={["px-5 py-4", className].join(" ")}>{children}</div>;
+  return <div className={["px-4 py-3", className].join(" ")}>{children}</div>;
 }

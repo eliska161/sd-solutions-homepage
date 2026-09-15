@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/Button";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { company } from "@/lib/company";
+import { SERVICE_ORDER_URL } from "@/lib/repair-portal";
 
 export function RepairHero() {
   return (
@@ -20,14 +21,14 @@ export function RepairHero() {
 
         <FadeIn delay={0.12}>
           <p className="mt-8 max-w-[34ch] text-[15px] leading-[1.7] text-muted sm:text-base">
-            Skjerm, batteri og andre vanlige feil. Pris før vi starter.
+            Elverum. Skjerm, batteri, ladeport, kamera og diagnostikk.
           </p>
         </FadeIn>
 
         <FadeIn delay={0.18}>
           <div className="mt-12">
-            <Button href="#bestill" size="lg">
-              Bestill reparasjon
+            <Button href={SERVICE_ORDER_URL} size="lg">
+              Opprett serviceordre
             </Button>
           </div>
         </FadeIn>
