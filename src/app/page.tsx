@@ -9,7 +9,7 @@ import { RepairCTA } from "@/components/sections/repair/RepairCTA";
 import { company } from "@/lib/company";
 
 export const metadata: Metadata = {
-  title: "SD Solutions — iPhone-reparasjon i Elverum",
+  title: "SD Solutions — iPhone-reparasjon",
   description: company.repairDescription,
   openGraph: {
     title: "SD Solutions Repair",

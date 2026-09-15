@@ -3,7 +3,7 @@ export const company = {
   legalName: "Skaug-Danielsen Solutions",
   repairName: "SD Solutions Repair",
   repairDescription:
-    "Reparasjon og refurbishing av mobiltelefoner, hovedsaklig iPhone. Skjerm, batteri, ladeport, kamera, lyd og diagnostikk.",
+    "Vi reparerer og refurbisher mobiltelefoner, hovedsaklig iPhone. Vanlige jobber er skjerm, batteri, ladeport, kamera, lyd og diagnostikk. Du oppretter en serviceordre, så tar vi saken inn når enheten er levert.",
   email: "eliasskaugdanielsen10@gmail.com",
   address: {
     line1: "Slåttmyrvegen 49",
