@@ -23,6 +23,7 @@ type MailContext = {
   customerEmail: string;
   customerPhone: string;
   deviceLabel: string;
+  returnTrackingNumber: string | null;
 };
 
 function enqueue(task: () => Promise<void>) {
@@ -45,6 +46,7 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
       token: repairTickets.publicAccessToken,
       inboundMethod: repairTickets.inboundMethod,
       outboundMethod: repairTickets.outboundMethod,
+      returnTrackingNumber: repairTickets.returnTrackingNumber,
       customerName: customers.name,
       customerEmail: customers.email,
       customerPhone: customers.phone,
@@ -76,6 +78,7 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
     customerEmail: row.customerEmail,
     customerPhone: row.customerPhone,
     deviceLabel,
+    returnTrackingNumber: row.returnTrackingNumber?.trim() || null,
   };
 }
 
@@ -160,35 +163,36 @@ export function notifyServiceOrderCreated(ticketId: string) {
   enqueue(() =>
     sendForTicket(ticketId, (ctx) => {
       const byPost = ctx.inboundMethod === "POST";
+      const address = workshopAddressOneLine();
       return {
         mail: buildMail(ctx, {
           subject: `Serviceordre ${ctx.ticketNumber} er opprettet`,
           heading: "Serviceordre opprettet",
           preheader: byPost
-            ? "Ikke send telefonen ennå. Vent på e-post med sending."
+            ? `Send enheten til ${address}. Merk pakken med ${ctx.ticketNumber}.`
             : "Book innlevering og kom med telefonen i åpningstiden.",
           paragraphs: byPost
             ? [
                 `Vi har registrert serviceordre ${ctx.ticketNumber}${deviceBit(ctx)}.`,
-                "Du valgte å sende telefonen med post. Ikke send den ennå — vi har ikke gitt deg adresse eller hvordan pakken skal merkes.",
-                "Innen én virkedag (mandag–fredag, ikke helligdag) sender vi e-post med hvor du skal sende, og hva du gjør videre. Når den e-posten er kommet, kan du sende enheten.",
-                "Jobben starter når pakken er framme hos oss. Status og melding til verkstedet: lenken under.",
+                `Send enheten til ${address}.`,
+                `Merk pakken med referansenummer ${ctx.ticketNumber}.`,
+                "Jobben starter når pakken er framme hos oss. Status: lenken under.",
               ]
             : [
                 `Vi har registrert serviceordre ${ctx.ticketNumber}${deviceBit(ctx)}.`,
                 "Du valgte å levere telefonen hos oss. Vi tar den ikke inn i verkstedet før den er fysisk levert.",
-                `Adresse: ${workshopAddressOneLine()}. Åpent ${WORKSHOP.hoursLabel}.`,
+                `Adresse: ${address}. Åpent ${WORKSHOP.hoursLabel}.`,
                 "Velg dato og timeslot på innleveringssiden (samme lenke som status). Ta med telefonen til avtalt tid.",
               ],
         }),
         sms: byPost
           ? smsLine(
               ctx,
-              `Serviceordre ${ctx.ticketNumber} er opprettet. Du valgte post: ikke send telefonen ennå. Vi e-poster innen 1 virkedag (man–fre) med hvor du skal sende.`,
+              `Serviceordre ${ctx.ticketNumber} er opprettet. Send enheten til ${address}. Merk pakken med ${ctx.ticketNumber}.`,
             )
           : smsLine(
               ctx,
-              `Serviceordre ${ctx.ticketNumber} er opprettet. Lever telefonen hos oss, ${workshopAddressOneLine()}, ${WORKSHOP.hoursLabel}. Book tid på statuslenken.`,
+              `Serviceordre ${ctx.ticketNumber} er opprettet. Lever telefonen hos oss, ${address}, ${WORKSHOP.hoursLabel}. Book tid på statuslenken.`,
             ),
       };
     }),
@@ -201,16 +205,15 @@ export function notifyDeviceReceived(ticketId: string) {
       mail: buildMail(ctx, {
         subject: `Vi har mottatt enheten — ${ctx.ticketNumber}`,
         heading: "Enheten er mottatt",
-        preheader: "Telefonen er inne hos oss. Jobben kan starte.",
+        preheader: `Vi har mottatt ${ctx.ticketNumber}.`,
         paragraphs: [
-          `Telefonen${deviceBit(ctx)} er nå fysisk inne hos oss på saken ${ctx.ticketNumber}. Det gjelder enten innlevering i butikk eller at postpakken er kommet fram.`,
-          "Vi tar den inn i verkstedet og går videre med undersøkelse eller reparasjon. Du trenger ikke gjøre noe nå.",
-          "Nye oppdateringer kommer på e-post, SMS og statuslenken under.",
+          `Vi har mottatt enheten på ${ctx.ticketNumber}${deviceBit(ctx)}.`,
+          "Vi kontakter deg hvis vi trenger ytterligere informasjon.",
         ],
       }),
       sms: smsLine(
         ctx,
-        `Vi har fått inn telefonen på ${ctx.ticketNumber}. Den er hos oss og jobben kan starte. Du trenger ikke gjøre noe nå.`,
+        `Vi har mottatt enheten på ${ctx.ticketNumber}. Vi kontakter deg hvis vi trenger ytterligere informasjon.`,
       ),
     })),
   );
@@ -240,6 +243,11 @@ export function notifyReadyForPickup(ticketId: string) {
   enqueue(() =>
     sendForTicket(ticketId, (ctx) => {
       const byPost = ctx.outboundMethod === "POST";
+      const tracking = ctx.returnTrackingNumber;
+      const trackingMail = tracking
+        ? [`Sporingsnummer: ${tracking}.`]
+        : [];
+      const trackingSms = tracking ? ` Sporing: ${tracking}.` : "";
       return {
         mail: buildMail(ctx, {
           subject: byPost
@@ -252,8 +260,8 @@ export function notifyReadyForPickup(ticketId: string) {
           paragraphs: byPost
             ? [
                 `Jobben på ${ctx.ticketNumber}${deviceBit(ctx)} er ferdig.`,
-                "Du valgte retur med post. Vi sender telefonen til adressen du oppga da du opprettet saken. Du skal ikke møte opp hos oss for å hente den.",
-                "Når sendingen er registrert, oppdaterer vi status. Sporing kommer der eller på e-post når vi har den.",
+                "Vi sender telefonen tilbake til adressen du oppga.",
+                ...trackingMail,
               ]
             : [
                 `Jobben på ${ctx.ticketNumber}${deviceBit(ctx)} er ferdig.`,
@@ -264,7 +272,7 @@ export function notifyReadyForPickup(ticketId: string) {
         sms: smsLine(
           ctx,
           byPost
-            ? `Jobben på ${ctx.ticketNumber} er ferdig. Du valgte post-retur: vi sender telefonen til adressen din. Ikke møt opp for henting.`
+            ? `Jobben på ${ctx.ticketNumber} er ferdig. Vi sender telefonen tilbake.${trackingSms}`
             : `Jobben på ${ctx.ticketNumber} er ferdig. Hent hos oss, ${workshopAddressOneLine()}, ${WORKSHOP.hoursLabel}. Ta med legitimasjon.`,
         ),
       };

@@ -266,7 +266,12 @@ export default async function RepairDetailPage({
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <RepairStatusForm ticketId={ticket.id} status={ticket.status} />
+        <RepairStatusForm
+          ticketId={ticket.id}
+          status={ticket.status}
+          outboundPost={ticket.outboundMethod === "POST"}
+          returnTrackingNumber={ticket.returnTrackingNumber}
+        />
         {!ticket.receivedAt ? (
           <form action={markReceivedAction}>
             <input type="hidden" name="ticketId" value={ticket.id} />
@@ -284,7 +289,10 @@ export default async function RepairDetailPage({
             : " · venter innlevering"}
         </p>
         <p className="text-[13px] text-muted">
-          Inn: {DELIVERY_METHOD_LABELS[ticket.inboundMethod]}
+          Inn:{" "}
+          {ticket.inboundMethod === "POST"
+            ? "Send selv"
+            : DELIVERY_METHOD_LABELS[ticket.inboundMethod]}
           {ticket.inboundPostageOre
             ? ` (${formatNokFromOre(ticket.inboundPostageOre)})`
             : ""}
@@ -294,9 +302,15 @@ export default async function RepairDetailPage({
             ? ` · ${formatDropoffAppointment(ticket.dropoffOn, ticket.dropoffSlot)}`
             : ""}
           {" · "}
-          Ut: {DELIVERY_METHOD_LABELS[ticket.outboundMethod]}
+          Ut:{" "}
+          {ticket.outboundMethod === "POST"
+            ? "Sendes tilbake"
+            : DELIVERY_METHOD_LABELS[ticket.outboundMethod]}
           {ticket.outboundPostageOre
             ? ` (${formatNokFromOre(ticket.outboundPostageOre)})`
+            : ""}
+          {ticket.returnTrackingNumber
+            ? ` · sporing ${ticket.returnTrackingNumber}`
             : ""}
         </p>
         <p className="text-[13px] text-muted">
