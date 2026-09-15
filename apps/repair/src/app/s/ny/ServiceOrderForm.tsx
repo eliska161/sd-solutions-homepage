@@ -5,6 +5,7 @@ import {
   createPublicServiceOrder,
   lookupPublicImeiOrSerial,
 } from "@/server/public-service-order";
+import { PhoneCountryField } from "@/components/forms/PhoneCountryField";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -26,6 +27,8 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   const [lookupColors, setLookupColors] = useState<string[]>([]);
   const [lookupStorages, setLookupStorages] = useState<string[]>([]);
   const lastLookup = useRef("");
+  const [phoneCountry, setPhoneCountry] = useState("NO");
+  const [phone, setPhone] = useState("");
   const [inboundMethod, setInboundMethod] = useState<"IN_PERSON" | "POST">(
     "IN_PERSON",
   );
@@ -113,6 +116,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
       honeypot: String(formData.get("company") || ""),
       name: String(formData.get("name") || ""),
       phone: String(formData.get("phone") || ""),
+      phoneCountry: String(formData.get("phoneCountry") || "NO"),
       email: String(formData.get("email") || ""),
       streetAddress: String(formData.get("streetAddress") || ""),
       postalCode: String(formData.get("postalCode") || ""),
@@ -155,11 +159,15 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
             <Label htmlFor="name">Navn</Label>
             <Input id="name" name="name" required className="mt-1" />
           </div>
-          <div>
-            <Label htmlFor="phone">Telefon</Label>
-            <Input id="phone" name="phone" type="tel" required className="mt-1" />
+          <div className="sm:col-span-2">
+            <PhoneCountryField
+              countryIso={phoneCountry}
+              nationalNumber={phone}
+              onCountryChange={setPhoneCountry}
+              onNumberChange={setPhone}
+            />
           </div>
-          <div>
+          <div className="sm:col-span-2 sm:max-w-md">
             <Label htmlFor="email">E-post</Label>
             <Input id="email" name="email" type="email" required className="mt-1" />
           </div>

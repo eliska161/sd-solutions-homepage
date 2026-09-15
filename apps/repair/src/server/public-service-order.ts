@@ -16,6 +16,8 @@ import { matchIphoneModel } from "@/lib/apple-models";
 import { getDb } from "@/lib/db";
 import { lookupImeiCatalog, normalizeImei } from "@/lib/imei-lookup";
 import { CUSTOMER_POSTAGE_ORE } from "@/lib/money";
+import { getPhoneCountry } from "@/lib/phone-countries";
+import { isSendablePhone, toE164Phone } from "@/lib/phone";
 import { createPublicAccessToken } from "@/lib/public-token";
 import { nextPublicId } from "@/lib/sequences";
 import { notifyServiceOrderCreated } from "@/server/customer-mail";
@@ -27,6 +29,7 @@ const publicOrderSchema = z
     honeypot: z.string().optional(),
     name: z.string().trim().min(2, "Navn er påkrevd"),
     phone: z.string().trim().min(5, "Telefonnummer er påkrevd"),
+    phoneCountry: z.string().trim().length(2).optional().default("NO"),
     email: z.string().trim().email("Ugyldig e-post"),
     streetAddress: z.string().trim().min(2, "Gateadresse er påkrevd"),
     postalCode: z.string().trim().min(2, "Postnummer er påkrevd"),
@@ -70,11 +73,12 @@ function composeAddress(input: {
   streetAddress: string;
   postalCode: string;
   city: string;
+  countryName: string;
 }) {
   return [
     input.streetAddress,
     `${input.postalCode} ${input.city}`.trim(),
-    "Norge",
+    input.countryName,
   ]
     .filter(Boolean)
     .join(", ");
@@ -179,6 +183,15 @@ export async function createPublicServiceOrder(
     return { ok: false, error: "Kunne ikke opprette ordre." };
   }
 
+  const phoneCountry = getPhoneCountry(data.phoneCountry);
+  const phone = toE164Phone(data.phone, phoneCountry.iso);
+  if (!phone || !isSendablePhone(phone)) {
+    return {
+      ok: false,
+      error: "Ugyldig telefonnummer for valgt land.",
+    };
+  }
+
   let imei: string | null = null;
   try {
     imei = cleanImei(data.imei);
@@ -227,13 +240,16 @@ export async function createPublicServiceOrder(
       .insert(customers)
       .values({
         name: data.name,
-        phone: data.phone,
+        phone,
         email,
         streetAddress: data.streetAddress,
         postalCode: data.postalCode,
         city: data.city,
-        country: "Norge",
-        address: composeAddress(data),
+        country: phoneCountry.name,
+        address: composeAddress({
+          ...data,
+          countryName: phoneCountry.name,
+        }),
         notes: "Opprettet via kundeserviceordre på nettsiden",
         lastActivityAt: new Date(),
       })
@@ -244,12 +260,15 @@ export async function createPublicServiceOrder(
       .update(customers)
       .set({
         name: data.name,
-        phone: data.phone,
+        phone,
         streetAddress: data.streetAddress,
         postalCode: data.postalCode,
         city: data.city,
-        country: "Norge",
-        address: composeAddress(data),
+        country: phoneCountry.name,
+        address: composeAddress({
+          ...data,
+          countryName: phoneCountry.name,
+        }),
         lastActivityAt: new Date(),
       })
       .where(eq(customers.id, customerId));
