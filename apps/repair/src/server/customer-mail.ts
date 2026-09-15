@@ -11,6 +11,8 @@ import {
   sendCustomerEmail,
   type OutboundMail,
 } from "@/lib/mail";
+import { isSendablePhone } from "@/lib/phone";
+import { sendCustomerSms } from "@/lib/sms";
 
 type MailContext = {
   ticketNumber: string;
@@ -19,13 +21,14 @@ type MailContext = {
   outboundMethod: "IN_PERSON" | "POST";
   customerName: string;
   customerEmail: string;
+  customerPhone: string;
   deviceLabel: string;
 };
 
 function enqueue(task: () => Promise<void>) {
   const run = () =>
     task().catch((err) => {
-      console.error("==> Kundemail feilet", err);
+      console.error("==> Kundemelding feilet", err);
     });
   try {
     after(run);
@@ -44,6 +47,7 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
       outboundMethod: repairTickets.outboundMethod,
       customerName: customers.name,
       customerEmail: customers.email,
+      customerPhone: customers.phone,
       brand: devices.brand,
       model: devices.model,
       variant: devices.variant,
@@ -55,7 +59,9 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
     .limit(1);
 
   if (!row?.token) return null;
-  if (!isSendableCustomerEmail(row.customerEmail)) return null;
+  const emailOk = isSendableCustomerEmail(row.customerEmail);
+  const phoneOk = isSendablePhone(row.customerPhone);
+  if (!emailOk && !phoneOk) return null;
 
   const deviceLabel = [row.brand, row.model, row.variant]
     .filter(Boolean)
@@ -68,6 +74,7 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
     outboundMethod: row.outboundMethod,
     customerName: row.customerName,
     customerEmail: row.customerEmail,
+    customerPhone: row.customerPhone,
     deviceLabel,
   };
 }
@@ -126,19 +133,29 @@ function buildMail(
   };
 }
 
+function smsLine(ctx: MailContext, line: string) {
+  return `${greeting(ctx.customerName)}. ${line} ${publicStatusUrl(ctx.token)}`;
+}
+
 async function sendForTicket(
   ticketId: string,
-  compose: (ctx: MailContext) => OutboundMail,
+  compose: (ctx: MailContext) => { mail: OutboundMail; sms: string },
 ) {
   const ctx = await loadContext(ticketId);
   if (!ctx) return;
-  await sendCustomerEmail(compose(ctx));
+  const { mail, sms } = compose(ctx);
+  if (isSendableCustomerEmail(ctx.customerEmail)) {
+    await sendCustomerEmail(mail);
+  }
+  if (isSendablePhone(ctx.customerPhone)) {
+    await sendCustomerSms(ctx.customerPhone, sms);
+  }
 }
 
 export function notifyServiceOrderCreated(ticketId: string) {
   enqueue(() =>
-    sendForTicket(ticketId, (ctx) =>
-      buildMail(ctx, {
+    sendForTicket(ticketId, (ctx) => ({
+      mail: buildMail(ctx, {
         subject: `Serviceordre ${ctx.ticketNumber} er opprettet`,
         heading: "Serviceordre opprettet",
         preheader: `Vi har registrert ${ctx.ticketNumber}.`,
@@ -155,14 +172,24 @@ export function notifyServiceOrderCreated(ticketId: string) {
                 "Velg dato og timeslot på innleveringssiden, og følg status via lenken under.",
               ],
       }),
-    ),
+      sms:
+        ctx.inboundMethod === "POST"
+          ? smsLine(
+              ctx,
+              `Serviceordre ${ctx.ticketNumber} er opprettet. Vent på e-post innen én virkedag før du sender.`,
+            )
+          : smsLine(
+              ctx,
+              `Serviceordre ${ctx.ticketNumber} er opprettet. Lever inn hos oss ${WORKSHOP.hoursLabel}.`,
+            ),
+    })),
   );
 }
 
 export function notifyDeviceReceived(ticketId: string) {
   enqueue(() =>
-    sendForTicket(ticketId, (ctx) =>
-      buildMail(ctx, {
+    sendForTicket(ticketId, (ctx) => ({
+      mail: buildMail(ctx, {
         subject: `Vi har mottatt enheten — ${ctx.ticketNumber}`,
         heading: "Enheten er mottatt",
         preheader: "Telefonen er tatt inn i verkstedet.",
@@ -171,14 +198,18 @@ export function notifyDeviceReceived(ticketId: string) {
           "Status oppdateres fortløpende på kundelinken.",
         ],
       }),
-    ),
+      sms: smsLine(
+        ctx,
+        `Vi har mottatt enheten. ${ctx.ticketNumber} er under arbeid.`,
+      ),
+    })),
   );
 }
 
 export function notifyWaitingForCustomer(ticketId: string) {
   enqueue(() =>
-    sendForTicket(ticketId, (ctx) =>
-      buildMail(ctx, {
+    sendForTicket(ticketId, (ctx) => ({
+      mail: buildMail(ctx, {
         subject: `Vi venter på deg — ${ctx.ticketNumber}`,
         heading: "Vi venter på deg",
         preheader: "Saken venter på tilbakemelding.",
@@ -187,7 +218,11 @@ export function notifyWaitingForCustomer(ticketId: string) {
           "Åpne statussiden for detaljer og for å svare.",
         ],
       }),
-    ),
+      sms: smsLine(
+        ctx,
+        `Vi venter på deg for ${ctx.ticketNumber}. Åpne statussiden for å svare.`,
+      ),
+    })),
   );
 }
 
@@ -195,32 +230,40 @@ export function notifyReadyForPickup(ticketId: string) {
   enqueue(() =>
     sendForTicket(ticketId, (ctx) => {
       const byPost = ctx.outboundMethod === "POST";
-      return buildMail(ctx, {
-        subject: byPost
-          ? `Enheten sendes med post — ${ctx.ticketNumber}`
-          : `Klar for henting — ${ctx.ticketNumber}`,
-        heading: byPost ? "Sendes med post" : "Klar for henting",
-        preheader: byPost
-          ? "Vi sender enheten i retur."
-          : "Telefonen kan hentes.",
-        paragraphs: byPost
-          ? [
-              "Jobben er ferdig, og enheten sendes i retur med post.",
-              "Du ser status på kundelinken.",
-            ]
-          : [
-              "Jobben er ferdig. Enheten kan hentes i butikk.",
-              "Du ser status på kundelinken.",
-            ],
-      });
+      return {
+        mail: buildMail(ctx, {
+          subject: byPost
+            ? `Enheten sendes med post — ${ctx.ticketNumber}`
+            : `Klar for henting — ${ctx.ticketNumber}`,
+          heading: byPost ? "Sendes med post" : "Klar for henting",
+          preheader: byPost
+            ? "Vi sender enheten i retur."
+            : "Telefonen kan hentes.",
+          paragraphs: byPost
+            ? [
+                "Jobben er ferdig, og enheten sendes i retur med post.",
+                "Du ser status på kundelinken.",
+              ]
+            : [
+                "Jobben er ferdig. Enheten kan hentes i butikk.",
+                "Du ser status på kundelinken.",
+              ],
+        }),
+        sms: smsLine(
+          ctx,
+          byPost
+            ? `Jobben er ferdig. ${ctx.ticketNumber} sendes med post.`
+            : `Jobben er ferdig. ${ctx.ticketNumber} kan hentes i butikk.`,
+        ),
+      };
     }),
   );
 }
 
 export function notifyRepairCompleted(ticketId: string) {
   enqueue(() =>
-    sendForTicket(ticketId, (ctx) =>
-      buildMail(ctx, {
+    sendForTicket(ticketId, (ctx) => ({
+      mail: buildMail(ctx, {
         subject: `Reparasjonen er ferdig — ${ctx.ticketNumber}`,
         heading: "Ferdig",
         preheader: `${ctx.ticketNumber} er fullført.`,
@@ -229,7 +272,8 @@ export function notifyRepairCompleted(ticketId: string) {
           "Statussiden ligger fortsatt åpen hvis du trenger den.",
         ],
       }),
-    ),
+      sms: smsLine(ctx, `${ctx.ticketNumber} er merket som ferdig.`),
+    })),
   );
 }
 
@@ -237,14 +281,18 @@ export function notifyStaffUpdate(ticketId: string, message: string) {
   const trimmed = message.trim();
   if (trimmed.length < 2) return;
   enqueue(() =>
-    sendForTicket(ticketId, (ctx) =>
-      buildMail(ctx, {
+    sendForTicket(ticketId, (ctx) => ({
+      mail: buildMail(ctx, {
         subject: `Ny melding fra verkstedet — ${ctx.ticketNumber}`,
         heading: "Ny melding",
         preheader: "Verkstedet har sendt en oppdatering.",
         paragraphs: ["Verkstedet har skrevet dette:"],
         quote: trimmed,
       }),
-    ),
+      sms: smsLine(
+        ctx,
+        `Ny melding på ${ctx.ticketNumber}: ${trimmed.slice(0, 120)}`,
+      ),
+    })),
   );
 }
