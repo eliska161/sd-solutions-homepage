@@ -61,6 +61,7 @@ RUN mkdir -p /app/public/uploads /data/uploads \
   && test -f /app/data/tac-index.json.gz \
   && test -f /app/data/apple-device-options.json \
   && test -f /app/assets/fonts/LiberationSans-Regular.ttf \
+  && test -f /app/assets/brand/sd-solutions-mark.png \
   && test -f /app/node_modules/pdfkit/js/pdfkit.js
 
 USER nextjs

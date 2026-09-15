@@ -49,24 +49,6 @@ body {
 }
 
 .customer-status {
-  --cs-ink: #1f2430;
-  --cs-muted: #6b7280;
-  --cs-line: #d5d8de;
-  --cs-teal: #2b6cb0;
-  --cs-teal-soft: #e8f0f8;
-  --cs-amber: #c05621;
-  --cs-amber-soft: #feebc8;
-  --cs-ready: #2f855a;
-  --cs-ready-soft: #c6f6d5;
-  --cs-alert: #c53030;
-  --cs-alert-soft: #fed7d7;
-  --cs-card: #ffffff;
-  --cs-panel: #f4f5f7;
-  color: var(--cs-ink);
-  background: #e8eaee;
-  font-family: var(--font-source-sans), "Segoe UI", Tahoma, sans-serif;
-}
-
-.customer-status .cs-display {
-  font-family: var(--font-source-sans), "Segoe UI", Tahoma, sans-serif;
+  color: var(--text);
+  background: var(--background);
 }

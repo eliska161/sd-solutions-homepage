@@ -44,7 +44,7 @@ npm run dev                  # http://localhost:3001
 ## Explicitly NOT in this launch
 
 - Stripe / online payment
-- SMS / transactional email
+- SMS
 - Auto ordering / iFixit scrape
 - Public booking / FINN publish automation
 
@@ -81,7 +81,7 @@ Da deployer Fly automatisk ved hver push til valgt branch.
 
 1. Create a project in [Neon](https://neon.tech)
 2. Copy the pooled `DATABASE_URL` (`sslmode=require`)
-3. Set Fly secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`
+3. Set Fly secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `RESEND_API_KEY`
 
 ### 2. Volume + IPs + domain (CLI — not reliable in Fly UI)
 

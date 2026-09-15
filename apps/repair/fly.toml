@@ -18,8 +18,8 @@ primary_region = "arn"
   PORT = "3001"
   NODE_ENV = "production"
   CI = "true"
-  # Fly volume mount — keep OUTSIDE Next public/ (lost+found breaks Next startup)
   UPLOAD_DIR = "/data/uploads"
+  MAIL_FROM = "SD Solutions <service@sd-solutions.org>"
 
 [http_service]
   internal_port = 3001

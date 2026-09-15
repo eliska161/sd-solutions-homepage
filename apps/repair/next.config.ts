@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
       "./node_modules/pdfkit/**/*",
     ],
   },
-  serverExternalPackages: ["pdfkit"],
+  serverExternalPackages: ["pdfkit", "resend"],
 };
 
 export default nextConfig;
