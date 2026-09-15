@@ -1,5 +1,5 @@
 import { isSendablePhone, toE164Phone } from "@/lib/phone";
-import { sendTelnyxSms } from "@/lib/telnyx";
+import { sendElksSms } from "@/lib/elks";
 
 export async function sendCustomerSms(
   phone: string,
@@ -11,9 +11,9 @@ export async function sendCustomerSms(
   const body = text.trim();
   if (body.length < 2) return false;
   try {
-    return await sendTelnyxSms(to, body.slice(0, 1600));
+    return await sendElksSms(to, body.slice(0, 1600));
   } catch (err) {
-    console.error("==> Telnyx kastet", err);
+    console.error("==> 46elks kastet", err);
     return false;
   }
 }

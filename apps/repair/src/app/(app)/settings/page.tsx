@@ -7,12 +7,10 @@ import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
 import { getSetting, setSetting } from "@/server/settings";
 import {
-  telnyxAlphaSender,
-  telnyxIsConfigured,
-  telnyxPublicKeyConfigured,
-  telnyxWebhookFailoverUrl,
-  telnyxWebhookUrl,
-} from "@/lib/telnyx";
+  elksAlphaSender,
+  elksIsConfigured,
+} from "@/lib/elks";
+import { publicAppOrigin } from "@/lib/mail";
 
 type CompanyInfo = {
   name?: string;
@@ -43,11 +41,9 @@ export default async function SettingsPage() {
       address: "Elverum",
       email: "admin@sd-solutions.org",
     };
-  const webhookUrl = telnyxWebhookUrl();
-  const failoverUrl = telnyxWebhookFailoverUrl();
-  const sender = telnyxAlphaSender();
-  const smsReady = telnyxIsConfigured();
-  const smsSigned = telnyxPublicKeyConfigured();
+  const webhookUrl = `${publicAppOrigin()}/api/webhooks/elks`;
+  const sender = elksAlphaSender();
+  const smsReady = elksIsConfigured();
 
   return (
     <div>
@@ -139,51 +135,31 @@ export default async function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHeader title="Telnyx SMS" />
+            <CardHeader title="SMS (46elks)" />
             <CardBody className="space-y-3 text-sm">
               <p>
-                Alfanumerisk avsender er enveis. Kunder kan ikke svare på SMS
-                fra <code className="text-foreground">{sender}</code>. Inbound
-                webhook tar imot svar hvis du senere knytter et SMS-nummer til
-                samme messaging profile.
+                Avsender <code className="text-foreground">{sender}</code> er
+                enveis. Kunder kan ikke svare. Ca. €0,064 per SMS-del til Norge.
               </p>
               <p className="text-muted">
-                Utsending: {smsReady ? "nøkkel og profil er satt" : "mangler Fly-secrets"}
-                {" · "}
-                Signatur: {smsSigned ? "TELNYX_PUBLIC_KEY er satt" : "ikke satt (webhook godtas uten sjekk)"}
+                Utsending:{" "}
+                {smsReady
+                  ? "API-brukernavn og passord er satt"
+                  : "mangler Fly-secrets"}
               </p>
               <div>
-                <Label htmlFor="telnyx-webhook">Webhook URL</Label>
+                <Label htmlFor="elks-webhook">Leverings-webhook</Label>
                 <Input
-                  id="telnyx-webhook"
+                  id="elks-webhook"
                   className="mt-1.5 font-mono text-[12px]"
                   readOnly
                   value={webhookUrl}
                 />
               </div>
-              <div>
-                <Label htmlFor="telnyx-failover">Failover URL</Label>
-                <Input
-                  id="telnyx-failover"
-                  className="mt-1.5 font-mono text-[12px]"
-                  readOnly
-                  value={failoverUrl}
-                />
-              </div>
-              <div>
-                <Label htmlFor="telnyx-sender">Alphanumeric sender ID</Label>
-                <Input
-                  id="telnyx-sender"
-                  className="mt-1.5 font-mono text-[12px]"
-                  readOnly
-                  value={sender}
-                />
-              </div>
               <p className="text-[12px] text-muted">
-                I Telnyx: Messaging → Profiles → webhook API v2. Lim inn URL-ene
-                over. Public key ligger under Account → Keys & Credentials.
-                Fly-secrets: TELNYX_API_KEY, TELNYX_MESSAGING_PROFILE_ID,
-                TELNYX_PUBLIC_KEY. Valgfritt TELNYX_FROM (maks 11 tegn).
+                Fly-secrets: ELKS_API_USERNAME, ELKS_API_PASSWORD. Valgfritt
+                ELKS_FROM og ELKS_WEBHOOK_SECRET. Appen setter webhook selv ved
+                sending.
               </p>
             </CardBody>
           </Card>
