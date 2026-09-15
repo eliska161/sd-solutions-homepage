@@ -131,14 +131,14 @@ export default async function CustomerStatusPage({
                   {data.inboundMethod === "IN_PERSON" && !data.received ? (
                     <>
                       <br />
-                      <a
+                      <Link
                         href={`/s/${token}/innlevering`}
                         className="text-[12px] text-accent underline"
                       >
                         {data.dropoffLabel
                           ? "Endre innleveringstid"
                           : "Velg dato og timeslot"}
-                      </a>
+                      </Link>
                     </>
                   ) : null}
                 </dd>
