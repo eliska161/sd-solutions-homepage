@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
 import { getSetting, setSetting } from "@/server/settings";
+import {
+  telnyxAlphaSender,
+  telnyxIsConfigured,
+  telnyxPublicKeyConfigured,
+  telnyxWebhookFailoverUrl,
+  telnyxWebhookUrl,
+} from "@/lib/telnyx";
 
 type CompanyInfo = {
   name?: string;
@@ -36,6 +43,11 @@ export default async function SettingsPage() {
       address: "Elverum",
       email: "admin@sd-solutions.org",
     };
+  const webhookUrl = telnyxWebhookUrl();
+  const failoverUrl = telnyxWebhookFailoverUrl();
+  const sender = telnyxAlphaSender();
+  const smsReady = telnyxIsConfigured();
+  const smsSigned = telnyxPublicKeyConfigured();
 
   return (
     <div>
@@ -122,6 +134,56 @@ export default async function SettingsPage() {
               </p>
               <p>
                 <span className="text-foreground">VIEWER</span> — kun lesing.
+              </p>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Telnyx SMS" />
+            <CardBody className="space-y-3 text-sm">
+              <p>
+                Alfanumerisk avsender er enveis. Kunder kan ikke svare på SMS
+                fra <code className="text-foreground">{sender}</code>. Inbound
+                webhook tar imot svar hvis du senere knytter et SMS-nummer til
+                samme messaging profile.
+              </p>
+              <p className="text-muted">
+                Utsending: {smsReady ? "nøkkel og profil er satt" : "mangler Fly-secrets"}
+                {" · "}
+                Signatur: {smsSigned ? "TELNYX_PUBLIC_KEY er satt" : "ikke satt (webhook godtas uten sjekk)"}
+              </p>
+              <div>
+                <Label htmlFor="telnyx-webhook">Webhook URL</Label>
+                <Input
+                  id="telnyx-webhook"
+                  className="mt-1.5 font-mono text-[12px]"
+                  readOnly
+                  value={webhookUrl}
+                />
+              </div>
+              <div>
+                <Label htmlFor="telnyx-failover">Failover URL</Label>
+                <Input
+                  id="telnyx-failover"
+                  className="mt-1.5 font-mono text-[12px]"
+                  readOnly
+                  value={failoverUrl}
+                />
+              </div>
+              <div>
+                <Label htmlFor="telnyx-sender">Alphanumeric sender ID</Label>
+                <Input
+                  id="telnyx-sender"
+                  className="mt-1.5 font-mono text-[12px]"
+                  readOnly
+                  value={sender}
+                />
+              </div>
+              <p className="text-[12px] text-muted">
+                I Telnyx: Messaging → Profiles → webhook API v2. Lim inn URL-ene
+                over. Public key ligger under Account → Keys & Credentials.
+                Fly-secrets: TELNYX_API_KEY, TELNYX_MESSAGING_PROFILE_ID,
+                TELNYX_PUBLIC_KEY. Valgfritt TELNYX_FROM (maks 11 tegn).
               </p>
             </CardBody>
           </Card>
