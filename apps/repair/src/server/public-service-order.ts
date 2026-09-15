@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
+import { formatDropoffAppointment, isDropoffSlotOpen } from "@/lib/dropoff";
 import { getDb } from "@/lib/db";
 import { normalizeImei } from "@/lib/imei-lookup";
 import { CUSTOMER_POSTAGE_ORE } from "@/lib/money";
@@ -255,4 +256,100 @@ export async function createPublicServiceOrder(
     inboundPostageOre,
     outboundPostageOre,
   };
+}
+
+function isHexToken(token: string) {
+  return /^[a-f0-9]{64}$/i.test(token);
+}
+
+export async function getPublicDropoffContext(token: string) {
+  if (!token || !isHexToken(token)) return null;
+  const db = getDb();
+  const [row] = await db
+    .select({
+      ticketNumber: repairTickets.ticketNumber,
+      inboundMethod: repairTickets.inboundMethod,
+      receivedAt: repairTickets.receivedAt,
+      dropoffOn: repairTickets.dropoffOn,
+      dropoffSlot: repairTickets.dropoffSlot,
+    })
+    .from(repairTickets)
+    .where(eq(repairTickets.publicAccessToken, token))
+    .limit(1);
+  if (!row) return null;
+  return {
+    ticketNumber: row.ticketNumber,
+    inboundMethod: row.inboundMethod,
+    received: Boolean(row.receivedAt),
+    dropoffOn: row.dropoffOn,
+    dropoffSlot: row.dropoffSlot,
+    dropoffLabel:
+      row.dropoffOn && row.dropoffSlot
+        ? formatDropoffAppointment(row.dropoffOn, row.dropoffSlot)
+        : null,
+  };
+}
+
+const dropoffSchema = z.object({
+  token: z.string(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  slot: z.string(),
+});
+
+export async function savePublicDropoffAppointment(input: {
+  token: string;
+  date: string;
+  slot: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const parsed = dropoffSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Velg dato og timeslot" };
+  }
+  if (!isHexToken(parsed.data.token)) {
+    return { ok: false, error: "Ugyldig lenke" };
+  }
+  if (!isDropoffSlotOpen(parsed.data.date, parsed.data.slot)) {
+    return {
+      ok: false,
+      error: "Timesloten er ikke ledig. Velg en annen dag eller tid.",
+    };
+  }
+
+  const db = getDb();
+  const [ticket] = await db
+    .select({
+      id: repairTickets.id,
+      inboundMethod: repairTickets.inboundMethod,
+      receivedAt: repairTickets.receivedAt,
+    })
+    .from(repairTickets)
+    .where(eq(repairTickets.publicAccessToken, parsed.data.token))
+    .limit(1);
+  if (!ticket) return { ok: false, error: "Saken ble ikke funnet" };
+  if (ticket.inboundMethod !== "IN_PERSON") {
+    return { ok: false, error: "Denne saken sendes med post" };
+  }
+  if (ticket.receivedAt) {
+    return { ok: false, error: "Enheten er allerede mottatt" };
+  }
+
+  await db
+    .update(repairTickets)
+    .set({
+      dropoffOn: parsed.data.date,
+      dropoffSlot: parsed.data.slot,
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, ticket.id));
+
+  await db.insert(repairNotes).values({
+    ticketId: ticket.id,
+    authorId: null,
+    authorName: "Kunde",
+    authorKind: "CUSTOMER",
+    content: `Innlevering avtalt: ${formatDropoffAppointment(parsed.data.date, parsed.data.slot)}`,
+    visibility: "INTERNAL",
+  });
+
+  return { ok: true };
 }

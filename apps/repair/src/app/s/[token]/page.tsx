@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -57,7 +58,11 @@ export default async function CustomerStatusPage({
 
       {ny === "1" ? (
         <p className="mb-4 rounded border border-border bg-surface px-4 py-3 text-sm">
-          Serviceordre opprettet. Vi tar den inn når enheten er levert.
+          {data.inboundMethod === "POST"
+            ? "Serviceordre opprettet. Vent på oppdatering via e-post innen én virkedag."
+            : data.dropoffLabel
+              ? `Serviceordre opprettet. Lever inn ${data.dropoffLabel}.`
+              : "Serviceordre opprettet. Vi tar den inn når enheten er levert."}
         </p>
       ) : null}
 
@@ -120,7 +125,22 @@ export default async function CustomerStatusPage({
                 <dd className="mt-0.5">
                   {data.inboundMethod === "POST"
                     ? `Post${data.inboundPostageLabel ? ` (${data.inboundPostageLabel})` : ""}`
-                    : "Butikk"}
+                    : data.dropoffLabel
+                      ? `Butikk · ${data.dropoffLabel}`
+                      : "Butikk"}
+                  {data.inboundMethod === "IN_PERSON" && !data.received ? (
+                    <>
+                      <br />
+                      <Link
+                        href={`/s/${token}/innlevering`}
+                        className="text-[12px] text-accent underline"
+                      >
+                        {data.dropoffLabel
+                          ? "Endre innleveringstid"
+                          : "Velg dato og timeslot"}
+                      </Link>
+                    </>
+                  ) : null}
                 </dd>
               </div>
               <div>
