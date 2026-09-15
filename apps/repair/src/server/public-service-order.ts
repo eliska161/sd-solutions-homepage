@@ -12,8 +12,9 @@ import {
 import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { formatDropoffAppointment, isDropoffSlotOpen } from "@/lib/dropoff";
+import { matchIphoneModel } from "@/lib/apple-models";
 import { getDb } from "@/lib/db";
-import { normalizeImei } from "@/lib/imei-lookup";
+import { lookupImeiCatalog, normalizeImei } from "@/lib/imei-lookup";
 import { CUSTOMER_POSTAGE_ORE } from "@/lib/money";
 import { createPublicAccessToken } from "@/lib/public-token";
 import { nextPublicId } from "@/lib/sequences";
@@ -86,6 +87,83 @@ function cleanImei(raw: string | null | undefined) {
     throw new Error("IMEI må være 15 siffer");
   }
   return digits || raw.trim();
+}
+
+export type PublicDeviceLookup = {
+  model: string | null;
+  colorOptions: string[];
+  storageOptions: string[];
+  imei: string | null;
+  note: string;
+};
+
+/**
+ * Catalog-only lookup for the public service-order form.
+ * Does not search other customers' devices.
+ */
+export async function lookupPublicImeiOrSerial(
+  query: string,
+): Promise<PublicDeviceLookup> {
+  const empty: PublicDeviceLookup = {
+    model: null,
+    colorOptions: [],
+    storageOptions: [],
+    imei: null,
+    note: "",
+  };
+
+  const q = query.trim();
+  if (q.length < 5) {
+    return { ...empty, note: "Skriv IMEI eller serienummer først." };
+  }
+
+  const digits = normalizeImei(q);
+  const catalog = digits.length >= 8 ? lookupImeiCatalog(digits) : null;
+
+  if (catalog?.brand && catalog.model) {
+    const matched = matchIphoneModel(catalog.model);
+    const model =
+      matched?.name ??
+      (/^iphone\b/i.test(catalog.model) ? catalog.model : null);
+    const colorOptions =
+      catalog.colorOptions.length > 0
+        ? catalog.colorOptions
+        : (matched?.colors ?? []);
+    const storageOptions =
+      catalog.storageOptions.length > 0
+        ? catalog.storageOptions
+        : (matched?.storages ?? []);
+
+    let note: string;
+    if (model) {
+      note = `Fant ${model}. Velg farge og lagring hvis det mangler.`;
+    } else {
+      note = `Oppslag fant ${catalog.brand} ${catalog.model}. Velg iPhone-modell under.`;
+    }
+
+    return {
+      model,
+      colorOptions,
+      storageOptions,
+      imei: catalog.imei.length >= 14 ? catalog.imei : null,
+      note,
+    };
+  }
+
+  if (digits.length >= 8) {
+    return {
+      ...empty,
+      imei: digits.length >= 14 ? digits : null,
+      note:
+        "Fant ikke modell fra nummeret. Sjekk IMEI (15 siffer), eller velg modell under.",
+    };
+  }
+
+  return {
+    ...empty,
+    note:
+      "Serienummer alene gir ikke modell. Lim inn IMEI hvis du har det (Innstillinger → Generelt → Om), ellers velg modell under.",
+  };
 }
 
 export async function createPublicServiceOrder(

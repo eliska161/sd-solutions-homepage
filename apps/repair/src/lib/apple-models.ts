@@ -14,8 +14,12 @@ let cached: AppleOptions | null = null;
 
 function loadAppleOptions(): AppleOptions {
   if (cached) return cached;
-  const file = path.join(process.cwd(), "data", "apple-device-options.json");
-  if (!existsSync(file)) {
+  const candidates = [
+    path.join(process.cwd(), "data", "apple-device-options.json"),
+    path.join(process.cwd(), "apps/repair/data", "apple-device-options.json"),
+  ];
+  const file = candidates.find((p) => existsSync(p));
+  if (!file) {
     cached = { generations: {} };
     return cached;
   }
@@ -194,6 +198,10 @@ function fromCatalog(name: string, gen: Generation | undefined): IphoneModelOpti
   };
 }
 
+function normName(s: string) {
+  return s.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
 export function listIphoneModels(): IphoneModelOption[] {
   const gens = loadAppleOptions().generations;
   const byName = new Map<string, IphoneModelOption>();
@@ -214,4 +222,24 @@ export function listIphoneModels(): IphoneModelOption[] {
     if (ai !== bi) return ai - bi;
     return a.name.localeCompare(b.name);
   });
+}
+
+/** Map a TAC / marketing name onto the public iPhone dropdown. */
+export function matchIphoneModel(query: string): IphoneModelOption | null {
+  const q = normName(query);
+  if (!q) return null;
+  const models = listIphoneModels();
+  const exact = models.find((m) => normName(m.name) === q);
+  if (exact) return exact;
+
+  const contained = models
+    .filter((m) => {
+      const n = normName(m.name);
+      return q.includes(n) || n.includes(q);
+    })
+    .sort((a, b) => b.name.length - a.name.length);
+
+  const best = contained[0];
+  if (best && q.includes(normName(best.name))) return best;
+  return null;
 }
