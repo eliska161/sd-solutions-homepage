@@ -27,7 +27,6 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   const [lookupColors, setLookupColors] = useState<string[]>([]);
   const [lookupStorages, setLookupStorages] = useState<string[]>([]);
   const lastLookup = useRef("");
-  const [phoneCountry, setPhoneCountry] = useState("NO");
   const [phone, setPhone] = useState("");
   const [inboundMethod, setInboundMethod] = useState<"IN_PERSON" | "POST">(
     "IN_PERSON",
@@ -115,8 +114,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
     const result = await createPublicServiceOrder({
       honeypot: String(formData.get("company") || ""),
       name: String(formData.get("name") || ""),
-      phone: String(formData.get("phone") || ""),
-      phoneCountry: String(formData.get("phoneCountry") || "NO"),
+      phone: phone || String(formData.get("phone") || ""),
       email: String(formData.get("email") || ""),
       streetAddress: String(formData.get("streetAddress") || ""),
       postalCode: String(formData.get("postalCode") || ""),
@@ -159,15 +157,10 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
             <Label htmlFor="name">Navn</Label>
             <Input id="name" name="name" required className="mt-1" />
           </div>
-          <div className="sm:col-span-2">
-            <PhoneCountryField
-              countryIso={phoneCountry}
-              nationalNumber={phone}
-              onCountryChange={setPhoneCountry}
-              onNumberChange={setPhone}
-            />
+          <div>
+            <PhoneCountryField value={phone} onChange={setPhone} />
           </div>
-          <div className="sm:col-span-2 sm:max-w-md">
+          <div>
             <Label htmlFor="email">E-post</Label>
             <Input id="email" name="email" type="email" required className="mt-1" />
           </div>

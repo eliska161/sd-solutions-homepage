@@ -52,3 +52,35 @@ body {
   color: var(--text);
   background: var(--background);
 }
+
+.phone-field {
+  --PhoneInput-color--focus: var(--accent);
+}
+
+.phone-field .PhoneInput {
+  height: 2.25rem;
+  width: 100%;
+  max-width: 20rem;
+  margin-top: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: #fff;
+  padding: 0 0.5rem;
+}
+
+.phone-field .PhoneInputCountry {
+  margin-right: 0.5rem;
+}
+
+.phone-field .PhoneInputInput {
+  height: 100%;
+  border: 0;
+  background: transparent;
+  font-size: 0.875rem;
+  color: var(--text);
+  outline: none;
+}
+
+.phone-field .PhoneInputCountryIcon {
+  --PhoneInputCountryFlag-height: 1.05em;
+}
