@@ -15,6 +15,8 @@ import { Textarea } from "@/components/ui/Textarea";
 import { formatDropoffAppointment } from "@/lib/dropoff";
 import { formatDate, formatDateOnly, parseKrToOre, DELIVERY_METHOD_LABELS } from "@/lib/labels";
 import { formatNokFromOre, grossProfitOre } from "@/lib/money";
+import { canWrite } from "@/lib/permissions";
+import { getSession } from "@/lib/session";
 import { listActivity } from "@/server/activity";
 import {
   listAttachments,
@@ -50,6 +52,7 @@ import {
 } from "@/server/warranty";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { CustomerDiagnosisForm } from "./CustomerDiagnosisForm";
+import { DeleteRepairButton } from "./DeleteRepairButton";
 import { IntakePanel } from "./IntakePanel";
 import { RepairStatusForm } from "./RepairStatusForm";
 import { TicketPartsPanel } from "./TicketPartsPanel";
@@ -182,6 +185,7 @@ export default async function RepairDetailPage({
   const { id } = await params;
   const { tab: tabRaw } = await searchParams;
   const tab = parseRepairTab(tabRaw);
+  const session = await getSession();
   const ticket = await getRepair(id);
   if (!ticket) notFound();
 
@@ -250,6 +254,12 @@ export default async function RepairDetailPage({
         actions={
           <>
             <DownloadSummaryLink href={`/api/repairs/${ticket.id}/summary`} />
+            {session && canWrite(session.user.role) ? (
+              <DeleteRepairButton
+                ticketId={ticket.id}
+                ticketNumber={ticket.ticketNumber}
+              />
+            ) : null}
             <RepairStatusBadge status={ticket.status} />
           </>
         }
