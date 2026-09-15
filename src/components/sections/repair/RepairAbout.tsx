@@ -13,9 +13,17 @@ export function RepairAbout() {
         </FadeIn>
 
         <FadeIn delay={0.08}>
-          <p className="mt-8 text-[15px] leading-[1.8] text-muted sm:text-base sm:leading-[1.8]">
-            {company.repairDescription}
-          </p>
+          <div className="mt-8 space-y-5 text-[15px] leading-[1.8] text-muted sm:text-base sm:leading-[1.8]">
+            <p>
+              SD Solutions Repair tar inn telefoner til reparasjon og
+              refurbishing, med hovedvekt på iPhone.
+            </p>
+            <p>
+              Vi bytter skjerm og batteri, fikser ladeport, kamera og lyd, og
+              kjører diagnostikk når feilen ikke er åpenbar. Du følger saken på
+              en statusside etter at ordren er opprettet.
+            </p>
+          </div>
         </FadeIn>
       </div>
     </Section>

@@ -20,8 +20,10 @@ export function RepairHero() {
         </FadeIn>
 
         <FadeIn delay={0.12}>
-          <p className="mt-8 max-w-[34ch] text-[15px] leading-[1.7] text-muted sm:text-base">
-            Elverum. Skjerm, batteri, ladeport, kamera og diagnostikk.
+          <p className="mt-8 max-w-[40ch] text-[15px] leading-[1.7] text-muted sm:text-base">
+            Vi reparerer iPhone: skjerm, batteri, ladeport, kamera, lyd og
+            diagnostikk. Opprett en serviceordre, så tar vi saken inn i
+            verkstedet.
           </p>
         </FadeIn>
 

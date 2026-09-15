@@ -19,7 +19,7 @@ export function Footer() {
               <Logo />
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-muted">
-              iPhone-reparasjon i Elverum. Programvare på siden.
+              iPhone-reparasjon og programvare.
             </p>
           </div>
 
