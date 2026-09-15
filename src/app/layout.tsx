@@ -9,12 +9,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SD Solutions — iPhone-reparasjon i Elverum",
+  title: "SD Solutions — iPhone-reparasjon",
   description:
-    "iPhone-reparasjon hos SD Solutions i Elverum. Programvare som Kartarkiv og SD Kiosk.",
+    "iPhone-reparasjon hos SD Solutions. Programvare som Kartarkiv og SD Kiosk.",
   openGraph: {
     title: "SD Solutions",
-    description: "iPhone-reparasjon i Elverum. Programvare på siden.",
+    description: "iPhone-reparasjon. Programvare under Programvare.",
     type: "website",
     locale: "nb_NO",
   },

@@ -13,15 +13,15 @@ export function RepairCTA() {
             Opprett serviceordre
           </h2>
           <p className="mt-5 text-[15px] leading-[1.75] text-muted">
-            Personalia, modell, IMEI og feil. Lever i butikk eller send med post
-            (+69 kr hver vei).
+            Send inn saken i portalen. Du får en statusside, og vi tar jobben
+            når enheten er hos oss.
           </p>
         </FadeIn>
 
         <FadeIn delay={0.06}>
           <div className="mt-10">
             <Button href={SERVICE_ORDER_URL} size="lg">
-              Gå til skjema
+              Opprett serviceordre
             </Button>
           </div>
         </FadeIn>
