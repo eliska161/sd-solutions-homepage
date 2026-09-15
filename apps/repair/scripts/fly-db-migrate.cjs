@@ -279,6 +279,38 @@ async function ensureServiceOrderColumns(client) {
   console.log("==> Service-order columns ready");
 }
 
+async function ensureNoteAuthors(client) {
+  const hasNotes = await publicTableExists(client, "repair_notes");
+  if (!hasNotes) return;
+
+  await client.unsafe(`
+    DO $$ BEGIN
+      CREATE TYPE "note_author_kind" AS ENUM('STAFF', 'CUSTOMER');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+  `);
+  await client.unsafe(`
+    ALTER TABLE "repair_notes" ADD COLUMN IF NOT EXISTS "author_name" text;
+    ALTER TABLE "repair_notes" ADD COLUMN IF NOT EXISTS "author_kind" "note_author_kind" DEFAULT 'STAFF' NOT NULL;
+  `);
+  console.log("==> repair_notes author columns ready");
+}
+
+async function ensureReceivedPartStatus(client) {
+  const hasTable = await publicTableExists(client, "repair_parts");
+  if (!hasTable) return;
+
+  await client.unsafe(`
+    DO $$ BEGIN
+      ALTER TYPE "repair_part_status" ADD VALUE IF NOT EXISTS 'RECEIVED';
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+  `);
+  console.log("==> repair_part_status RECEIVED ready");
+}
+
 async function main() {
   console.log("==> Applying Drizzle migrations from", migrationsFolder);
   const client = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
@@ -299,6 +331,8 @@ async function main() {
     await ensureTicketDiscount(client);
     await ensureSharedJobParts(client);
     await ensureServiceOrderColumns(client);
+    await ensureNoteAuthors(client);
+    await ensureReceivedPartStatus(client);
     console.log("==> Migrations complete");
   } finally {
     await client.end({ timeout: 5 });

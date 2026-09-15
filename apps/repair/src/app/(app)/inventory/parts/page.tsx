@@ -219,7 +219,7 @@ export default async function PartsPage({
         />
       ) : (
         <DataTable
-          headers={["SKU", "Navn", "På lager", "Min", "Kost", "Status"]}
+          headers={["SKU", "Navn", "På lager", "Bestilt inn", "Min", "Kost", "Status"]}
         >
           {parts.map((p) => (
             <tr key={p.id}>
@@ -231,6 +231,9 @@ export default async function PartsPage({
                 }
               >
                 {p.quantityOnHand}
+              </Td>
+              <Td className={p.quantityIncoming > 0 ? "text-warning" : "text-muted"}>
+                {p.quantityIncoming || "—"}
               </Td>
               <Td className="text-muted">{p.minimumStock}</Td>
               <Td>

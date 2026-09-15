@@ -38,6 +38,40 @@ export const DELIVERY_METHOD_LABELS = {
   POST: "Post",
 } as const;
 
+export const REPAIR_PART_STATUS_LABELS = {
+  USED: "Fra lager",
+  ORDERED: "Bestilt",
+  RECEIVED: "Mottatt til jobb",
+  CANCELLED: "Kansellert",
+} as const;
+
+export const INVENTORY_ACTION_LABELS = {
+  RECEIVED: "Mottak til lager",
+  USED: "Tatt fra lager",
+  RETURNED: "Tilbake til lager",
+  ADJUSTED: "Justering",
+  DAMAGED: "Ødelagt",
+  SOLD: "Solgt",
+  TRANSFERRED: "Overført",
+} as const;
+
+export function partStatusTone(
+  status: string,
+): "default" | "muted" | "accent" | "success" | "warning" | "danger" {
+  switch (status) {
+    case "USED":
+      return "success";
+    case "RECEIVED":
+      return "accent";
+    case "ORDERED":
+      return "warning";
+    case "CANCELLED":
+      return "danger";
+    default:
+      return "muted";
+  }
+}
+
 export const REPAIR_STATUSES = Object.keys(
   REPAIR_STATUS_LABELS,
 ) as (keyof typeof REPAIR_STATUS_LABELS)[];

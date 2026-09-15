@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { DataTable, Td } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MoneyText } from "@/components/ui/MoneyText";
-import { formatDate } from "@/lib/labels";
+import { formatDate, INVENTORY_ACTION_LABELS } from "@/lib/labels";
 import { listInventoryMovements } from "@/server/inventory";
 
 export default async function MovementsPage() {
@@ -14,7 +14,7 @@ export default async function MovementsPage() {
     <div>
       <PageHeader
         title="Lagerbevegelser"
-        description="Mottak, forbruk og justeringer."
+        description="Mottak til lager, forbruk på jobb, og justeringer. Mottatt-til-jobb endrer ikke antall på lager."
         actions={
           <Link href="/inventory/parts?receive=1">
             <Button type="button">Motta lager</Button>
@@ -34,7 +34,7 @@ export default async function MovementsPage() {
         />
       ) : (
         <DataTable
-          headers={["Tid", "Del", "Handling", "Delta", "Resulterende", "Kost"]}
+          headers={["Tid", "Del", "Handling", "Delta", "På lager etter", "Kost"]}
         >
           {movements.map((m) => (
             <tr key={m.id}>
@@ -45,7 +45,14 @@ export default async function MovementsPage() {
                 </span>{" "}
                 {m.partName}
               </Td>
-              <Td>{m.action}</Td>
+              <Td>
+                {INVENTORY_ACTION_LABELS[
+                  m.action as keyof typeof INVENTORY_ACTION_LABELS
+                ] ?? m.action}
+                {m.note ? (
+                  <span className="block text-[11px] text-muted">{m.note}</span>
+                ) : null}
+              </Td>
               <Td
                 className={
                   m.quantityDelta < 0 ? "text-danger" : "text-success"

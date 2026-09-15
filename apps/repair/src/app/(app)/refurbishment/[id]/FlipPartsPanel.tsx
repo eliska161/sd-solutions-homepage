@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Modal } from "@/components/ui/Modal";
 import { MoneyText } from "@/components/ui/MoneyText";
+import { PartStatusBadge } from "@/components/ui/StatusBadge";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { parseKrToOre } from "@/lib/labels";
@@ -81,9 +82,11 @@ export function FlipPartsPanel({
                 {p.quantity} × {p.partName} ({p.partSku})
               </p>
               <p className="text-[12px] text-muted">
-                {p.status === "ORDERED" ? "Bestilt" : "Brukt"}
-                {p.notes ? ` · ${p.notes}` : ""}
+                {p.notes ? p.notes : null}
               </p>
+              <div className="mt-1">
+                <PartStatusBadge status={p.status || "USED"} />
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <MoneyText ore={p.quantity * p.unitCostOre} />
@@ -105,7 +108,7 @@ export function FlipPartsPanel({
                     });
                   }}
                 >
-                  Motta
+                  Motta til jobb
                 </Button>
               ) : null}
               <Button

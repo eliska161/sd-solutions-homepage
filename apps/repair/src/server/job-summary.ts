@@ -54,8 +54,9 @@ const CHECK_RESULT_LABELS: Record<string, string> = {
 };
 
 const PART_STATUS_LABELS: Record<string, string> = {
-  USED: "Brukt",
+  USED: "Fra lager",
   ORDERED: "Bestilt",
+  RECEIVED: "Mottatt til jobb",
   CANCELLED: "Kansellert",
 };
 

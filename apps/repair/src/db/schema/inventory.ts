@@ -44,6 +44,7 @@ export const purchaseOrderStatusEnum = pgEnum("purchase_order_status", [
 export const repairPartStatusEnum = pgEnum("repair_part_status", [
   "USED",
   "ORDERED",
+  "RECEIVED",
   "CANCELLED",
 ]);
 

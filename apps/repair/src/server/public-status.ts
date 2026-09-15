@@ -3,6 +3,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import {
   attachments,
+  customers,
   devices,
   parts,
   repairNotes,
@@ -67,6 +68,8 @@ export async function getPublicRepairByToken(token: string) {
         id: repairNotes.id,
         content: repairNotes.content,
         createdAt: repairNotes.createdAt,
+        authorName: repairNotes.authorName,
+        authorKind: repairNotes.authorKind,
       })
       .from(repairNotes)
       .where(
@@ -162,12 +165,19 @@ export async function getPublicRepairByToken(token: string) {
         id: p.id,
         name: p.partName?.trim() || "Del",
         quantity: p.quantity,
-        status: p.status === "ORDERED" ? ("ordered" as const) : ("used" as const),
+        status:
+          p.status === "ORDERED"
+            ? ("ordered" as const)
+            : p.status === "RECEIVED"
+              ? ("received" as const)
+              : ("used" as const),
       })),
     updates: updates.map((u) => ({
       id: u.id,
       content: u.content,
       createdAt: u.createdAt,
+      authorName: u.authorName?.trim() || (u.authorKind === "CUSTOMER" ? "Kunde" : "Verksted"),
+      authorKind: u.authorKind === "CUSTOMER" ? ("customer" as const) : ("staff" as const),
     })),
     photos: photos.map((p) => ({
       id: p.id,
@@ -222,4 +232,45 @@ export async function getPublicAttachmentForToken(
     .limit(1);
 
   return file ?? null;
+}
+
+export async function addPublicRepairUpdate(token: string, content: string) {
+  if (!token || !isHexToken(token)) {
+    return { ok: false as const, error: "Ugyldig lenke" };
+  }
+  const text = content.trim();
+  if (text.length < 2) {
+    return { ok: false as const, error: "Skriv en melding først" };
+  }
+  if (text.length > 2000) {
+    return { ok: false as const, error: "Meldingen er for lang" };
+  }
+
+  const db = getDb();
+  const [ticket] = await db
+    .select({
+      id: repairTickets.id,
+      customerId: repairTickets.customerId,
+    })
+    .from(repairTickets)
+    .where(eq(repairTickets.publicAccessToken, token))
+    .limit(1);
+  if (!ticket) return { ok: false as const, error: "Saken ble ikke funnet" };
+
+  const [customer] = await db
+    .select({ name: customers.name })
+    .from(customers)
+    .where(eq(customers.id, ticket.customerId))
+    .limit(1);
+
+  await db.insert(repairNotes).values({
+    ticketId: ticket.id,
+    authorId: null,
+    authorName: customer?.name?.trim() || "Kunde",
+    authorKind: "CUSTOMER",
+    content: text,
+    visibility: "CUSTOMER",
+  });
+
+  return { ok: true as const };
 }
