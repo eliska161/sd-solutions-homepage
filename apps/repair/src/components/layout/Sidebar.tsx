@@ -39,8 +39,15 @@ export function Sidebar() {
         href="/dashboard"
         className="flex h-12 items-center gap-2 border-b border-white/10 px-3 text-[13px] font-semibold tracking-tight"
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/sd-solutions-mark.png"
+          alt=""
+          width={22}
+          height={22}
+          className="h-[22px] w-[22px] object-contain"
+        />
         <span className="hidden lg:inline">SD Solutions</span>
-        <span className="lg:hidden">SD</span>
       </Link>
       <nav className="flex flex-1 flex-col py-2" aria-label="Hovedmeny">
         {PRIMARY_TABS.map((tab) => {

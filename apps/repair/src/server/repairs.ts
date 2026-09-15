@@ -21,6 +21,7 @@ import { assertCanWrite } from "@/lib/permissions";
 import { createPublicAccessToken } from "@/lib/public-token";
 import { nextPublicId } from "@/lib/sequences";
 import { requireSession } from "@/lib/session";
+import { notifyDeviceReceived, notifyReadyForPickup, notifyRepairCompleted, notifyStaffUpdate, notifyWaitingForCustomer } from "@/server/customer-mail";
 
 const repairStatusSchema = z.enum([
   "NEW",
@@ -199,6 +200,7 @@ export async function createRepair(input: z.infer<typeof createRepairSchema>) {
 
   revalidatePath("/repairs");
   revalidatePath("/dashboard");
+  notifyDeviceReceived(row.id);
   return row;
 }
 
@@ -239,6 +241,7 @@ export async function markRepairReceived(ticketId: string) {
   revalidatePath(`/repairs/${ticketId}`);
   revalidatePath("/repairs");
   revalidatePath("/dashboard");
+  notifyDeviceReceived(ticketId);
   return row;
 }
 
@@ -444,6 +447,17 @@ export async function updateRepairStatus(
   revalidatePath("/repairs");
   revalidatePath(`/repairs/${ticketId}`);
   revalidatePath("/dashboard");
+
+  if (before.status !== nextStatus) {
+    if (nextStatus === "WAITING_FOR_CUSTOMER") {
+      notifyWaitingForCustomer(ticketId);
+    } else if (nextStatus === "READY_FOR_PICKUP") {
+      notifyReadyForPickup(ticketId);
+    } else if (nextStatus === "COMPLETED") {
+      notifyRepairCompleted(ticketId);
+    }
+  }
+
   return row;
 }
 
@@ -477,6 +491,9 @@ export async function addRepairNote(input: z.infer<typeof noteSchema>) {
   });
 
   revalidatePath(`/repairs/${data.ticketId}`);
+  if (data.visibility === "CUSTOMER") {
+    notifyStaffUpdate(data.ticketId, data.content);
+  }
   return row;
 }
 

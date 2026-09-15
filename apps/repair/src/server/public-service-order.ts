@@ -16,6 +16,7 @@ import { normalizeImei } from "@/lib/imei-lookup";
 import { CUSTOMER_POSTAGE_ORE } from "@/lib/money";
 import { createPublicAccessToken } from "@/lib/public-token";
 import { nextPublicId } from "@/lib/sequences";
+import { notifyServiceOrderCreated } from "@/server/customer-mail";
 
 const deliverySchema = z.enum(["IN_PERSON", "POST"]);
 
@@ -244,6 +245,8 @@ export async function createPublicServiceOrder(
     message: `Kundeserviceordre ${ticketNumber} opprettet`,
     actorId: null,
   });
+
+  notifyServiceOrderCreated(ticket.id);
 
   return {
     ok: true,
