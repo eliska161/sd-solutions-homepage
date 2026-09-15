@@ -30,7 +30,8 @@ export const SECONDARY_TABS: Record<
   ],
   "/inventory": [
     { label: "Oversikt", href: "/inventory" },
-    { label: "Deler", href: "/inventory/parts" },
+    { label: "På lager", href: "/inventory/parts" },
+    { label: "Bestilt", href: "/inventory/incoming" },
     { label: "Bevegelser", href: "/inventory/movements" },
     { label: "Leverandører", href: "/suppliers" },
     { label: "Tjenester", href: "/services" },

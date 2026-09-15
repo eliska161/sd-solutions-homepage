@@ -53,23 +53,32 @@ import { IntakePanel } from "./IntakePanel";
 import { RepairStatusForm } from "./RepairStatusForm";
 import { TicketPartsPanel } from "./TicketPartsPanel";
 import { TicketServicesPanel } from "./TicketServicesPanel";
+import { parseRepairTab, TicketTabNav } from "./TicketTabNav";
 import {
   CustomerLinkCard,
   TechnicianEtaForm,
 } from "./TechnicianEtaForm";
 
+function repairBack(ticketId: string, tab?: string | null) {
+  const t = tab?.trim();
+  if (t && t !== "oversikt") {
+    redirect(`/repairs/${ticketId}?tab=${encodeURIComponent(t)}`);
+  }
+  redirect(`/repairs/${ticketId}`);
+}
+
 async function ensureDiagnosticsAction(formData: FormData) {
   "use server";
   const ticketId = String(formData.get("ticketId"));
   await getOrCreateDiagnostics(ticketId);
-  redirect(`/repairs/${ticketId}`);
+  repairBack(ticketId, String(formData.get("tab") || ""));
 }
 
 async function markReceivedAction(formData: FormData) {
   "use server";
   const ticketId = String(formData.get("ticketId"));
   await markRepairReceived(ticketId);
-  redirect(`/repairs/${ticketId}`);
+  repairBack(ticketId, String(formData.get("tab") || ""));
 }
 
 async function addNoteAction(formData: FormData) {
@@ -82,7 +91,7 @@ async function addNoteAction(formData: FormData) {
       | "INTERNAL"
       | "CUSTOMER"),
   });
-  redirect(`/repairs/${ticketId}`);
+  repairBack(ticketId, String(formData.get("tab") || "oppdateringer"));
 }
 
 async function removeNoteAction(formData: FormData) {
@@ -92,7 +101,7 @@ async function removeNoteAction(formData: FormData) {
     ticketId,
     noteId: String(formData.get("noteId")),
   });
-  redirect(`/repairs/${ticketId}`);
+  repairBack(ticketId, String(formData.get("tab") || ""));
 }
 
 async function updatePricingAction(formData: FormData) {
@@ -102,7 +111,7 @@ async function updatePricingAction(formData: FormData) {
     customerPriceOre: parseKrToOre(formData.get("customerPriceKr")),
     otherCostsOre: parseKrToOre(formData.get("otherCostsKr")),
   });
-  redirect(`/repairs/${ticketId}`);
+  repairBack(ticketId, String(formData.get("tab") || "oversikt"));
 }
 
 async function createWarrantyAction(formData: FormData) {
@@ -111,7 +120,7 @@ async function createWarrantyAction(formData: FormData) {
   await createWarrantyForRepair(ticketId, {
     days: Number(formData.get("days") || 90),
   });
-  redirect(`/repairs/${ticketId}`);
+  repairBack(ticketId, String(formData.get("tab") || "mer"));
 }
 
 async function uploadPhotoAction(formData: FormData) {
@@ -139,7 +148,7 @@ async function uploadPhotoAction(formData: FormData) {
     description: String(formData.get("description") || "") || null,
     formData,
   });
-  redirect(`/repairs/${ticketId}`);
+  repairBack(ticketId, String(formData.get("tab") || "bilder"));
 }
 
 async function togglePhotoVisibilityAction(formData: FormData) {
@@ -150,7 +159,7 @@ async function togglePhotoVisibilityAction(formData: FormData) {
     | "INTERNAL"
     | "CUSTOMER";
   await setAttachmentVisibility({ attachmentId, visibility });
-  redirect(`/repairs/${ticketId}`);
+  repairBack(ticketId, String(formData.get("tab") || "bilder"));
 }
 
 async function deletePhotoAction(formData: FormData) {
@@ -159,15 +168,19 @@ async function deletePhotoAction(formData: FormData) {
   await deleteAttachment({
     attachmentId: String(formData.get("attachmentId")),
   });
-  redirect(`/repairs/${ticketId}`);
+  repairBack(ticketId, String(formData.get("tab") || "bilder"));
 }
 
 export default async function RepairDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id } = await params;
+  const { tab: tabRaw } = await searchParams;
+  const tab = parseRepairTab(tabRaw);
   const ticket = await getRepair(id);
   if (!ticket) notFound();
 
@@ -219,6 +232,14 @@ export default async function RepairDetailPage({
     otherCostsOre: otherCosts,
   });
   const publicUrl = `${origin}/s/${ticket.publicAccessToken}`;
+  const customerUpdates = notes
+    .filter((n) => n.visibility === "CUSTOMER")
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+  const internalNotes = notes.filter((n) => n.visibility === "INTERNAL");
 
   return (
     <div>
@@ -238,6 +259,7 @@ export default async function RepairDetailPage({
         {!ticket.receivedAt ? (
           <form action={markReceivedAction}>
             <input type="hidden" name="ticketId" value={ticket.id} />
+            <input type="hidden" name="tab" value={tab} />
             <Button type="submit">Motta enhet</Button>
           </form>
         ) : null}
@@ -304,8 +326,23 @@ export default async function RepairDetailPage({
         </Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
+      <TicketTabNav ticketId={ticket.id} tab={tab} />
+
+      <div
+        className={
+          tab === "oversikt" || tab === "mer"
+            ? "grid gap-6 xl:grid-cols-3"
+            : "space-y-6"
+        }
+      >
+        <div
+          className={
+            tab === "oversikt" || tab === "mer"
+              ? "space-y-6 xl:col-span-2"
+              : "space-y-6"
+          }
+        >
+          {tab === "oversikt" ? (
           <Card>
             <CardHeader title="Kunde & enhet" />
             <CardBody className="grid gap-4 sm:grid-cols-2 text-sm">
@@ -346,14 +383,18 @@ export default async function RepairDetailPage({
               </div>
             </CardBody>
           </Card>
+          ) : null}
 
+          {tab === "mottak" ? (
           <Card>
             <CardHeader title="Mottakskontroll" />
             <CardBody>
               <IntakePanel ticketId={ticket.id} intake={intake} />
             </CardBody>
           </Card>
+          ) : null}
 
+          {tab === "diagnose" ? (
           <Card>
             <CardHeader
               title="Diagnostikk"
@@ -361,6 +402,7 @@ export default async function RepairDetailPage({
                 !diag ? (
                   <form action={ensureDiagnosticsAction}>
                     <input type="hidden" name="ticketId" value={ticket.id} />
+                    <input type="hidden" name="tab" value="diagnose" />
                     <Button type="submit" size="sm" variant="secondary">
                       Start diagnostikk
                     </Button>
@@ -388,7 +430,10 @@ export default async function RepairDetailPage({
               </div>
             </CardBody>
           </Card>
+          ) : null}
 
+          {tab === "jobb" ? (
+          <>
           <Card>
             <CardHeader title="Tjenester" />
             <CardBody>
@@ -412,7 +457,10 @@ export default async function RepairDetailPage({
               />
             </CardBody>
           </Card>
+          </>
+          ) : null}
 
+          {tab === "bilder" ? (
           <Card>
             <CardHeader title="Bilder & filer" />
             <CardBody className="space-y-4">
@@ -457,6 +505,7 @@ export default async function RepairDetailPage({
                         </p>
                         <form action={togglePhotoVisibilityAction}>
                           <input type="hidden" name="ticketId" value={ticket.id} />
+                          <input type="hidden" name="tab" value="bilder" />
                           <input
                             type="hidden"
                             name="attachmentId"
@@ -479,6 +528,7 @@ export default async function RepairDetailPage({
                         </form>
                         <form action={deletePhotoAction}>
                           <input type="hidden" name="ticketId" value={ticket.id} />
+                          <input type="hidden" name="tab" value="bilder" />
                           <input
                             type="hidden"
                             name="attachmentId"
@@ -499,6 +549,7 @@ export default async function RepairDetailPage({
                 className="flex flex-wrap items-end gap-2"
               >
                 <input type="hidden" name="ticketId" value={ticket.id} />
+                <input type="hidden" name="tab" value="bilder" />
                 <div>
                   <Label htmlFor="category">Kategori</Label>
                   <Select
@@ -552,24 +603,33 @@ export default async function RepairDetailPage({
               </form>
             </CardBody>
           </Card>
+          ) : null}
 
+          {tab === "oppdateringer" ? (
           <Card>
-            <CardHeader title="Notater" />
+            <CardHeader
+              title="Oppdateringer"
+              description="Vises på kundens statusside. Kunden kan svare."
+            />
             <CardBody className="space-y-4">
-              {notes.length === 0 ? (
-                <p className="text-sm text-muted">Ingen notater.</p>
+              {customerUpdates.length === 0 ? (
+                <p className="text-sm text-muted">Ingen meldinger ennå.</p>
               ) : (
-                notes.map((n) => (
+                customerUpdates.map((n) => (
                   <div
                     key={n.id}
-                    className="rounded-xl border border-border px-3 py-2"
+                    className="rounded border border-border px-3 py-2"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-[11px] text-muted">
-                        {n.visibility} · {formatDate(n.createdAt)}
+                        {n.authorName ||
+                          (n.authorKind === "CUSTOMER" ? "Kunde" : "Verksted")}
+                        {" · "}
+                        {formatDate(n.createdAt)}
                       </p>
                       <form action={removeNoteAction}>
                         <input type="hidden" name="ticketId" value={ticket.id} />
+                        <input type="hidden" name="tab" value="oppdateringer" />
                         <input type="hidden" name="noteId" value={n.id} />
                         <Button type="submit" variant="ghost" size="sm">
                           Fjern
@@ -584,26 +644,73 @@ export default async function RepairDetailPage({
               )}
               <form action={addNoteAction} className="space-y-2">
                 <input type="hidden" name="ticketId" value={ticket.id} />
-                <Textarea name="content" required placeholder="Skriv notat…" />
-                <div className="flex gap-2">
-                  <Select
-                    name="visibility"
-                    defaultValue="INTERNAL"
-                    className="w-40"
-                  >
-                    <option value="INTERNAL">Internt</option>
-                    <option value="CUSTOMER">Kunde</option>
-                  </Select>
-                  <Button type="submit" variant="secondary">
-                    Lagre notat
-                  </Button>
-                </div>
+                <input type="hidden" name="tab" value="oppdateringer" />
+                <input type="hidden" name="visibility" value="CUSTOMER" />
+                <Textarea
+                  name="content"
+                  required
+                  placeholder="Skriv til kunden…"
+                />
+                <Button type="submit" variant="secondary">
+                  Send til kunde
+                </Button>
               </form>
             </CardBody>
           </Card>
+          ) : null}
+
+          {tab === "notater" ? (
+          <Card>
+            <CardHeader
+              title="Interne notater"
+              description="Kun for verkstedet. Synes ikke for kunden."
+            />
+            <CardBody className="space-y-4">
+              {internalNotes.length === 0 ? (
+                <p className="text-sm text-muted">Ingen interne notater.</p>
+              ) : (
+                internalNotes.map((n) => (
+                  <div
+                    key={n.id}
+                    className="rounded border border-border px-3 py-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[11px] text-muted">
+                        {n.authorName || "Verksted"} · {formatDate(n.createdAt)}
+                      </p>
+                      <form action={removeNoteAction}>
+                        <input type="hidden" name="ticketId" value={ticket.id} />
+                        <input type="hidden" name="tab" value="notater" />
+                        <input type="hidden" name="noteId" value={n.id} />
+                        <Button type="submit" variant="ghost" size="sm">
+                          Fjern
+                        </Button>
+                      </form>
+                    </div>
+                    <p className="mt-1 text-sm whitespace-pre-wrap">
+                      {n.content}
+                    </p>
+                  </div>
+                ))
+              )}
+              <form action={addNoteAction} className="space-y-2">
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <input type="hidden" name="tab" value="notater" />
+                <input type="hidden" name="visibility" value="INTERNAL" />
+                <Textarea name="content" required placeholder="Internt notat…" />
+                <Button type="submit" variant="secondary">
+                  Lagre notat
+                </Button>
+              </form>
+            </CardBody>
+          </Card>
+          ) : null}
         </div>
 
+        {tab === "oversikt" || tab === "mer" ? (
         <div className="space-y-6">
+          {tab === "oversikt" ? (
+          <>
           <Card>
             <CardHeader title="Tekniker & levering" />
             <CardBody>
@@ -628,6 +735,7 @@ export default async function RepairDetailPage({
             <CardBody>
               <form action={updatePricingAction} className="space-y-3">
                 <input type="hidden" name="ticketId" value={ticket.id} />
+                <input type="hidden" name="tab" value="oversikt" />
                 <div>
                   <Label htmlFor="customerPriceKr">Kundepris (kr)</Label>
                   <Input
@@ -656,7 +764,11 @@ export default async function RepairDetailPage({
               </form>
             </CardBody>
           </Card>
+          </>
+          ) : null}
 
+          {tab === "mer" ? (
+          <>
           <Card>
             <CardHeader title="Garanti" />
             <CardBody className="space-y-3 text-sm">
@@ -670,6 +782,7 @@ export default async function RepairDetailPage({
               ) : (
                 <form action={createWarrantyAction} className="space-y-2">
                   <input type="hidden" name="ticketId" value={ticket.id} />
+                  <input type="hidden" name="tab" value="mer" />
                   <Label htmlFor="days">Dager</Label>
                   <Input
                     id="days"
@@ -723,7 +836,10 @@ export default async function RepairDetailPage({
               )}
             </CardBody>
           </Card>
+          </>
+          ) : null}
         </div>
+        ) : null}
       </div>
     </div>
   );

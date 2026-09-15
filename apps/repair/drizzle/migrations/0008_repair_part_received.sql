@@ -1,0 +1,1 @@
+ALTER TYPE "repair_part_status" ADD VALUE IF NOT EXISTS 'RECEIVED';

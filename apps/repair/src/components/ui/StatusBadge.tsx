@@ -1,7 +1,9 @@
 import { Badge } from "@/components/ui/Badge";
 import {
   FLIP_STATUS_LABELS,
+  REPAIR_PART_STATUS_LABELS,
   REPAIR_STATUS_LABELS,
+  partStatusTone,
   repairStatusTone,
   flipStatusTone,
 } from "@/lib/labels";
@@ -16,6 +18,14 @@ export function FlipStatusBadge({ status }: { status: string }) {
   const label =
     FLIP_STATUS_LABELS[status as keyof typeof FLIP_STATUS_LABELS] ?? status;
   return <Badge tone={flipStatusTone(status)}>{label}</Badge>;
+}
+
+export function PartStatusBadge({ status }: { status: string }) {
+  const label =
+    REPAIR_PART_STATUS_LABELS[
+      status as keyof typeof REPAIR_PART_STATUS_LABELS
+    ] ?? status;
+  return <Badge tone={partStatusTone(status)}>{label}</Badge>;
 }
 
 export function StatusBadge({

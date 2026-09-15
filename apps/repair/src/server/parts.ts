@@ -15,7 +15,18 @@ import { assertCanWrite } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
 import { getRepair } from "@/server/repairs";
 import { getFlip } from "@/server/flips";
-import { and, desc, eq, ilike, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  ilike,
+  inArray,
+  isNotNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -51,7 +62,15 @@ export async function listParts(query?: string) {
   const db = getDb();
   const q = query?.trim();
   return db
-    .select()
+    .select({
+      ...getTableColumns(parts),
+      quantityIncoming: sql<number>`coalesce((
+        select sum(${repairParts.quantity})
+        from ${repairParts}
+        where ${repairParts.partId} = ${parts.id}
+          and ${repairParts.status} = 'ORDERED'
+      ), 0)::int`.as("quantityIncoming"),
+    })
     .from(parts)
     .where(
       q
@@ -256,7 +275,12 @@ export async function attachPartToRepair(input: {
         total: sql<number>`coalesce(sum(${repairParts.quantity} * ${repairParts.unitCostOre}), 0)::int`,
       })
       .from(repairParts)
-      .where(eq(repairParts.ticketId, data.ticketId));
+      .where(
+        and(
+          eq(repairParts.ticketId, data.ticketId),
+          ne(repairParts.status, "CANCELLED"),
+        ),
+      );
 
     await tx
       .update(repairTickets)
@@ -347,7 +371,12 @@ export async function orderPartForRepair(input: {
         total: sql<number>`coalesce(sum(${repairParts.quantity} * ${repairParts.unitCostOre}), 0)::int`,
       })
       .from(repairParts)
-      .where(eq(repairParts.ticketId, data.ticketId));
+      .where(
+        and(
+          eq(repairParts.ticketId, data.ticketId),
+          ne(repairParts.status, "CANCELLED"),
+        ),
+      );
 
     const ticketPatch: {
       actualPartsCostOre: number;
@@ -431,7 +460,7 @@ export async function removePartFromRepair(input: {
       .limit(1);
     if (!line) throw new Error("Del ikke funnet på ticket");
 
-    if (line.status === "USED") {
+    if (line.status === "USED" || line.status === "RECEIVED") {
       const locked = await tx
         .select()
         .from(parts)
@@ -443,7 +472,11 @@ export async function removePartFromRepair(input: {
       const resulting = part.quantityOnHand + line.quantity;
       await tx
         .update(parts)
-        .set({ quantityOnHand: resulting, updatedAt: new Date() })
+        .set({
+          quantityOnHand: resulting,
+          location: part.location === "BESTILT" ? null : part.location,
+          updatedAt: new Date(),
+        })
         .where(eq(parts.id, line.partId));
 
       await tx.insert(inventoryTransactions).values({
@@ -453,6 +486,10 @@ export async function removePartFromRepair(input: {
         unitCostOre: line.unitCostOre,
         resultingQuantity: resulting,
         repairTicketId: data.ticketId,
+        note:
+          line.status === "RECEIVED"
+            ? "Mottatt del flyttet til lager"
+            : "Tilbake fra jobb",
         createdById: session.user.id,
       });
     }
@@ -464,7 +501,12 @@ export async function removePartFromRepair(input: {
         total: sql<number>`coalesce(sum(${repairParts.quantity} * ${repairParts.unitCostOre}), 0)::int`,
       })
       .from(repairParts)
-      .where(eq(repairParts.ticketId, data.ticketId));
+      .where(
+        and(
+          eq(repairParts.ticketId, data.ticketId),
+          ne(repairParts.status, "CANCELLED"),
+        ),
+      );
 
     await tx
       .update(repairTickets)
@@ -531,7 +573,7 @@ async function syncFlipPartsCost(
     .where(
       and(
         eq(repairParts.refurbishmentId, refurbishmentId),
-        inArray(repairParts.status, ["USED", "ORDERED"]),
+        inArray(repairParts.status, ["USED", "ORDERED", "RECEIVED"]),
       ),
     );
 
@@ -556,7 +598,12 @@ async function syncFlipPartsCost(
     await tx.insert(refurbishmentCosts).values({
       refurbishmentId,
       category: "PART",
-      label: line.status === "ORDERED" ? `Bestilt: ${name}` : name,
+      label:
+        line.status === "ORDERED"
+          ? `Bestilt: ${name}`
+          : line.status === "RECEIVED"
+            ? `Mottatt: ${name}`
+            : name,
       amountOre: line.quantity * line.unitCostOre,
       partId: line.partId,
     });
@@ -581,8 +628,8 @@ async function syncFlipPartsCost(
 }
 
 /**
- * Receive an ordered part into stock and mark it USED on the job
- * (repair ticket or flip).
+ * Receive an ordered part onto the job (not into free warehouse stock).
+ * Stock qty stays unchanged — the part is allocated to the repair/flip.
  */
 export async function receiveOrderedPart(input: {
   repairPartId: string;
@@ -629,51 +676,39 @@ export async function receiveOrderedPart(input: {
     if (!part) throw new Error("Del ikke funnet i lager");
 
     const unitCost = data.unitCostOre ?? line.unitCostOre ?? part.costPriceOre;
-    const afterReceive = part.quantityOnHand + line.quantity;
 
-    await tx
-      .update(parts)
-      .set({
-        quantityOnHand: afterReceive,
-        costPriceOre: unitCost,
-        updatedAt: new Date(),
-      })
-      .where(eq(parts.id, line.partId));
+    if (part.location === "BESTILT") {
+      await tx
+        .update(parts)
+        .set({
+          costPriceOre: unitCost,
+          location: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(parts.id, line.partId));
+    } else if (data.unitCostOre != null) {
+      await tx
+        .update(parts)
+        .set({ costPriceOre: unitCost, updatedAt: new Date() })
+        .where(eq(parts.id, line.partId));
+    }
 
     await tx.insert(inventoryTransactions).values({
       partId: line.partId,
       action: "RECEIVED",
-      quantityDelta: line.quantity,
+      quantityDelta: 0,
       unitCostOre: unitCost,
-      resultingQuantity: afterReceive,
+      resultingQuantity: part.quantityOnHand,
       repairTicketId: line.ticketId,
       refurbishmentId: line.refurbishmentId,
-      note: "Mottak av bestilt del",
-      createdById: session.user.id,
-    });
-
-    const afterUse = afterReceive - line.quantity;
-    await tx
-      .update(parts)
-      .set({ quantityOnHand: afterUse, updatedAt: new Date() })
-      .where(eq(parts.id, line.partId));
-
-    await tx.insert(inventoryTransactions).values({
-      partId: line.partId,
-      action: "USED",
-      quantityDelta: -line.quantity,
-      unitCostOre: unitCost,
-      resultingQuantity: afterUse,
-      repairTicketId: line.ticketId,
-      refurbishmentId: line.refurbishmentId,
-      note: "Tildelt jobb etter mottak",
+      note: "Mottatt til jobb (ikke fritt lager)",
       createdById: session.user.id,
     });
 
     await tx
       .update(repairParts)
       .set({
-        status: "USED",
+        status: "RECEIVED",
         unitCostOre: unitCost,
       })
       .where(eq(repairParts.id, line.id));
@@ -684,7 +719,12 @@ export async function receiveOrderedPart(input: {
           total: sql<number>`coalesce(sum(${repairParts.quantity} * ${repairParts.unitCostOre}), 0)::int`,
         })
         .from(repairParts)
-        .where(eq(repairParts.ticketId, line.ticketId));
+        .where(
+          and(
+            eq(repairParts.ticketId, line.ticketId),
+            ne(repairParts.status, "CANCELLED"),
+          ),
+        );
 
       await tx
         .update(repairTickets)
@@ -724,9 +764,184 @@ export async function receiveOrderedPart(input: {
 
   revalidatePath("/inventory");
   revalidatePath("/inventory/parts");
+  revalidatePath("/inventory/incoming");
   revalidatePath("/inventory/movements");
   revalidatePath("/dashboard");
   return { ok: true };
+}
+
+export async function cancelOrderedPart(input: { repairPartId: string }) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const { repairPartId } = z
+    .object({ repairPartId: z.string().uuid() })
+    .parse(input);
+  const db = getDb();
+
+  const result = await db.transaction(async (tx) => {
+    const [line] = await tx
+      .select({
+        id: repairParts.id,
+        ticketId: repairParts.ticketId,
+        refurbishmentId: repairParts.refurbishmentId,
+        status: repairParts.status,
+        quantity: repairParts.quantity,
+        partName: parts.name,
+      })
+      .from(repairParts)
+      .innerJoin(parts, eq(parts.id, repairParts.partId))
+      .where(eq(repairParts.id, repairPartId))
+      .limit(1);
+    if (!line) throw new Error("Bestilling ikke funnet");
+    if (line.status !== "ORDERED") {
+      throw new Error("Bare bestilte deler kan kanselleres her");
+    }
+
+    await tx
+      .update(repairParts)
+      .set({ status: "CANCELLED" })
+      .where(eq(repairParts.id, line.id));
+
+    if (line.ticketId) {
+      const [{ total }] = await tx
+        .select({
+          total: sql<number>`coalesce(sum(${repairParts.quantity} * ${repairParts.unitCostOre}), 0)::int`,
+        })
+        .from(repairParts)
+        .where(
+          and(
+            eq(repairParts.ticketId, line.ticketId),
+            ne(repairParts.status, "CANCELLED"),
+          ),
+        );
+      await tx
+        .update(repairTickets)
+        .set({ actualPartsCostOre: total, updatedAt: new Date() })
+        .where(eq(repairTickets.id, line.ticketId));
+    }
+
+    if (line.refurbishmentId) {
+      await syncFlipPartsCost(tx, line.refurbishmentId);
+    }
+
+    return line;
+  });
+
+  if (result.ticketId) {
+    await addActivity({
+      entityType: "repair_ticket",
+      entityId: result.ticketId,
+      type: "repair.part_cancelled",
+      message: `Kansellerte bestilling: ${result.quantity} × ${result.partName}`,
+      actorId: session.user.id,
+    });
+    revalidatePath(`/repairs/${result.ticketId}`);
+  }
+  if (result.refurbishmentId) {
+    await addActivity({
+      entityType: "refurbishment",
+      entityId: result.refurbishmentId,
+      type: "flip.part_cancelled",
+      message: `Kansellerte bestilling: ${result.quantity} × ${result.partName}`,
+      actorId: session.user.id,
+    });
+    revalidatePath(`/refurbishment/${result.refurbishmentId}`);
+  }
+  revalidatePath("/inventory");
+  revalidatePath("/inventory/incoming");
+  return { ok: true };
+}
+
+/** Bestill en eksisterende katalogdel uten å ta fra lager. */
+export async function orderCatalogPartForRepair(input: {
+  ticketId: string;
+  partId: string;
+  quantity?: number;
+  setTicketWaiting?: boolean;
+}) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const data = z
+    .object({
+      ticketId: z.string().uuid(),
+      partId: z.string().uuid(),
+      quantity: z.number().int().positive().default(1),
+      setTicketWaiting: z.boolean().default(true),
+    })
+    .parse(input);
+
+  const ticket = await getRepair(data.ticketId);
+  if (!ticket) throw new Error("Reparasjon ikke funnet");
+  const db = getDb();
+
+  const result = await db.transaction(async (tx) => {
+    const [part] = await tx
+      .select()
+      .from(parts)
+      .where(eq(parts.id, data.partId))
+      .limit(1);
+    if (!part) throw new Error("Del ikke funnet");
+
+    const [repairPart] = await tx
+      .insert(repairParts)
+      .values({
+        ticketId: data.ticketId,
+        partId: part.id,
+        quantity: data.quantity,
+        unitCostOre: part.costPriceOre,
+        status: "ORDERED",
+      })
+      .returning();
+
+    const [{ total }] = await tx
+      .select({
+        total: sql<number>`coalesce(sum(${repairParts.quantity} * ${repairParts.unitCostOre}), 0)::int`,
+      })
+      .from(repairParts)
+      .where(
+        and(
+          eq(repairParts.ticketId, data.ticketId),
+          ne(repairParts.status, "CANCELLED"),
+        ),
+      );
+
+    const ticketPatch: {
+      actualPartsCostOre: number;
+      updatedAt: Date;
+      status?: typeof ticket.status;
+    } = { actualPartsCostOre: total, updatedAt: new Date() };
+
+    if (
+      data.setTicketWaiting &&
+      ticket.status !== "WAITING_FOR_PART" &&
+      ticket.status !== "COMPLETED" &&
+      ticket.status !== "CANCELLED" &&
+      ticket.status !== "RETURNED"
+    ) {
+      ticketPatch.status = "WAITING_FOR_PART";
+    }
+
+    await tx
+      .update(repairTickets)
+      .set(ticketPatch)
+      .where(eq(repairTickets.id, data.ticketId));
+
+    return { part, repairPart };
+  });
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: data.ticketId,
+    type: "repair.part_ordered",
+    message: `Bestilt fra katalog: ${data.quantity} × ${result.part.name}`,
+    actorId: session.user.id,
+  });
+
+  revalidatePath("/inventory");
+  revalidatePath("/inventory/incoming");
+  revalidatePath(`/repairs/${data.ticketId}`);
+  revalidatePath("/repairs");
+  return result;
 }
 
 export async function listFlipParts(refurbishmentId: string) {
@@ -951,7 +1166,7 @@ export async function removePartFromFlip(input: {
       .limit(1);
     if (!line) throw new Error("Del ikke funnet på flip");
 
-    if (line.status === "USED") {
+    if (line.status === "USED" || line.status === "RECEIVED") {
       const locked = await tx
         .select()
         .from(parts)
@@ -963,7 +1178,11 @@ export async function removePartFromFlip(input: {
       const resulting = part.quantityOnHand + line.quantity;
       await tx
         .update(parts)
-        .set({ quantityOnHand: resulting, updatedAt: new Date() })
+        .set({
+          quantityOnHand: resulting,
+          location: part.location === "BESTILT" ? null : part.location,
+          updatedAt: new Date(),
+        })
         .where(eq(parts.id, line.partId));
 
       await tx.insert(inventoryTransactions).values({
@@ -973,6 +1192,10 @@ export async function removePartFromFlip(input: {
         unitCostOre: line.unitCostOre,
         resultingQuantity: resulting,
         refurbishmentId: data.refurbishmentId,
+        note:
+          line.status === "RECEIVED"
+            ? "Mottatt del flyttet til lager"
+            : "Tilbake fra jobb",
         createdById: session.user.id,
       });
     }

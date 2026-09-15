@@ -56,6 +56,11 @@ export const noteVisibilityEnum = pgEnum("note_visibility", [
   "CUSTOMER",
 ]);
 
+export const noteAuthorKindEnum = pgEnum("note_author_kind", [
+  "STAFF",
+  "CUSTOMER",
+]);
+
 export const attachmentVisibilityEnum = pgEnum("attachment_visibility", [
   "INTERNAL",
   "CUSTOMER",
@@ -337,6 +342,8 @@ export const repairNotes = pgTable(
       .notNull()
       .references(() => repairTickets.id, { onDelete: "cascade" }),
     authorId: text("author_id").references(() => users.id),
+    authorName: text("author_name"),
+    authorKind: noteAuthorKindEnum("author_kind").notNull().default("STAFF"),
     content: text("content").notNull(),
     visibility: noteVisibilityEnum("visibility").notNull().default("INTERNAL"),
     createdAt: timestamp("created_at", { withTimezone: true })

@@ -461,6 +461,8 @@ export async function addRepairNote(input: z.infer<typeof noteSchema>) {
     .values({
       ticketId: data.ticketId,
       authorId: session.user.id,
+      authorName: session.user.name,
+      authorKind: "STAFF",
       content: data.content,
       visibility: data.visibility,
     })

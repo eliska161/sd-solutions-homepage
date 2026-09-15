@@ -19,27 +19,39 @@ import { nextPublicId } from "@/lib/sequences";
 
 const deliverySchema = z.enum(["IN_PERSON", "POST"]);
 
-const publicOrderSchema = z.object({
-  honeypot: z.string().optional(),
-  name: z.string().trim().min(2, "Navn er påkrevd"),
-  phone: z.string().trim().min(5, "Telefonnummer er påkrevd"),
-  email: z.string().trim().email("Ugyldig e-post"),
-  streetAddress: z.string().trim().min(2, "Gateadresse er påkrevd"),
-  postalCode: z.string().trim().min(2, "Postnummer er påkrevd"),
-  city: z.string().trim().min(2, "Sted er påkrevd"),
-  brand: z.string().trim().min(1).default("Apple"),
-  model: z.string().trim().min(2, "Modell er påkrevd"),
-  storage: z.string().trim().optional().nullable(),
-  color: z.string().trim().optional().nullable(),
-  serialNumber: z.string().trim().optional().nullable(),
-  imei: z.string().trim().optional().nullable(),
-  customerProblem: z
-    .string()
-    .trim()
-    .min(8, "Beskriv feilen med minst noen setninger"),
-  inboundMethod: deliverySchema,
-  outboundMethod: deliverySchema,
-});
+const publicOrderSchema = z
+  .object({
+    honeypot: z.string().optional(),
+    name: z.string().trim().min(2, "Navn er påkrevd"),
+    phone: z.string().trim().min(5, "Telefonnummer er påkrevd"),
+    email: z.string().trim().email("Ugyldig e-post"),
+    streetAddress: z.string().trim().min(2, "Gateadresse er påkrevd"),
+    postalCode: z.string().trim().min(2, "Postnummer er påkrevd"),
+    city: z.string().trim().min(2, "Sted er påkrevd"),
+    brand: z.string().trim().min(1).default("Apple"),
+    model: z.string().trim().min(2, "Modell er påkrevd"),
+    storage: z.string().trim().optional().nullable(),
+    color: z.string().trim().optional().nullable(),
+    serialNumber: z.string().trim().optional().nullable(),
+    imei: z.string().trim().optional().nullable(),
+    customerProblem: z
+      .string()
+      .trim()
+      .min(8, "Beskriv feilen med minst noen setninger"),
+    inboundMethod: deliverySchema,
+    outboundMethod: deliverySchema,
+  })
+  .superRefine((val, ctx) => {
+    const serial = val.serialNumber?.trim();
+    const imei = val.imei?.trim();
+    if (!serial && !imei) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["imei"],
+        message: "Oppgi serienummer eller IMEI — ett av dem er nok",
+      });
+    }
+  });
 
 export type PublicServiceOrderResult =
   | {

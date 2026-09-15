@@ -40,6 +40,13 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   async function onSubmit(formData: FormData) {
     setPending(true);
     setError(null);
+    const serialNumber = String(formData.get("serialNumber") || "").trim();
+    const imei = String(formData.get("imei") || "").trim();
+    if (!serialNumber && !imei) {
+      setPending(false);
+      setError("Oppgi serienummer eller IMEI — ett av dem er nok.");
+      return;
+    }
     const result = await createPublicServiceOrder({
       honeypot: String(formData.get("company") || ""),
       name: String(formData.get("name") || ""),
@@ -52,8 +59,8 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
       model: String(formData.get("model") || ""),
       storage: String(formData.get("storage") || "") || null,
       color: String(formData.get("color") || "") || null,
-      serialNumber: String(formData.get("serialNumber") || "") || null,
-      imei: String(formData.get("imei") || "") || null,
+      serialNumber: serialNumber || null,
+      imei: imei || null,
       customerProblem: String(formData.get("customerProblem") || ""),
       inboundMethod,
       outboundMethod,
@@ -185,6 +192,14 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
             ) : (
               <Input id="color" name="color" className="mt-1" />
             )}
+          </div>
+          <div className="sm:col-span-2">
+            <p className="text-sm font-medium text-foreground">
+              Serienummer eller IMEI
+            </p>
+            <p className="mt-0.5 text-[12px] text-muted">
+              Ett av feltene er nok. Du trenger ikke fylle inn begge.
+            </p>
           </div>
           <div>
             <Label htmlFor="serialNumber">Serienummer</Label>

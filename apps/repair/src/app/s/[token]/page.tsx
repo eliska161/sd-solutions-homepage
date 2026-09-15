@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { customerStatusTone } from "@/lib/customer-progress";
 import { formatDate, formatDateOnly } from "@/lib/labels";
 import { getPublicRepairByToken } from "@/server/public-status";
+import { CustomerUpdateForm } from "./CustomerUpdateForm";
 
 export const dynamic = "force-dynamic";
 
@@ -327,6 +328,10 @@ export default async function CustomerStatusPage({
                         <span className="rounded-full bg-[var(--cs-amber-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--cs-amber)]">
                           Bestilt
                         </span>
+                      ) : p.status === "received" ? (
+                        <span className="rounded-full bg-[var(--cs-teal-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--cs-teal)]">
+                          Mottatt
+                        </span>
                       ) : null}
                     </li>
                   ))}
@@ -336,7 +341,6 @@ export default async function CustomerStatusPage({
           </Panel>
         )}
 
-        {data.updates.length > 0 ? (
           <Panel
             className={`cs-enter-delay-2 ${
               data.services.length > 0 ||
@@ -347,23 +351,29 @@ export default async function CustomerStatusPage({
             }`}
           >
             <SectionTitle>Oppdateringer</SectionTitle>
-            <ul className="mt-4 space-y-4">
-              {data.updates.map((u) => (
-                <li
-                  key={u.id}
-                  className="border-b border-[var(--cs-line)] pb-4 last:border-0 last:pb-0"
-                >
-                  <p className="text-[11px] tracking-wide text-[var(--cs-muted)]">
-                    {formatDate(u.createdAt)}
-                  </p>
-                  <p className="mt-1.5 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
-                    {u.content}
-                  </p>
-                </li>
-              ))}
-            </ul>
+            {data.updates.length === 0 ? (
+              <p className="mt-4 text-[15px] text-[var(--cs-muted)]">
+                Ingen meldinger ennå. Du kan skrive til verkstedet under.
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-4">
+                {data.updates.map((u) => (
+                  <li
+                    key={u.id}
+                    className="border-b border-[var(--cs-line)] pb-4 last:border-0 last:pb-0"
+                  >
+                    <p className="text-[11px] tracking-wide text-[var(--cs-muted)]">
+                      {u.authorName} · {formatDate(u.createdAt)}
+                    </p>
+                    <p className="mt-1.5 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
+                      {u.content}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <CustomerUpdateForm token={token} />
           </Panel>
-        ) : null}
 
         {data.photos.length > 0 ? (
           <Panel className="cs-enter-delay-2 lg:col-span-12">
