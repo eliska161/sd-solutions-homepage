@@ -18,6 +18,7 @@ import {
   customerStatusLabel,
 } from "@/lib/customer-progress";
 import { getDb } from "@/lib/db";
+import { formatDropoffAppointment } from "@/lib/dropoff";
 import { formatNokFromOre } from "@/lib/money";
 
 function isHexToken(token: string) {
@@ -47,6 +48,8 @@ export async function getPublicRepairByToken(token: string) {
       receivedAt: repairTickets.receivedAt,
       inboundMethod: repairTickets.inboundMethod,
       outboundMethod: repairTickets.outboundMethod,
+      dropoffOn: repairTickets.dropoffOn,
+      dropoffSlot: repairTickets.dropoffSlot,
       inboundPostageOre: repairTickets.inboundPostageOre,
       outboundPostageOre: repairTickets.outboundPostageOre,
       deviceBrand: devices.brand,
@@ -191,6 +194,10 @@ export async function getPublicRepairByToken(token: string) {
     received: Boolean(row.receivedAt),
     inboundMethod: row.inboundMethod,
     outboundMethod: row.outboundMethod,
+    dropoffLabel:
+      row.inboundMethod === "IN_PERSON" && row.dropoffOn && row.dropoffSlot
+        ? formatDropoffAppointment(row.dropoffOn, row.dropoffSlot)
+        : null,
     inboundPostageLabel:
       row.inboundPostageOre > 0
         ? formatNokFromOre(row.inboundPostageOre)

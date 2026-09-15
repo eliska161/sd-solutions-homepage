@@ -297,6 +297,17 @@ async function ensureNoteAuthors(client) {
   console.log("==> repair_notes author columns ready");
 }
 
+async function ensureDropoffAppointment(client) {
+  const hasTickets = await publicTableExists(client, "repair_tickets");
+  if (!hasTickets) return;
+
+  await client.unsafe(`
+    ALTER TABLE "repair_tickets" ADD COLUMN IF NOT EXISTS "dropoff_on" text;
+    ALTER TABLE "repair_tickets" ADD COLUMN IF NOT EXISTS "dropoff_slot" text;
+  `);
+  console.log("==> repair_tickets dropoff appointment columns ready");
+}
+
 async function ensureReceivedPartStatus(client) {
   const hasTable = await publicTableExists(client, "repair_parts");
   if (!hasTable) return;
@@ -333,6 +344,7 @@ async function main() {
     await ensureServiceOrderColumns(client);
     await ensureNoteAuthors(client);
     await ensureReceivedPartStatus(client);
+    await ensureDropoffAppointment(client);
     console.log("==> Migrations complete");
   } finally {
     await client.end({ timeout: 5 });

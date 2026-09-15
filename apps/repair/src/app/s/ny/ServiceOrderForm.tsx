@@ -70,7 +70,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
       setError(result.error);
       return;
     }
-    window.location.href = `/s/${result.token}?ny=1`;
+    window.location.href = `/s/${result.token}/innlevering`;
   }
 
   return (

@@ -12,6 +12,7 @@ import { MoneyText } from "@/components/ui/MoneyText";
 import { Select } from "@/components/ui/Select";
 import { RepairStatusBadge } from "@/components/ui/StatusBadge";
 import { Textarea } from "@/components/ui/Textarea";
+import { formatDropoffAppointment } from "@/lib/dropoff";
 import { formatDate, formatDateOnly, parseKrToOre, DELIVERY_METHOD_LABELS } from "@/lib/labels";
 import { formatNokFromOre, grossProfitOre } from "@/lib/money";
 import { listActivity } from "@/server/activity";
@@ -276,6 +277,11 @@ export default async function RepairDetailPage({
           Inn: {DELIVERY_METHOD_LABELS[ticket.inboundMethod]}
           {ticket.inboundPostageOre
             ? ` (${formatNokFromOre(ticket.inboundPostageOre)})`
+            : ""}
+          {ticket.inboundMethod === "IN_PERSON" &&
+          ticket.dropoffOn &&
+          ticket.dropoffSlot
+            ? ` · ${formatDropoffAppointment(ticket.dropoffOn, ticket.dropoffSlot)}`
             : ""}
           {" · "}
           Ut: {DELIVERY_METHOD_LABELS[ticket.outboundMethod]}

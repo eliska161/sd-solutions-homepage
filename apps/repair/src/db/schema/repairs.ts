@@ -202,6 +202,10 @@ export const repairTickets = pgTable(
       .default("IN_PERSON"),
     inboundPostageOre: integer("inbound_postage_ore").notNull().default(0),
     outboundPostageOre: integer("outbound_postage_ore").notNull().default(0),
+    /** Customer drop-off date (YYYY-MM-DD, Europe/Oslo calendar). */
+    dropoffOn: text("dropoff_on"),
+    /** One-hour window, e.g. 14:00–15:00. */
+    dropoffSlot: text("dropoff_slot"),
     /** Set when the workshop physically receives the device. */
     receivedAt: timestamp("received_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })

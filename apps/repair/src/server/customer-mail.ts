@@ -4,6 +4,7 @@ import { customers, devices, repairTickets } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { escapeHtml } from "@/lib/mail-html";
 import { customerMailLayout } from "@/lib/mail-layout";
+import { workshopAddressOneLine, WORKSHOP } from "@/lib/workshop";
 import {
   isSendableCustomerEmail,
   publicStatusUrl,
@@ -14,6 +15,7 @@ import {
 type MailContext = {
   ticketNumber: string;
   token: string;
+  inboundMethod: "IN_PERSON" | "POST";
   outboundMethod: "IN_PERSON" | "POST";
   customerName: string;
   customerEmail: string;
@@ -38,6 +40,7 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
     .select({
       ticketNumber: repairTickets.ticketNumber,
       token: repairTickets.publicAccessToken,
+      inboundMethod: repairTickets.inboundMethod,
       outboundMethod: repairTickets.outboundMethod,
       customerName: customers.name,
       customerEmail: customers.email,
@@ -61,6 +64,7 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
   return {
     ticketNumber: row.ticketNumber,
     token: row.token,
+    inboundMethod: row.inboundMethod,
     outboundMethod: row.outboundMethod,
     customerName: row.customerName,
     customerEmail: row.customerEmail,
@@ -138,10 +142,18 @@ export function notifyServiceOrderCreated(ticketId: string) {
         subject: `Serviceordre ${ctx.ticketNumber} er opprettet`,
         heading: "Serviceordre opprettet",
         preheader: `Vi har registrert ${ctx.ticketNumber}.`,
-        paragraphs: [
-          "Vi har registrert saken. Vi tar den inn i verkstedet når enheten er levert.",
-          "Du følger status og kan sende melding via lenken under.",
-        ],
+        paragraphs:
+          ctx.inboundMethod === "POST"
+            ? [
+                "Vi har registrert saken.",
+                "Vent på oppdatering via e-post innen én virkedag før du sender enheten.",
+                "Du følger status via lenken under.",
+              ]
+            : [
+                "Vi har registrert saken.",
+                `Lever enheten hos oss på ${workshopAddressOneLine()}. ${WORKSHOP.hoursLabel}.`,
+                "Velg dato og timeslot på innleveringssiden, og følg status via lenken under.",
+              ],
       }),
     ),
   );

@@ -64,6 +64,13 @@
       "when": 1789520000000,
       "tag": "0008_repair_part_received",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789530000000,
+      "tag": "0009_dropoff_appointment",
+      "breakpoints": true
     }
   ]
 }
