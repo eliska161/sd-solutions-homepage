@@ -1,7 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { createPublicServiceOrder } from "@/server/public-service-order";
+import { useMemo, useRef, useState, useTransition } from "react";
+import {
+  createPublicServiceOrder,
+  lookupPublicImeiOrSerial,
+} from "@/server/public-service-order";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -12,10 +15,17 @@ import type { IphoneModelOption } from "@/lib/apple-models";
 
 export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   const [pending, setPending] = useState(false);
+  const [lookupPending, startLookup] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [lookupMsg, setLookupMsg] = useState<string | null>(null);
+  const [imei, setImei] = useState("");
+  const [serialNumber, setSerialNumber] = useState("");
   const [model, setModel] = useState("");
   const [storage, setStorage] = useState("");
   const [color, setColor] = useState("");
+  const [lookupColors, setLookupColors] = useState<string[]>([]);
+  const [lookupStorages, setLookupStorages] = useState<string[]>([]);
+  const lastLookup = useRef("");
   const [inboundMethod, setInboundMethod] = useState<"IN_PERSON" | "POST">(
     "IN_PERSON",
   );
@@ -23,26 +33,81 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
     "IN_PERSON",
   );
 
-  const selected = models.find((m) => m.name === model);
+  const modelChoices = useMemo(() => {
+    if (model && !models.some((m) => m.name === model)) {
+      return [
+        {
+          name: model,
+          colors: lookupColors,
+          storages: lookupStorages,
+        },
+        ...models,
+      ];
+    }
+    return models;
+  }, [model, models, lookupColors, lookupStorages]);
+
+  const selected = modelChoices.find((m) => m.name === model);
   const postageOre =
     (inboundMethod === "POST" ? CUSTOMER_POSTAGE_ORE : 0) +
     (outboundMethod === "POST" ? CUSTOMER_POSTAGE_ORE : 0);
 
-  const storageOptions = useMemo(
-    () => selected?.storages.filter(Boolean) ?? [],
-    [selected],
-  );
-  const colorOptions = useMemo(
-    () => selected?.colors.filter(Boolean) ?? [],
-    [selected],
-  );
+  const storageOptions = useMemo(() => {
+    const fromLookup = lookupStorages.filter(Boolean);
+    if (fromLookup.length > 0) return fromLookup;
+    return selected?.storages.filter(Boolean) ?? [];
+  }, [lookupStorages, selected]);
+
+  const colorOptions = useMemo(() => {
+    const fromLookup = lookupColors.filter(Boolean);
+    if (fromLookup.length > 0) return fromLookup;
+    return selected?.colors.filter(Boolean) ?? [];
+  }, [lookupColors, selected]);
+
+  function applyLookup(raw: string, force = false) {
+    const q = raw.trim();
+    if (q.length < 5) {
+      setLookupMsg("Skriv IMEI eller serienummer først.");
+      return;
+    }
+    if (!force && q === lastLookup.current) return;
+    lastLookup.current = q;
+    startLookup(async () => {
+      const result = await lookupPublicImeiOrSerial(q);
+      const foundImei = result.imei;
+      if (foundImei && foundImei.length >= 14) {
+        lastLookup.current = foundImei;
+        setImei((prev) =>
+          prev.replace(/\D/g, "") === foundImei ? prev : foundImei,
+        );
+      }
+      setLookupColors(result.colorOptions);
+      setLookupStorages(result.storageOptions);
+      setStorage(
+        result.storageOptions.length === 1 ? (result.storageOptions[0] ?? "") : "",
+      );
+      setColor(
+        result.colorOptions.length === 1 ? (result.colorOptions[0] ?? "") : "",
+      );
+      if (result.model) {
+        setModel(result.model);
+      }
+      setLookupMsg(result.note);
+    });
+  }
+
+  function onIdentifierBlur() {
+    const q = imei.trim() || serialNumber.trim();
+    if (q.length < 8) return;
+    applyLookup(q);
+  }
 
   async function onSubmit(formData: FormData) {
     setPending(true);
     setError(null);
-    const serialNumber = String(formData.get("serialNumber") || "").trim();
-    const imei = String(formData.get("imei") || "").trim();
-    if (!serialNumber && !imei) {
+    const serial = String(formData.get("serialNumber") || "").trim();
+    const imeiValue = String(formData.get("imei") || "").trim();
+    if (!serial && !imeiValue) {
       setPending(false);
       setError("Oppgi serienummer eller IMEI — ett av dem er nok.");
       return;
@@ -59,8 +124,8 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
       model: String(formData.get("model") || ""),
       storage: String(formData.get("storage") || "") || null,
       color: String(formData.get("color") || "") || null,
-      serialNumber: serialNumber || null,
-      imei: imei || null,
+      serialNumber: serial || null,
+      imei: imeiValue || null,
       customerProblem: String(formData.get("customerProblem") || ""),
       inboundMethod,
       outboundMethod,
@@ -123,7 +188,55 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
 
       <fieldset className="space-y-3">
         <legend className="text-sm font-semibold text-foreground">Enhet</legend>
+        <p className="text-[13px] text-muted">
+          Fyll inn IMEI eller serienummer. IMEI (15 siffer) henter modell
+          automatisk. Ett av feltene er nok.
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="imei">IMEI</Label>
+            <Input
+              id="imei"
+              name="imei"
+              inputMode="numeric"
+              className="mt-1"
+              value={imei}
+              onChange={(e) => {
+                const next = e.target.value;
+                setImei(next);
+                const digits = next.replace(/\D/g, "");
+                if (digits.length === 15) applyLookup(digits);
+              }}
+              onBlur={onIdentifierBlur}
+            />
+          </div>
+          <div>
+            <Label htmlFor="serialNumber">Serienummer</Label>
+            <Input
+              id="serialNumber"
+              name="serialNumber"
+              className="mt-1"
+              value={serialNumber}
+              onChange={(e) => setSerialNumber(e.target.value)}
+              onBlur={onIdentifierBlur}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={lookupPending}
+              onClick={() =>
+                applyLookup(imei.trim() || serialNumber.trim(), true)
+              }
+            >
+              {lookupPending ? "Henter…" : "Hent modell"}
+            </Button>
+            {lookupMsg ? (
+              <p className="mt-2 text-[13px] text-muted">{lookupMsg}</p>
+            ) : null}
+          </div>
           <div className="sm:col-span-2">
             <Label htmlFor="model">Modell</Label>
             <Select
@@ -134,12 +247,14 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
               value={model}
               onChange={(e) => {
                 setModel(e.target.value);
+                setLookupColors([]);
+                setLookupStorages([]);
                 setStorage("");
                 setColor("");
               }}
             >
               <option value="">Velg iPhone…</option>
-              {models.map((m) => (
+              {modelChoices.map((m) => (
                 <option key={m.name} value={m.name}>
                   {m.name}
                 </option>
@@ -169,6 +284,8 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
                 name="storage"
                 className="mt-1"
                 placeholder="f.eks. 128 GB"
+                value={storage}
+                onChange={(e) => setStorage(e.target.value)}
               />
             )}
           </div>
@@ -190,24 +307,14 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
                 ))}
               </Select>
             ) : (
-              <Input id="color" name="color" className="mt-1" />
+              <Input
+                id="color"
+                name="color"
+                className="mt-1"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+              />
             )}
-          </div>
-          <div className="sm:col-span-2">
-            <p className="text-sm font-medium text-foreground">
-              Serienummer eller IMEI
-            </p>
-            <p className="mt-0.5 text-[12px] text-muted">
-              Ett av feltene er nok. Du trenger ikke fylle inn begge.
-            </p>
-          </div>
-          <div>
-            <Label htmlFor="serialNumber">Serienummer</Label>
-            <Input id="serialNumber" name="serialNumber" className="mt-1" />
-          </div>
-          <div>
-            <Label htmlFor="imei">IMEI</Label>
-            <Input id="imei" name="imei" inputMode="numeric" className="mt-1" />
           </div>
           <div className="sm:col-span-2">
             <Label htmlFor="customerProblem">Hva er feil?</Label>

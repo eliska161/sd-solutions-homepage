@@ -1,10 +1,15 @@
 "use server";
 
+import { unlink } from "fs/promises";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
+  activityEvents,
+  attachments,
   customers,
+  inventoryTransactions,
   parts,
   repairNotes,
   repairParts,
@@ -13,6 +18,7 @@ import {
   repairTickets,
   services,
   users,
+  warrantyClaims,
 } from "@/db/schema";
 import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
@@ -21,6 +27,7 @@ import { assertCanWrite } from "@/lib/permissions";
 import { createPublicAccessToken } from "@/lib/public-token";
 import { nextPublicId } from "@/lib/sequences";
 import { requireSession } from "@/lib/session";
+import { resolveUploadAbsolutePath } from "@/lib/uploads";
 import { notifyDeviceReceived, notifyReadyForPickup, notifyRepairCompleted, notifyStaffUpdate, notifyWaitingForCustomer } from "@/server/customer-mail";
 
 const repairStatusSchema = z.enum([
@@ -833,4 +840,78 @@ export async function updateRepairPricing(
 
   revalidatePath(`/repairs/${ticketId}`);
   return row;
+}
+
+export async function deleteRepair(ticketId: string) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const id = z.string().uuid().parse(ticketId);
+  const ticket = await getRepair(id);
+  if (!ticket) throw new Error("Reparasjon ikke funnet");
+
+  const db = getDb();
+  const files = await db
+    .select({
+      id: attachments.id,
+      storagePath: attachments.storagePath,
+    })
+    .from(attachments)
+    .where(
+      and(
+        eq(attachments.entityType, "repair_ticket"),
+        eq(attachments.entityId, id),
+      ),
+    );
+
+  if (files.length > 0) {
+    await db
+      .delete(attachments)
+      .where(
+        and(
+          eq(attachments.entityType, "repair_ticket"),
+          eq(attachments.entityId, id),
+        ),
+      );
+    await Promise.all(
+      files.map(async (file) => {
+        const abs = resolveUploadAbsolutePath(file.storagePath);
+        if (abs) await unlink(abs).catch(() => undefined);
+      }),
+    );
+  }
+
+  await db
+    .update(inventoryTransactions)
+    .set({ repairTicketId: null })
+    .where(eq(inventoryTransactions.repairTicketId, id));
+  await db
+    .update(warrantyClaims)
+    .set({ ticketId: null })
+    .where(eq(warrantyClaims.ticketId, id));
+  await db
+    .delete(activityEvents)
+    .where(
+      and(
+        eq(activityEvents.entityType, "repair_ticket"),
+        eq(activityEvents.entityId, id),
+      ),
+    );
+
+  await db.delete(repairTickets).where(eq(repairTickets.id, id));
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    entityType: "repair_ticket",
+    entityId: id,
+    action: "delete",
+    before: {
+      ticketNumber: ticket.ticketNumber,
+      status: ticket.status,
+    },
+  });
+
+  revalidatePath("/repairs");
+  revalidatePath(`/customers/${ticket.customerId}`);
+  revalidatePath(`/devices/${ticket.deviceId}`);
+  redirect("/repairs");
 }

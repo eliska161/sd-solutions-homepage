@@ -12,7 +12,7 @@ export default function NewServiceOrderPage() {
     <div>
       <PageHeader
         title="Opprett serviceordre"
-        description="Fyll inn kontaktinfo og hva som er galt. Vi tar saken inn når enheten er levert."
+        description="Fyll inn kontaktinfo, IMEI eller serienummer, og hva som er galt. Vi tar saken inn når enheten er levert."
       />
       <Card>
         <CardHeader title="Ordre" />
