@@ -152,7 +152,7 @@ export default async function CustomerDetailPage({
                   <Link
                     key={d.id}
                     href={`/devices/${d.id}`}
-                    className="block rounded-xl border border-border px-3 py-2.5 hover:bg-white/[0.03]"
+                    className="block rounded-xl border border-border px-3 py-2.5 hover:bg-black/[0.03]"
                   >
                     <p className="text-sm text-foreground">
                       {d.brand} {d.model}
@@ -186,7 +186,7 @@ export default async function CustomerDetailPage({
                   <Link
                     key={r.id}
                     href={`/repairs/${r.id}`}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 hover:bg-white/[0.03]"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 hover:bg-black/[0.03]"
                   >
                     <div>
                       <p className="text-sm text-foreground">{r.ticketNumber}</p>

@@ -33,7 +33,7 @@ function Panel({
 }) {
   return (
     <section
-      className={`rounded-[1.5rem] border border-[var(--cs-line)] bg-[var(--cs-card)] px-5 py-5 shadow-[0_1px_2px_rgba(18,32,30,0.04),0_18px_40px_rgba(18,32,30,0.06)] backdrop-blur-md sm:px-6 sm:py-6 ${className}`}
+      className={`rounded border border-[var(--cs-line)] bg-[var(--cs-card)] px-5 py-5 shadow-sm sm:px-6 sm:py-6 ${className}`}
     >
       {children}
     </section>
@@ -42,10 +42,13 @@ function Panel({
 
 export default async function CustomerStatusPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ ny?: string }>;
 }) {
   const { token } = await params;
+  const { ny } = await searchParams;
   const data = await getPublicRepairByToken(token);
   if (!data) notFound();
 
@@ -84,6 +87,12 @@ export default async function CustomerStatusPage({
         </div>
         <div className="mt-5 h-px w-16 bg-[var(--cs-teal)]/35" />
       </header>
+
+      {ny === "1" ? (
+        <p className="mb-6 rounded border border-[var(--cs-line)] bg-white px-4 py-3 text-[15px]">
+          Serviceordre opprettet. Vi tar den inn når enheten er levert.
+        </p>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start lg:gap-5">
         <Panel className="cs-enter-delay lg:col-span-7">
@@ -172,8 +181,30 @@ export default async function CustomerStatusPage({
             </div>
           </dl>
           <p className="mt-3 text-[11px] leading-snug text-[var(--cs-muted)]">
-            Estimert klar for henting — ikke en garantert dato.
+            Estimert dato er ikke garantert.
           </p>
+          <dl className="mt-4 grid gap-3 border-t border-[var(--cs-line)] pt-4 text-[14px] sm:grid-cols-2">
+            <div>
+              <dt className="text-[11px] uppercase tracking-[0.12em] text-[var(--cs-muted)]">
+                Innlevering
+              </dt>
+              <dd className="mt-1 text-[var(--cs-ink)]">
+                {data.inboundMethod === "POST"
+                  ? `Post${data.inboundPostageLabel ? ` (${data.inboundPostageLabel})` : ""}`
+                  : "Butikk"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[11px] uppercase tracking-[0.12em] text-[var(--cs-muted)]">
+                Utlevering
+              </dt>
+              <dd className="mt-1 text-[var(--cs-ink)]">
+                {data.outboundMethod === "POST"
+                  ? `Post${data.outboundPostageLabel ? ` (${data.outboundPostageLabel})` : ""}`
+                  : "Butikk"}
+              </dd>
+            </div>
+          </dl>
         </Panel>
 
         <Panel className="cs-enter-delay lg:col-span-5">

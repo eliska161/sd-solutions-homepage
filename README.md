@@ -4,8 +4,8 @@ Monorepo-style repository:
 
 | Path | Product | URL |
 |------|---------|-----|
-| Repository root | Public marketing site | www.sd-solutions.org |
-| `apps/repair` | Internal repair & refurbish ops | repair.sd-solutions.org |
+| Repository root | Public site (repair first) | www.sd-solutions.org |
+| `apps/repair` | Repair ops + public serviceordre `/s/ny` | repair.sd-solutions.org |
 
 ## Marketing site
 

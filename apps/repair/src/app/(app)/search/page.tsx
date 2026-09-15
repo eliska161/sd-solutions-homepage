@@ -57,7 +57,7 @@ export default async function SearchPage({
               <Link
                 key={c.id}
                 href={`/customers/${c.id}`}
-                className="block rounded-xl border border-border px-3 py-2 hover:bg-white/[0.03]"
+                className="block rounded-xl border border-border px-3 py-2 hover:bg-black/[0.03]"
               >
                 {c.name}
               </Link>
@@ -68,7 +68,7 @@ export default async function SearchPage({
               <Link
                 key={t.id}
                 href={`/repairs/${t.id}`}
-                className="flex items-center justify-between rounded-xl border border-border px-3 py-2 hover:bg-white/[0.03]"
+                className="flex items-center justify-between rounded-xl border border-border px-3 py-2 hover:bg-black/[0.03]"
               >
                 <span>{t.ticketNumber}</span>
                 <RepairStatusBadge status={t.status} />
@@ -80,7 +80,7 @@ export default async function SearchPage({
               <Link
                 key={d.id}
                 href={`/devices/${d.id}`}
-                className="block rounded-xl border border-border px-3 py-2 hover:bg-white/[0.03]"
+                className="block rounded-xl border border-border px-3 py-2 hover:bg-black/[0.03]"
               >
                 {d.brand} {d.model}
               </Link>
@@ -91,7 +91,7 @@ export default async function SearchPage({
               <Link
                 key={p.id}
                 href="/inventory/parts"
-                className="block rounded-xl border border-border px-3 py-2 hover:bg-white/[0.03]"
+                className="block rounded-xl border border-border px-3 py-2 hover:bg-black/[0.03]"
               >
                 {p.sku} · {p.name}
               </Link>
@@ -102,7 +102,7 @@ export default async function SearchPage({
               <Link
                 key={f.id}
                 href={`/refurbishment/${f.id}`}
-                className="flex items-center justify-between rounded-xl border border-border px-3 py-2 hover:bg-white/[0.03]"
+                className="flex items-center justify-between rounded-xl border border-border px-3 py-2 hover:bg-black/[0.03]"
               >
                 <span>
                   {f.flipNumber} · {f.model}

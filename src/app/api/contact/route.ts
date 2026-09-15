@@ -7,16 +7,8 @@ import {
   inquiryLabel,
   type ContactPayload,
   type InquiryTypeId,
-  type RepairRequestDetails,
 } from "@/lib/contact";
-import {
-  REPAIR_SERVICE_LABELS,
-  estimateRepairTotal,
-  formatNok,
-  getRepairModel,
-  isRepairServiceId,
-  type RepairServiceId,
-} from "@/lib/repair-prices";
+import { formatNok } from "@/lib/repair-prices";
 
 const inquiryIds = INQUIRY_TYPES.map((t) => t.id);
 
@@ -108,39 +100,6 @@ function buildEmail(data: ContactPayload) {
   };
 }
 
-function parseRepair(value: unknown): RepairRequestDetails | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  const data = value as Record<string, unknown>;
-
-  const modelId = typeof data.modelId === "string" ? data.modelId.trim() : "";
-  const model = getRepairModel(modelId);
-  if (!model) return undefined;
-
-  if (!Array.isArray(data.serviceIds) || data.serviceIds.length === 0) {
-    return undefined;
-  }
-
-  const serviceIds: RepairServiceId[] = [];
-  for (const item of data.serviceIds) {
-    if (typeof item !== "string" || !isRepairServiceId(item)) return undefined;
-    if (!serviceIds.includes(item)) serviceIds.push(item);
-  }
-  if (serviceIds.length === 0) return undefined;
-
-  const estimatedTotal = estimateRepairTotal(model.id, serviceIds);
-  const comment =
-    typeof data.comment === "string" ? data.comment.trim() : undefined;
-
-  return {
-    modelId: model.id,
-    modelLabel: model.label,
-    serviceIds,
-    serviceLabels: serviceIds.map((id) => REPAIR_SERVICE_LABELS[id]),
-    estimatedTotal,
-    comment: comment || undefined,
-  };
-}
-
 function parseBody(body: unknown): ContactPayload | null {
   if (!body || typeof body !== "object") return null;
   const data = body as Record<string, unknown>;
@@ -155,28 +114,13 @@ function parseBody(body: unknown): ContactPayload | null {
 
   const name = typeof data.name === "string" ? data.name.trim() : "";
   const email = typeof data.email === "string" ? data.email.trim() : "";
-  let message = typeof data.message === "string" ? data.message.trim() : "";
+  const message = typeof data.message === "string" ? data.message.trim() : "";
   const phone = typeof data.phone === "string" ? data.phone.trim() : undefined;
 
   if (!name || !email || !isValidEmail(email)) return null;
 
   const optional = (key: string) =>
     typeof data[key] === "string" ? (data[key] as string).trim() : undefined;
-
-  let repair: RepairRequestDetails | undefined;
-  if (inquiryType === "repair") {
-    repair = parseRepair(data.repair);
-    if (repair && !message) {
-      message = [
-        `Modell: ${repair.modelLabel}`,
-        `Reparasjoner: ${repair.serviceLabels.join(", ")}`,
-        `Estimert pris: ${formatNok(repair.estimatedTotal)}`,
-        repair.comment ? `Kommentar: ${repair.comment}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
-    }
-  }
 
   if (!message) return null;
 
@@ -189,7 +133,6 @@ function parseBody(body: unknown): ContactPayload | null {
     timeline: optional("timeline"),
     budget: optional("budget"),
     phone: phone || undefined,
-    repair,
   };
 }
 

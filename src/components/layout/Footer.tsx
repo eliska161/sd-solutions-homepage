@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/Logo";
+import { SERVICE_ORDER_URL } from "@/lib/repair-portal";
 
 const links = [
-  { label: "Produkter", href: "/#produkter" },
-  { label: "Reparasjon", href: "/reparasjon" },
-  { label: "Om oss", href: "/#om-oss" },
-  { label: "Kontakt", href: "/#kontakt" },
+  { label: "Reparasjon", href: "/" },
+  { label: "Programvare", href: "/programvare" },
+  { label: "Opprett serviceordre", href: SERVICE_ORDER_URL },
+  { label: "Kontakt", href: "/programvare#kontakt" },
 ];
 
 export function Footer() {
@@ -18,7 +19,7 @@ export function Footer() {
               <Logo />
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-muted">
-              Programvare og iPhone-reparasjon.
+              iPhone-reparasjon i Elverum. Programvare på siden.
             </p>
           </div>
 

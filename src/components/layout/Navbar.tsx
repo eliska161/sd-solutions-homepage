@@ -5,12 +5,13 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/brand/Logo";
+import { SERVICE_ORDER_URL } from "@/lib/repair-portal";
 
 const links = [
-  { label: "Produkter", href: "/#produkter" },
-  { label: "Reparasjon", href: "/reparasjon" },
-  { label: "Om oss", href: "/#om-oss" },
-  { label: "Kontakt", href: "/#kontakt" },
+  { label: "Reparasjon", href: "/" },
+  { label: "Programvare", href: "/programvare" },
+  { label: "Om oss", href: "/programvare#om-oss" },
+  { label: "Kontakt", href: "/programvare#kontakt" },
 ];
 
 export function Navbar() {
@@ -61,8 +62,8 @@ export function Navbar() {
               </a>
             ))}
             <div className="ml-2">
-              <Button href="/#kontakt" size="md">
-                Ta kontakt
+              <Button href={SERVICE_ORDER_URL} size="md">
+                Opprett serviceordre
               </Button>
             </div>
           </div>
@@ -93,11 +94,11 @@ export function Navbar() {
               ))}
               <div className="pt-2">
                 <Button
-                  href="/#kontakt"
+                  href={SERVICE_ORDER_URL}
                   className="w-full"
                   onClick={() => setOpen(false)}
                 >
-                  Ta kontakt
+                  Opprett serviceordre
                 </Button>
               </div>
             </div>

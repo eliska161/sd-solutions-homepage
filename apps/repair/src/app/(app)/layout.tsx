@@ -1,9 +1,8 @@
 import { Suspense } from "react";
 import { requireSession } from "@/lib/session";
-import { AppTabs } from "@/components/layout/AppTabs";
+import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 
-/** All authenticated pages need the DB at request time — never prerender at build. */
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({
@@ -14,18 +13,18 @@ export default async function AppLayout({
   const session = await requireSession();
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Topbar
-        userName={session.user.name}
-        userEmail={session.user.email}
-        userRole={session.user.role}
-      />
-      <Suspense fallback={<div className="h-12 border-b border-border bg-surface" />}>
-        <AppTabs />
-      </Suspense>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 lg:px-6">
-        {children}
-      </main>
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Suspense fallback={<div className="h-12 bg-[#23262e]" />}>
+          <Topbar
+            userName={session.user.name}
+            userEmail={session.user.email}
+            userRole={session.user.role}
+          />
+        </Suspense>
+        <main className="flex-1 px-4 py-4 lg:px-5">{children}</main>
+      </div>
     </div>
   );
 }

@@ -18,6 +18,7 @@ export const SECONDARY_TABS: Record<
   "/repairs": [
     { label: "Alle", href: "/repairs" },
     { label: "Ny ticket", href: "/repairs/new" },
+    { label: "Venter innlevering", href: "/repairs?pending=1" },
     { label: "Nye", href: "/repairs?status=NEW" },
     { label: "Diagnostikk", href: "/repairs?status=DIAGNOSTICS" },
     { label: "Venter kunde", href: "/repairs?status=WAITING_FOR_CUSTOMER" },

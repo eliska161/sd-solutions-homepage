@@ -12,8 +12,8 @@ import { MoneyText } from "@/components/ui/MoneyText";
 import { Select } from "@/components/ui/Select";
 import { RepairStatusBadge } from "@/components/ui/StatusBadge";
 import { Textarea } from "@/components/ui/Textarea";
-import { formatDate, formatDateOnly, parseKrToOre } from "@/lib/labels";
-import { grossProfitOre } from "@/lib/money";
+import { formatDate, formatDateOnly, parseKrToOre, DELIVERY_METHOD_LABELS } from "@/lib/labels";
+import { formatNokFromOre, grossProfitOre } from "@/lib/money";
 import { listActivity } from "@/server/activity";
 import {
   listAttachments,
@@ -31,6 +31,7 @@ import { getIntakeInspection } from "@/server/intake";
 import { listParts } from "@/server/parts";
 import {
   addRepairNote,
+  markRepairReceived,
   getRepair,
   getRepairAssigneeName,
   listRepairNotes,
@@ -61,6 +62,13 @@ async function ensureDiagnosticsAction(formData: FormData) {
   "use server";
   const ticketId = String(formData.get("ticketId"));
   await getOrCreateDiagnostics(ticketId);
+  redirect(`/repairs/${ticketId}`);
+}
+
+async function markReceivedAction(formData: FormData) {
+  "use server";
+  const ticketId = String(formData.get("ticketId"));
+  await markRepairReceived(ticketId);
   redirect(`/repairs/${ticketId}`);
 }
 
@@ -227,8 +235,31 @@ export default async function RepairDetailPage({
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <RepairStatusForm ticketId={ticket.id} status={ticket.status} />
+        {!ticket.receivedAt ? (
+          <form action={markReceivedAction}>
+            <input type="hidden" name="ticketId" value={ticket.id} />
+            <Button type="submit">Motta enhet</Button>
+          </form>
+        ) : null}
         <p className="text-[13px] text-muted">
           Opprettet {formatDate(ticket.createdAt)}
+        </p>
+        <p className="text-[13px] text-muted">
+          {ticket.source === "CUSTOMER_PORTAL" ? "Nettside" : "Verksted"}
+          {ticket.receivedAt
+            ? ` · mottatt ${formatDate(ticket.receivedAt)}`
+            : " · venter innlevering"}
+        </p>
+        <p className="text-[13px] text-muted">
+          Inn: {DELIVERY_METHOD_LABELS[ticket.inboundMethod]}
+          {ticket.inboundPostageOre
+            ? ` (${formatNokFromOre(ticket.inboundPostageOre)})`
+            : ""}
+          {" · "}
+          Ut: {DELIVERY_METHOD_LABELS[ticket.outboundMethod]}
+          {ticket.outboundPostageOre
+            ? ` (${formatNokFromOre(ticket.outboundPostageOre)})`
+            : ""}
         </p>
         <p className="text-[13px] text-muted">
           Tekniker: {assigneeName || "Tekniker ikke tildelt"}

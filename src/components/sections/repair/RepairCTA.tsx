@@ -1,7 +1,8 @@
-import { RepairRequestForm } from "@/components/repair/RepairRequestForm";
+import { Button } from "@/components/ui/Button";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { Section } from "@/components/ui/Section";
 import { company, formatBusinessAddress } from "@/lib/company";
+import { SERVICE_ORDER_URL } from "@/lib/repair-portal";
 
 export function RepairCTA() {
   return (
@@ -9,16 +10,24 @@ export function RepairCTA() {
       <div className="mx-auto max-w-xl">
         <FadeIn>
           <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
-            Pris og forespørsel
+            Opprett serviceordre
           </h2>
           <p className="mt-5 text-[15px] leading-[1.75] text-muted">
-            Velg modell og reparasjon for et estimat, fyll inn kontaktinfo og
-            send forespørsel. Du får pristilbud etterpå.
+            Personalia, modell, IMEI og feil. Lever i butikk eller send med post
+            (+69 kr hver vei).
           </p>
         </FadeIn>
 
         <FadeIn delay={0.06}>
-          <dl className="mt-10 space-y-8 text-[15px]">
+          <div className="mt-10">
+            <Button href={SERVICE_ORDER_URL} size="lg">
+              Gå til skjema
+            </Button>
+          </div>
+        </FadeIn>
+
+        <FadeIn delay={0.1}>
+          <dl className="mt-14 space-y-8 border-t border-border pt-14 text-[15px]">
             <div>
               <dt className="text-[13px] text-muted">Adresse</dt>
               <dd className="mt-2 leading-relaxed text-foreground">
@@ -41,12 +50,6 @@ export function RepairCTA() {
               </dd>
             </div>
           </dl>
-        </FadeIn>
-
-        <FadeIn delay={0.1}>
-          <div className="mt-14 border-t border-border pt-14">
-            <RepairRequestForm />
-          </div>
         </FadeIn>
       </div>
     </Section>

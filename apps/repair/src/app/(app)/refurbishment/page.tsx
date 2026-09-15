@@ -44,7 +44,7 @@ export default async function RefurbishmentDashboardPage() {
           <Link
             key={c.href}
             href={c.href}
-            className="rounded-2xl border border-border bg-surface px-5 py-5 hover:border-white/16"
+            className="rounded-2xl border border-border bg-surface px-5 py-5 hover:border-black/15"
           >
             <p className="text-[13px] text-muted">{c.label}</p>
             <p className="mt-2 text-3xl font-medium">{c.value}</p>
@@ -68,7 +68,7 @@ export default async function RefurbishmentDashboardPage() {
             <Link
               key={f.id}
               href={`/refurbishment/${f.id}`}
-              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 hover:bg-white/[0.03]"
+              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 hover:bg-black/[0.03]"
             >
               <div>
                 <p className="text-sm">

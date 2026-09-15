@@ -28,6 +28,16 @@ export const FLIP_STATUS_LABELS = {
   ARCHIVED: "Arkivert",
 } as const;
 
+export const REPAIR_SOURCE_LABELS = {
+  STAFF: "Verksted",
+  CUSTOMER_PORTAL: "Nettside",
+} as const;
+
+export const DELIVERY_METHOD_LABELS = {
+  IN_PERSON: "Fysisk i butikk",
+  POST: "Post",
+} as const;
+
 export const REPAIR_STATUSES = Object.keys(
   REPAIR_STATUS_LABELS,
 ) as (keyof typeof REPAIR_STATUS_LABELS)[];

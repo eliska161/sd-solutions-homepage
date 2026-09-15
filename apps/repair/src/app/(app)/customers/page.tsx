@@ -123,7 +123,7 @@ export default async function CustomersPage({
       ) : (
         <DataTable headers={["Navn", "Telefon", "E-post", "Adresse", "Sist"]}>
           {customers.map((c) => (
-            <tr key={c.id} className="hover:bg-white/[0.03]">
+            <tr key={c.id} className="hover:bg-black/[0.03]">
               <Td>
                 <Link
                   href={`/customers/${c.id}`}

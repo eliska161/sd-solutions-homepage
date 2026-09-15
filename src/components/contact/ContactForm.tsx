@@ -73,7 +73,6 @@ export function ContactForm({
     () => INQUIRY_TYPES.find((t) => t.id === form.inquiryType),
     [form.inquiryType],
   );
-  const isRepairFlow = hideInquiryType && form.inquiryType === "repair";
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -199,8 +198,7 @@ export function ContactForm({
         </Field>
       </div>
 
-      {!isRepairFlow && (
-        <Field label="Organisasjon / klubb">
+      <Field label="Organisasjon / klubb">
           <input
             name="organization"
             value={form.organization}
@@ -209,7 +207,6 @@ export function ContactForm({
             placeholder="Valgfritt"
           />
         </Field>
-      )}
 
       {form.inquiryType === "custom" && (
         <div className="space-y-5 rounded-2xl border border-border p-5 sm:p-6">
@@ -252,9 +249,7 @@ export function ContactForm({
         label={
           form.inquiryType === "custom"
             ? "Beskriv prosjektet *"
-            : form.inquiryType === "repair"
-              ? "Beskriv feilen *"
-              : "Melding *"
+            : "Melding *"
         }
       >
         <textarea
@@ -267,9 +262,7 @@ export function ContactForm({
           placeholder={
             form.inquiryType === "custom"
               ? "Beskriv problemet, brukerne og hva en god løsning ville gjort for dere."
-              : form.inquiryType === "repair"
-                ? "Modell (f.eks. iPhone 13), feil, og om skjermen/batteriet er det viktigste."
-                : "Skriv kort hva henvendelsen gjelder."
+              : "Skriv kort hva henvendelsen gjelder."
           }
         />
       </Field>
@@ -281,22 +274,15 @@ export function ContactForm({
       )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {!isRepairFlow && (
-          <p className="text-[12px] leading-relaxed text-muted">
-            Vi svarer på e-postadressen du oppgir.
-          </p>
-        )}
+        <p className="text-[12px] leading-relaxed text-muted">
+          Vi svarer på e-postadressen du oppgir.
+        </p>
         <Button
           type="submit"
           size="lg"
           disabled={status === "loading"}
-          className={isRepairFlow ? "sm:ml-auto" : undefined}
         >
-          {status === "loading"
-            ? "Sender…"
-            : isRepairFlow
-              ? "Send"
-              : "Send henvendelse"}
+          {status === "loading" ? "Sender…" : "Send henvendelse"}
         </Button>
       </div>
     </form>

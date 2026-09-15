@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -55,6 +55,7 @@ export type RepairListFilters = {
   customerId?: string;
   assigneeId?: string;
   query?: string;
+  pendingReceive?: boolean;
 };
 
 export async function listRepairs(filters: RepairListFilters = {}) {
@@ -67,6 +68,9 @@ export async function listRepairs(filters: RepairListFilters = {}) {
     conditions.push(eq(repairTickets.customerId, filters.customerId));
   if (filters.assigneeId)
     conditions.push(eq(repairTickets.assigneeId, filters.assigneeId));
+  if (filters.pendingReceive) {
+    conditions.push(sql`${repairTickets.receivedAt} is null`);
+  }
 
   return db
     .select({
@@ -81,6 +85,10 @@ export async function listRepairs(filters: RepairListFilters = {}) {
       estimatedCompletionDate: repairTickets.estimatedCompletionDate,
       customerPriceOre: repairTickets.customerPriceOre,
       paymentStatus: repairTickets.paymentStatus,
+      source: repairTickets.source,
+      inboundMethod: repairTickets.inboundMethod,
+      outboundMethod: repairTickets.outboundMethod,
+      receivedAt: repairTickets.receivedAt,
       createdAt: repairTickets.createdAt,
       updatedAt: repairTickets.updatedAt,
       completedAt: repairTickets.completedAt,
@@ -134,6 +142,8 @@ export async function createRepair(input: z.infer<typeof createRepairSchema>) {
       assigneeId,
       publicAccessToken: createPublicAccessToken(),
       status: "NEW",
+      source: "STAFF",
+      receivedAt: new Date(),
     })
     .returning();
 
@@ -187,6 +197,46 @@ export async function createRepair(input: z.infer<typeof createRepairSchema>) {
     });
   }
 
+  revalidatePath("/repairs");
+  revalidatePath("/dashboard");
+  return row;
+}
+
+export async function markRepairReceived(ticketId: string) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const db = getDb();
+  const [ticket] = await db
+    .select()
+    .from(repairTickets)
+    .where(eq(repairTickets.id, ticketId))
+    .limit(1);
+  if (!ticket) throw new Error("Ticket ikke funnet");
+  if (ticket.receivedAt) return ticket;
+
+  const [row] = await db
+    .update(repairTickets)
+    .set({ receivedAt: new Date(), updatedAt: new Date() })
+    .where(eq(repairTickets.id, ticketId))
+    .returning();
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    entityType: "repair_ticket",
+    entityId: ticketId,
+    action: "receive",
+    before: { receivedAt: ticket.receivedAt },
+    after: { receivedAt: row.receivedAt },
+  });
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: ticketId,
+    type: "repair.received",
+    message: "Enhet mottatt",
+    actorId: session.user.id,
+  });
+
+  revalidatePath(`/repairs/${ticketId}`);
   revalidatePath("/repairs");
   revalidatePath("/dashboard");
   return row;

@@ -41,6 +41,16 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "REFUNDED",
 ]);
 
+export const repairSourceEnum = pgEnum("repair_source", [
+  "STAFF",
+  "CUSTOMER_PORTAL",
+]);
+
+export const repairDeliveryMethodEnum = pgEnum("repair_delivery_method", [
+  "IN_PERSON",
+  "POST",
+]);
+
 export const noteVisibilityEnum = pgEnum("note_visibility", [
   "INTERNAL",
   "CUSTOMER",
@@ -178,6 +188,17 @@ export const repairTickets = pgTable(
       .notNull()
       .default("UNPAID"),
     warrantyDays: integer("warranty_days").default(90),
+    source: repairSourceEnum("source").notNull().default("STAFF"),
+    inboundMethod: repairDeliveryMethodEnum("inbound_method")
+      .notNull()
+      .default("IN_PERSON"),
+    outboundMethod: repairDeliveryMethodEnum("outbound_method")
+      .notNull()
+      .default("IN_PERSON"),
+    inboundPostageOre: integer("inbound_postage_ore").notNull().default(0),
+    outboundPostageOre: integer("outbound_postage_ore").notNull().default(0),
+    /** Set when the workshop physically receives the device. */
+    receivedAt: timestamp("received_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

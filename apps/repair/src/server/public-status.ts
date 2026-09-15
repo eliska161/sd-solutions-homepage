@@ -43,6 +43,11 @@ export async function getPublicRepairByToken(token: string) {
       discountLabel: repairTickets.discountLabel,
       estimatedCompletionDate: repairTickets.estimatedCompletionDate,
       createdAt: repairTickets.createdAt,
+      receivedAt: repairTickets.receivedAt,
+      inboundMethod: repairTickets.inboundMethod,
+      outboundMethod: repairTickets.outboundMethod,
+      inboundPostageOre: repairTickets.inboundPostageOre,
+      outboundPostageOre: repairTickets.outboundPostageOre,
       deviceBrand: devices.brand,
       deviceModel: devices.model,
       deviceVariant: devices.variant,
@@ -118,8 +123,14 @@ export async function getPublicRepairByToken(token: string) {
     ticketNumber: row.ticketNumber,
     deviceLabel,
     status: row.status,
-    statusLabel: customerStatusLabel(row.status),
-    progress: buildCustomerProgress(row.status),
+    statusLabel:
+      !row.receivedAt && row.status === "NEW"
+        ? "Venter innlevering"
+        : customerStatusLabel(row.status),
+    progress: buildCustomerProgress(row.status, {
+      received: Boolean(row.receivedAt),
+      outboundPost: row.outboundMethod === "POST",
+    }),
     technicianName: row.technicianName || "Tekniker ikke tildelt",
     estimatedCompletionDate: row.estimatedCompletionDate,
     /** Intake list — internal only; not shown raw to customers. */
@@ -167,6 +178,17 @@ export async function getPublicRepairByToken(token: string) {
       url: `/api/public/status/${token}/media/${p.id}`,
     })),
     createdAt: row.createdAt,
+    received: Boolean(row.receivedAt),
+    inboundMethod: row.inboundMethod,
+    outboundMethod: row.outboundMethod,
+    inboundPostageLabel:
+      row.inboundPostageOre > 0
+        ? formatNokFromOre(row.inboundPostageOre)
+        : null,
+    outboundPostageLabel:
+      row.outboundPostageOre > 0
+        ? formatNokFromOre(row.outboundPostageOre)
+        : null,
   };
 }
 
