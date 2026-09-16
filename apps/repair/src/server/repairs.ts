@@ -207,7 +207,7 @@ export async function createRepair(input: z.infer<typeof createRepairSchema>) {
 
   revalidatePath("/repairs");
   revalidatePath("/dashboard");
-  notifyDeviceReceived(row.id);
+  await notifyDeviceReceived(row.id);
   return row;
 }
 
@@ -248,7 +248,7 @@ export async function markRepairReceived(ticketId: string) {
   revalidatePath(`/repairs/${ticketId}`);
   revalidatePath("/repairs");
   revalidatePath("/dashboard");
-  notifyDeviceReceived(ticketId);
+  await notifyDeviceReceived(ticketId);
   return row;
 }
 
@@ -466,11 +466,11 @@ export async function updateRepairStatus(
 
   if (before.status !== nextStatus) {
     if (nextStatus === "WAITING_FOR_CUSTOMER") {
-      notifyWaitingForCustomer(ticketId);
+      await notifyWaitingForCustomer(ticketId);
     } else if (nextStatus === "READY_FOR_PICKUP") {
-      notifyReadyForPickup(ticketId);
+      await notifyReadyForPickup(ticketId);
     } else if (nextStatus === "COMPLETED") {
-      notifyRepairCompleted(ticketId);
+      await notifyRepairCompleted(ticketId);
     }
   }
 
@@ -529,7 +529,7 @@ export async function updateReturnTracking(
     row.outboundMethod === "POST" &&
     (row.status === "READY_FOR_PICKUP" || row.status === "COMPLETED")
   ) {
-    notifyReadyForPickup(ticketId);
+    await notifyReadyForPickup(ticketId);
   }
 
   return row;
@@ -566,7 +566,7 @@ export async function addRepairNote(input: z.infer<typeof noteSchema>) {
 
   revalidatePath(`/repairs/${data.ticketId}`);
   if (data.visibility === "CUSTOMER") {
-    notifyStaffUpdate(data.ticketId, data.content);
+    await notifyStaffUpdate(data.ticketId, data.content);
   }
   return row;
 }

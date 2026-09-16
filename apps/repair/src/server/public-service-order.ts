@@ -340,7 +340,7 @@ export async function createPublicServiceOrder(
     actorId: null,
   });
 
-  notifyServiceOrderCreated(ticket.id);
+  await notifyServiceOrderCreated(ticket.id);
 
   return {
     ok: true,
