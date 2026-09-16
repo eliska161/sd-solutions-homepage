@@ -1,4 +1,3 @@
-import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import { customers, devices, repairTickets } from "@/db/schema";
 import { getDb } from "@/lib/db";
@@ -26,15 +25,11 @@ type MailContext = {
   returnTrackingNumber: string | null;
 };
 
-function enqueue(task: () => Promise<void>) {
-  const run = () =>
-    task().catch((err) => {
-      console.error("==> Kundemelding feilet", err);
-    });
+async function enqueue(task: () => Promise<void>) {
   try {
-    after(run);
-  } catch {
-    void run();
+    await task();
+  } catch (err) {
+    console.error("==> Kundemelding feilet", err);
   }
 }
 
@@ -137,7 +132,7 @@ function buildMail(
 }
 
 function smsLine(ctx: MailContext, line: string) {
-  return `${greeting(ctx.customerName)}. ${line} Status: ${publicStatusUrl(ctx.token)}`;
+  return `${greeting(ctx.customerName)}. ${line} ${publicStatusUrl(ctx.token)}`;
 }
 
 function deviceBit(ctx: MailContext) {
@@ -159,8 +154,8 @@ async function sendForTicket(
   }
 }
 
-export function notifyServiceOrderCreated(ticketId: string) {
-  enqueue(() =>
+export async function notifyServiceOrderCreated(ticketId: string) {
+  await enqueue(() =>
     sendForTicket(ticketId, (ctx) => {
       const byPost = ctx.inboundMethod === "POST";
       const address = workshopAddressOneLine();
@@ -188,19 +183,19 @@ export function notifyServiceOrderCreated(ticketId: string) {
         sms: byPost
           ? smsLine(
               ctx,
-              `Serviceordre ${ctx.ticketNumber} er opprettet. Send enheten til ${address}. Merk pakken med ${ctx.ticketNumber}.`,
+              `${ctx.ticketNumber} er opprettet. Send til ${address}. Merk ${ctx.ticketNumber}.`,
             )
           : smsLine(
               ctx,
-              `Serviceordre ${ctx.ticketNumber} er opprettet. Lever telefonen hos oss, ${address}, ${WORKSHOP.hoursLabel}. Book tid på statuslenken.`,
+              `${ctx.ticketNumber} er opprettet. Lever hos oss.`,
             ),
       };
     }),
   );
 }
 
-export function notifyDeviceReceived(ticketId: string) {
-  enqueue(() =>
+export async function notifyDeviceReceived(ticketId: string) {
+  await enqueue(() =>
     sendForTicket(ticketId, (ctx) => ({
       mail: buildMail(ctx, {
         subject: `Vi har mottatt enheten — ${ctx.ticketNumber}`,
@@ -213,14 +208,14 @@ export function notifyDeviceReceived(ticketId: string) {
       }),
       sms: smsLine(
         ctx,
-        `Vi har mottatt enheten på ${ctx.ticketNumber}. Vi kontakter deg hvis vi trenger ytterligere informasjon.`,
+        `Vi har mottatt ${ctx.ticketNumber}. Vi tar kontakt ved behov.`,
       ),
     })),
   );
 }
 
-export function notifyWaitingForCustomer(ticketId: string) {
-  enqueue(() =>
+export async function notifyWaitingForCustomer(ticketId: string) {
+  await enqueue(() =>
     sendForTicket(ticketId, (ctx) => ({
       mail: buildMail(ctx, {
         subject: `Vi venter på deg — ${ctx.ticketNumber}`,
@@ -231,23 +226,20 @@ export function notifyWaitingForCustomer(ticketId: string) {
           "Vi gjør ikke mer på telefonen før du har svart. Åpne statussiden, les det som står der, og skriv tilbake eller godkjenn der.",
         ],
       }),
-      sms: smsLine(
-        ctx,
-        `Vi venter på deg på ${ctx.ticketNumber} (ofte pris eller diagnose). Jobben står til du svarer på statuslenken.`,
-      ),
+      sms: smsLine(ctx, `Vi venter på deg på ${ctx.ticketNumber}. Svar via lenken.`),
     })),
   );
 }
 
-export function notifyReadyForPickup(ticketId: string) {
-  enqueue(() =>
+export async function notifyReadyForPickup(ticketId: string) {
+  await enqueue(() =>
     sendForTicket(ticketId, (ctx) => {
       const byPost = ctx.outboundMethod === "POST";
       const tracking = ctx.returnTrackingNumber;
       const trackingMail = tracking
         ? [`Sporingsnummer: ${tracking}.`]
         : [];
-      const trackingSms = tracking ? ` Sporing: ${tracking}.` : "";
+      const trackingSms = tracking ? ` Sporing ${tracking}.` : "";
       return {
         mail: buildMail(ctx, {
           subject: byPost
@@ -272,16 +264,16 @@ export function notifyReadyForPickup(ticketId: string) {
         sms: smsLine(
           ctx,
           byPost
-            ? `Jobben på ${ctx.ticketNumber} er ferdig. Vi sender telefonen tilbake.${trackingSms}`
-            : `Jobben på ${ctx.ticketNumber} er ferdig. Hent hos oss, ${workshopAddressOneLine()}, ${WORKSHOP.hoursLabel}. Ta med legitimasjon.`,
+            ? `${ctx.ticketNumber} er ferdig. Vi sender den tilbake.${trackingSms}`
+            : `${ctx.ticketNumber} er klar for henting.`,
         ),
       };
     }),
   );
 }
 
-export function notifyRepairCompleted(ticketId: string) {
-  enqueue(() =>
+export async function notifyRepairCompleted(ticketId: string) {
+  await enqueue(() =>
     sendForTicket(ticketId, (ctx) => {
       const byPost = ctx.outboundMethod === "POST";
       return {
@@ -300,18 +292,18 @@ export function notifyRepairCompleted(ticketId: string) {
         sms: smsLine(
           ctx,
           byPost
-            ? `${ctx.ticketNumber} er avsluttet hos oss. Ved post-retur er telefonen sendt eller levert. Si ifra hvis pakken mangler.`
-            : `${ctx.ticketNumber} er avsluttet hos oss. Ta kontakt hvis noe mangler etter henting.`,
+            ? `${ctx.ticketNumber} er avsluttet.`
+            : `${ctx.ticketNumber} er avsluttet.`,
         ),
       };
     }),
   );
 }
 
-export function notifyStaffUpdate(ticketId: string, message: string) {
+export async function notifyStaffUpdate(ticketId: string, message: string) {
   const trimmed = message.trim();
   if (trimmed.length < 2) return;
-  enqueue(() =>
+  await enqueue(() =>
     sendForTicket(ticketId, (ctx) => ({
       mail: buildMail(ctx, {
         subject: `Melding fra verkstedet — ${ctx.ticketNumber}`,
@@ -324,7 +316,7 @@ export function notifyStaffUpdate(ticketId: string, message: string) {
       }),
       sms: smsLine(
         ctx,
-        `Melding på ${ctx.ticketNumber}: ${trimmed.slice(0, 140)}${trimmed.length > 140 ? "…" : ""} Les og svar på statuslenken.`,
+        `Melding på ${ctx.ticketNumber}: ${trimmed.slice(0, 80)}${trimmed.length > 80 ? "..." : ""}`,
       ),
     })),
   );

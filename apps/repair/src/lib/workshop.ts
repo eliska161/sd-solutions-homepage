@@ -3,7 +3,7 @@ export const WORKSHOP = {
   streetAddress: "Slåttmyrvegen 49",
   postalCode: "2406",
   city: "Elverum",
-  hoursLabel: "Mandag–lørdag 12:00–18:00",
+  hoursLabel: "Mandag-lørdag 12:00-18:00",
 } as const;
 
 export function workshopAddressLines() {
