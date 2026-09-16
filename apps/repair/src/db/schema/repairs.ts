@@ -179,6 +179,8 @@ export const repairTickets = pgTable(
       .default(
         sql`replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')`,
       ),
+    /** Short code used in SMS links (`/s/{code}`). */
+    publicShortCode: text("public_short_code").unique(),
     estimatedCompletionDate: timestamp("estimated_completion_date", {
       withTimezone: true,
     }),

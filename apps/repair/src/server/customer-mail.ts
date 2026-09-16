@@ -11,11 +11,14 @@ import {
   type OutboundMail,
 } from "@/lib/mail";
 import { isSendablePhone } from "@/lib/phone";
+import { allocatePublicShortCode } from "@/lib/public-link";
 import { sendCustomerSms } from "@/lib/sms";
+import { customerSmsPing } from "@/lib/sms-text";
 
 type MailContext = {
   ticketNumber: string;
   token: string;
+  shortCode: string;
   inboundMethod: "IN_PERSON" | "POST";
   outboundMethod: "IN_PERSON" | "POST";
   customerName: string;
@@ -39,6 +42,7 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
     .select({
       ticketNumber: repairTickets.ticketNumber,
       token: repairTickets.publicAccessToken,
+      shortCode: repairTickets.publicShortCode,
       inboundMethod: repairTickets.inboundMethod,
       outboundMethod: repairTickets.outboundMethod,
       returnTrackingNumber: repairTickets.returnTrackingNumber,
@@ -60,6 +64,15 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
   const phoneOk = isSendablePhone(row.customerPhone);
   if (!emailOk && !phoneOk) return null;
 
+  let shortCode = row.shortCode;
+  if (!shortCode) {
+    shortCode = await allocatePublicShortCode();
+    await db
+      .update(repairTickets)
+      .set({ publicShortCode: shortCode, updatedAt: new Date() })
+      .where(eq(repairTickets.id, ticketId));
+  }
+
   const deviceLabel = [row.brand, row.model, row.variant]
     .filter(Boolean)
     .join(" ");
@@ -67,6 +80,7 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
   return {
     ticketNumber: row.ticketNumber,
     token: row.token,
+    shortCode,
     inboundMethod: row.inboundMethod,
     outboundMethod: row.outboundMethod,
     customerName: row.customerName,
@@ -131,8 +145,13 @@ function buildMail(
   };
 }
 
-function smsLine(ctx: MailContext, line: string) {
-  return `${greeting(ctx.customerName)}. ${line} ${publicStatusUrl(ctx.token)}`;
+function smsLine(ctx: MailContext, verb: string) {
+  return customerSmsPing({
+    name: ctx.customerName,
+    ticketNumber: ctx.ticketNumber,
+    verb,
+    url: publicStatusUrl(ctx.shortCode),
+  });
 }
 
 function deviceBit(ctx: MailContext) {
@@ -180,15 +199,7 @@ export async function notifyServiceOrderCreated(ticketId: string) {
                 "Velg dato og timeslot på innleveringssiden (samme lenke som status). Ta med telefonen til avtalt tid.",
               ],
         }),
-        sms: byPost
-          ? smsLine(
-              ctx,
-              `${ctx.ticketNumber} er opprettet. Send til ${address}. Merk ${ctx.ticketNumber}.`,
-            )
-          : smsLine(
-              ctx,
-              `${ctx.ticketNumber} er opprettet. Lever hos oss.`,
-            ),
+        sms: smsLine(ctx, byPost ? "opprettet. Send." : "opprettet"),
       };
     }),
   );
@@ -206,10 +217,7 @@ export async function notifyDeviceReceived(ticketId: string) {
           "Vi kontakter deg hvis vi trenger ytterligere informasjon.",
         ],
       }),
-      sms: smsLine(
-        ctx,
-        `Vi har mottatt ${ctx.ticketNumber}. Vi tar kontakt ved behov.`,
-      ),
+      sms: smsLine(ctx, "mottatt"),
     })),
   );
 }
@@ -226,7 +234,7 @@ export async function notifyWaitingForCustomer(ticketId: string) {
           "Vi gjør ikke mer på telefonen før du har svart. Åpne statussiden, les det som står der, og skriv tilbake eller godkjenn der.",
         ],
       }),
-      sms: smsLine(ctx, `Vi venter på deg på ${ctx.ticketNumber}. Svar via lenken.`),
+      sms: smsLine(ctx, "svar"),
     })),
   );
 }
@@ -239,7 +247,6 @@ export async function notifyReadyForPickup(ticketId: string) {
       const trackingMail = tracking
         ? [`Sporingsnummer: ${tracking}.`]
         : [];
-      const trackingSms = tracking ? ` Sporing ${tracking}.` : "";
       return {
         mail: buildMail(ctx, {
           subject: byPost
@@ -261,12 +268,7 @@ export async function notifyReadyForPickup(ticketId: string) {
                 "Ta med legitimasjon. Si fra om saksnummeret i skranken.",
               ],
         }),
-        sms: smsLine(
-          ctx,
-          byPost
-            ? `${ctx.ticketNumber} er ferdig. Vi sender den tilbake.${trackingSms}`
-            : `${ctx.ticketNumber} er klar for henting.`,
-        ),
+        sms: smsLine(ctx, byPost ? "sendes" : "klar"),
       };
     }),
   );
@@ -289,12 +291,7 @@ export async function notifyRepairCompleted(ticketId: string) {
             "Statuslenken virker fortsatt hvis du trenger saksnummer eller historikk.",
           ],
         }),
-        sms: smsLine(
-          ctx,
-          byPost
-            ? `${ctx.ticketNumber} er avsluttet.`
-            : `${ctx.ticketNumber} er avsluttet.`,
-        ),
+        sms: smsLine(ctx, "ferdig"),
       };
     }),
   );
@@ -314,10 +311,7 @@ export async function notifyStaffUpdate(ticketId: string, message: string) {
         ],
         quote: trimmed,
       }),
-      sms: smsLine(
-        ctx,
-        `Melding på ${ctx.ticketNumber}: ${trimmed.slice(0, 80)}${trimmed.length > 80 ? "..." : ""}`,
-      ),
+      sms: smsLine(ctx, "melding"),
     })),
   );
 }

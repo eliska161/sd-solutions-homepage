@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import { getAuth } from "../src/lib/auth";
 import { getDb, getSql } from "../src/lib/db";
 import { nextPublicId } from "../src/lib/sequences";
-import { createPublicAccessToken } from "../src/lib/public-token";
+import { createPublicAccessToken, createPublicShortCode } from "../src/lib/public-token";
 import { dealRisk, roiBps, krToOre } from "../src/lib/money";
 import {
   customers,
@@ -254,6 +254,7 @@ async function seed() {
       status: "DIAGNOSTICS",
       assigneeId: adminId,
       publicAccessToken: createPublicAccessToken(),
+      publicShortCode: createPublicShortCode(),
       estimatedCompletionDate: new Date(Date.UTC(2026, 8, 12, 12, 0, 0)),
       customerPriceOre: krToOre(2490),
       estimatedPartsCostOre: screenPart.costPriceOre,
@@ -288,6 +289,7 @@ async function seed() {
       status: "WAITING_FOR_CUSTOMER",
       assigneeId: adminId,
       publicAccessToken: createPublicAccessToken(),
+      publicShortCode: createPublicShortCode(),
       estimatedCompletionDate: new Date(Date.UTC(2026, 8, 15, 12, 0, 0)),
       customerPriceOre: krToOre(3990),
       estimatedPartsCostOre: krToOre(1600),
@@ -303,6 +305,7 @@ async function seed() {
     status: "NEW",
     assigneeId: adminId,
     publicAccessToken: createPublicAccessToken(),
+    publicShortCode: createPublicShortCode(),
     customerPriceOre: krToOre(1290),
     estimatedPartsCostOre: krToOre(320),
   });

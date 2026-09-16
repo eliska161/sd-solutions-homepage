@@ -236,7 +236,7 @@ export default async function RepairDetailPage({
     partsCostOre: partsCost,
     otherCostsOre: otherCosts,
   });
-  const publicUrl = `${origin}/s/${ticket.publicAccessToken}`;
+  const publicUrl = `${origin}/s/${ticket.publicShortCode || ticket.publicAccessToken}`;
   const customerUpdates = notes
     .filter((n) => n.visibility === "CUSTOMER")
     .slice()

@@ -20,17 +20,15 @@ import {
 import { getDb } from "@/lib/db";
 import { formatDropoffAppointment } from "@/lib/dropoff";
 import { formatNokFromOre } from "@/lib/money";
-
-function isHexToken(token: string) {
-  return /^[a-f0-9]{64}$/i.test(token);
-}
+import { publicTicketLinkFilter } from "@/lib/public-link";
 
 /**
  * Public, unauthenticated customer status payload.
  * Only returns explicitly customer-safe fields.
  */
 export async function getPublicRepairByToken(token: string) {
-  if (!token || !isHexToken(token)) return null;
+  const filter = publicTicketLinkFilter(token);
+  if (!filter) return null;
 
   const db = getDb();
   const [row] = await db
@@ -61,7 +59,7 @@ export async function getPublicRepairByToken(token: string) {
     .from(repairTickets)
     .innerJoin(devices, eq(devices.id, repairTickets.deviceId))
     .leftJoin(users, eq(users.id, repairTickets.assigneeId))
-    .where(eq(repairTickets.publicAccessToken, token))
+    .where(filter)
     .limit(1);
 
   if (!row) return null;
@@ -216,14 +214,15 @@ export async function getPublicAttachmentForToken(
   token: string,
   attachmentId: string,
 ) {
-  if (!token || !isHexToken(token)) return null;
+  const filter = publicTicketLinkFilter(token);
+  if (!filter) return null;
   if (!/^[0-9a-f-]{36}$/i.test(attachmentId)) return null;
 
   const db = getDb();
   const [ticket] = await db
     .select({ id: repairTickets.id })
     .from(repairTickets)
-    .where(eq(repairTickets.publicAccessToken, token))
+    .where(filter)
     .limit(1);
   if (!ticket) return null;
 
@@ -244,7 +243,8 @@ export async function getPublicAttachmentForToken(
 }
 
 export async function addPublicRepairUpdate(token: string, content: string) {
-  if (!token || !isHexToken(token)) {
+  const filter = publicTicketLinkFilter(token);
+  if (!filter) {
     return { ok: false as const, error: "Ugyldig lenke" };
   }
   const text = content.trim();
@@ -262,7 +262,7 @@ export async function addPublicRepairUpdate(token: string, content: string) {
       customerId: repairTickets.customerId,
     })
     .from(repairTickets)
-    .where(eq(repairTickets.publicAccessToken, token))
+    .where(filter)
     .limit(1);
   if (!ticket) return { ok: false as const, error: "Saken ble ikke funnet" };
 
