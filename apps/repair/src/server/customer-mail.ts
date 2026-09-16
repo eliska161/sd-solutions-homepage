@@ -199,7 +199,12 @@ export async function notifyServiceOrderCreated(ticketId: string) {
                 "Velg dato og timeslot på innleveringssiden (samme lenke som status). Ta med telefonen til avtalt tid.",
               ],
         }),
-        sms: smsLine(ctx, byPost ? "opprettet. Send." : "opprettet"),
+        sms: smsLine(
+          ctx,
+          byPost
+            ? "er opprettet. Send telefonen. Adresse og merking står i lenken."
+            : "er opprettet",
+        ),
       };
     }),
   );
@@ -217,7 +222,7 @@ export async function notifyDeviceReceived(ticketId: string) {
           "Vi kontakter deg hvis vi trenger ytterligere informasjon.",
         ],
       }),
-      sms: smsLine(ctx, "mottatt"),
+      sms: smsLine(ctx, "er mottatt"),
     })),
   );
 }
@@ -234,7 +239,7 @@ export async function notifyWaitingForCustomer(ticketId: string) {
           "Vi gjør ikke mer på telefonen før du har svart. Åpne statussiden, les det som står der, og skriv tilbake eller godkjenn der.",
         ],
       }),
-      sms: smsLine(ctx, "svar"),
+      sms: smsLine(ctx, "venter på svar. Åpne lenken og svar der."),
     })),
   );
 }
@@ -268,7 +273,7 @@ export async function notifyReadyForPickup(ticketId: string) {
                 "Ta med legitimasjon. Si fra om saksnummeret i skranken.",
               ],
         }),
-        sms: smsLine(ctx, byPost ? "sendes" : "klar"),
+        sms: smsLine(ctx, byPost ? "er ferdig. Vi sender den tilbake." : "er klar for henting."),
       };
     }),
   );
@@ -291,7 +296,7 @@ export async function notifyRepairCompleted(ticketId: string) {
             "Statuslenken virker fortsatt hvis du trenger saksnummer eller historikk.",
           ],
         }),
-        sms: smsLine(ctx, "ferdig"),
+        sms: smsLine(ctx, "er ferdig"),
       };
     }),
   );
@@ -311,7 +316,7 @@ export async function notifyStaffUpdate(ticketId: string, message: string) {
         ],
         quote: trimmed,
       }),
-      sms: smsLine(ctx, "melding"),
+      sms: smsLine(ctx, "ny oppdatering. Les i lenken."),
     })),
   );
 }
