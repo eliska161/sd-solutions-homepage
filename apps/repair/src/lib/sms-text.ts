@@ -8,3 +8,20 @@ export function toGsmSafeSms(text: string) {
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/\u2026/g, "...");
 }
+
+/** Ping + URL. Details live on the status page. Keep under 160 GSM-7 chars. */
+export function customerSmsPing(opts: {
+  name: string;
+  ticketNumber: string;
+  verb: string;
+  url: string;
+}) {
+  const first = opts.name.trim().split(/\s+/)[0] || "hei";
+  return `Hei ${first}. ${opts.ticketNumber} ${opts.verb} ${opts.url}`;
+}
+
+export function gsmSmsPartCount(text: string) {
+  const body = toGsmSafeSms(text);
+  if (body.length <= 160) return 1;
+  return Math.ceil(body.length / 153);
+}

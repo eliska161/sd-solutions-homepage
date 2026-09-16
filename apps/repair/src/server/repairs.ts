@@ -24,6 +24,7 @@ import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
+import { allocatePublicShortCode } from "@/lib/public-link";
 import { createPublicAccessToken } from "@/lib/public-token";
 import { nextPublicId } from "@/lib/sequences";
 import { requireSession } from "@/lib/session";
@@ -149,6 +150,7 @@ export async function createRepair(input: z.infer<typeof createRepairSchema>) {
       physicalCondition: data.physicalCondition || null,
       assigneeId,
       publicAccessToken: createPublicAccessToken(),
+      publicShortCode: await allocatePublicShortCode(),
       status: "NEW",
       source: "STAFF",
       receivedAt: new Date(),
@@ -463,6 +465,9 @@ export async function updateRepairStatus(
   if (row.publicAccessToken) {
     revalidatePath(`/s/${row.publicAccessToken}`);
   }
+  if (row.publicShortCode) {
+    revalidatePath(`/s/${row.publicShortCode}`);
+  }
 
   if (before.status !== nextStatus) {
     if (nextStatus === "WAITING_FOR_CUSTOMER") {
@@ -522,6 +527,9 @@ export async function updateReturnTracking(
   revalidatePath(`/repairs/${ticketId}`);
   if (row.publicAccessToken) {
     revalidatePath(`/s/${row.publicAccessToken}`);
+  }
+  if (row.publicShortCode) {
+    revalidatePath(`/s/${row.publicShortCode}`);
   }
 
   if (

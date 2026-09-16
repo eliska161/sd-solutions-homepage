@@ -17,6 +17,7 @@ import { getDb } from "@/lib/db";
 import { lookupImeiCatalog, normalizeImei } from "@/lib/imei-lookup";
 import { CUSTOMER_POSTAGE_ORE } from "@/lib/money";
 import { countryNameFromPhone, isSendablePhone, toE164Phone } from "@/lib/phone";
+import { allocatePublicShortCode, publicTicketLinkFilter } from "@/lib/public-link";
 import { createPublicAccessToken } from "@/lib/public-token";
 import { nextPublicId } from "@/lib/sequences";
 import { notifyServiceOrderCreated } from "@/server/customer-mail";
@@ -288,6 +289,7 @@ export async function createPublicServiceOrder(
 
   const ticketNumber = await nextPublicId("REP");
   const publicAccessToken = createPublicAccessToken();
+  const publicShortCode = await allocatePublicShortCode();
 
   const [ticket] = await db
     .insert(repairTickets)
@@ -298,6 +300,7 @@ export async function createPublicServiceOrder(
       customerProblem: data.customerProblem,
       status: "NEW",
       publicAccessToken,
+      publicShortCode,
       source: "CUSTOMER_PORTAL",
       inboundMethod: data.inboundMethod,
       outboundMethod: data.outboundMethod,
@@ -351,12 +354,9 @@ export async function createPublicServiceOrder(
   };
 }
 
-function isHexToken(token: string) {
-  return /^[a-f0-9]{64}$/i.test(token);
-}
-
 export async function getPublicDropoffContext(token: string) {
-  if (!token || !isHexToken(token)) return null;
+  const filter = publicTicketLinkFilter(token);
+  if (!filter) return null;
   const db = getDb();
   const [row] = await db
     .select({
@@ -367,7 +367,7 @@ export async function getPublicDropoffContext(token: string) {
       dropoffSlot: repairTickets.dropoffSlot,
     })
     .from(repairTickets)
-    .where(eq(repairTickets.publicAccessToken, token))
+    .where(filter)
     .limit(1);
   if (!row) return null;
   return {
@@ -398,7 +398,8 @@ export async function savePublicDropoffAppointment(input: {
   if (!parsed.success) {
     return { ok: false, error: "Velg dato og timeslot" };
   }
-  if (!isHexToken(parsed.data.token)) {
+  const filter = publicTicketLinkFilter(parsed.data.token);
+  if (!filter) {
     return { ok: false, error: "Ugyldig lenke" };
   }
   if (!isDropoffSlotOpen(parsed.data.date, parsed.data.slot)) {
@@ -416,7 +417,7 @@ export async function savePublicDropoffAppointment(input: {
       receivedAt: repairTickets.receivedAt,
     })
     .from(repairTickets)
-    .where(eq(repairTickets.publicAccessToken, parsed.data.token))
+    .where(filter)
     .limit(1);
   if (!ticket) return { ok: false, error: "Saken ble ikke funnet" };
   if (ticket.inboundMethod !== "IN_PERSON") {
