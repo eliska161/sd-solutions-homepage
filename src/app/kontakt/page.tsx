@@ -22,7 +22,12 @@ export default function KontaktPage() {
           {virksomhet.intro}
         </p>
         <p className="mt-4 flex flex-wrap gap-4 text-[13px]">
-          <a href={pdfHref} className="text-accent underline underline-offset-2">
+          <a
+            href={pdfHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline underline-offset-2"
+          >
             Last ned PDF
           </a>
           <Link
