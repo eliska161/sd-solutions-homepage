@@ -6,6 +6,7 @@ import { RepairHero } from "@/components/sections/repair/RepairHero";
 import { RepairAbout } from "@/components/sections/repair/RepairAbout";
 import { RepairServices } from "@/components/sections/repair/RepairServices";
 import { RepairCTA } from "@/components/sections/repair/RepairCTA";
+import { RepairPriceList } from "@/components/sections/repair/RepairPriceList";
 import { company } from "@/lib/company";
 
 export const metadata: Metadata = {
@@ -53,6 +54,7 @@ export default function Home() {
         <RepairHero />
         <RepairAbout />
         <RepairServices />
+        <RepairPriceList />
         <RepairCTA />
       </main>
       <div className="relative">

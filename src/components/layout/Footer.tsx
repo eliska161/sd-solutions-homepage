@@ -4,6 +4,7 @@ import { SERVICE_ORDER_URL } from "@/lib/repair-portal";
 
 const links = [
   { label: "Reparasjon", href: "/" },
+  { label: "Priser", href: "/#priser" },
   { label: "Programvare", href: "/programvare" },
   { label: "Opprett serviceordre", href: SERVICE_ORDER_URL },
   { label: "Kontakt", href: "/kontakt" },

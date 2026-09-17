@@ -6,8 +6,12 @@ import {
   LEGAL_PARTY,
   LEGAL_VERSION,
   signedWorkshopClauses,
-  workshopFeeLines,
 } from "@/lib/legal";
+import {
+  PRICE_LIST_DISCLAIMER,
+  estimateLinesForModel,
+  matchRepairModel,
+} from "@/lib/repair-prices";
 import { pdfFontPaths, resolvePdfLogoFile } from "@/lib/pdf/summary-document";
 
 const INK = "#111111";
@@ -228,29 +232,52 @@ export async function renderOrderConfirmationPdf(
   kv(doc, "Type", "Service / diagnose", boxX, gridY + 54, 90, 140);
 
   const feeY = 300;
+  const matched = matchRepairModel(input.deviceLabel);
+  const estimates = matched ? estimateLinesForModel(matched) : [];
   doc.roundedRect(left, feeY, width, 18, 2).fill(WASH);
   doc.fillColor(INK).font(fonts.bold).fontSize(9);
-  doc.text("Faste priser (inkl. mva)", left + 8, feeY + 4, {
-    lineBreak: false,
-  });
+  doc.text(
+    matched
+      ? `Estimert prisliste · ${matched.label} (inkl. mva)`
+      : "Estimert prisliste (inkl. mva)",
+    left + 8,
+    feeY + 4,
+    { lineBreak: false },
+  );
 
-  const fees = workshopFeeLines();
   let rowY = feeY + 24;
-  const colW = width / 2;
-  for (let i = 0; i < fees.length; i++) {
-    const col = i % 2;
-    const row = Math.floor(i / 2);
-    const x = left + col * colW;
-    const y = rowY + row * 16;
+  if (estimates.length === 0) {
     doc.font(fonts.regular).fontSize(8).fillColor(MUTED);
-    doc.text(fees[i].label, x, y, { width: colW * 0.55, lineBreak: false });
-    doc.font(fonts.regular).fontSize(8).fillColor(INK);
-    doc.text(fees[i].value, x + colW * 0.55, y, {
-      width: colW * 0.42,
-      lineBreak: false,
-    });
+    doc.text(
+      "Ingen modell treff i prislisten. Pris avtales etter diagnose (399 kr hvis ingen feil eller hvis du takker nei).",
+      left,
+      rowY,
+      { width },
+    );
+    rowY = Math.max(doc.y, rowY) + 10;
+  } else {
+    const colW = width / 2;
+    for (let i = 0; i < estimates.length; i++) {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = left + col * colW;
+      const y = rowY + row * 16;
+      doc.font(fonts.regular).fontSize(8).fillColor(MUTED);
+      doc.text(estimates[i].label, x, y, {
+        width: colW * 0.55,
+        lineBreak: false,
+      });
+      doc.font(fonts.regular).fontSize(8).fillColor(INK);
+      doc.text(estimates[i].value, x + colW * 0.55, y, {
+        width: colW * 0.42,
+        lineBreak: false,
+      });
+    }
+    rowY += Math.ceil(estimates.length / 2) * 16 + 6;
   }
-  rowY += Math.ceil(fees.length / 2) * 16 + 8;
+  doc.font(fonts.regular).fontSize(7.5).fillColor(MUTED);
+  doc.text(PRICE_LIST_DISCLAIMER, left, rowY, { width });
+  rowY = Math.max(doc.y, rowY) + 10;
 
   doc.roundedRect(left, rowY, width, 18, 2).fill(WASH);
   doc.fillColor(INK).font(fonts.bold).fontSize(9);
