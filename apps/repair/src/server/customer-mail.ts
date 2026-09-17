@@ -8,12 +8,15 @@ import {
   isSendableCustomerEmail,
   publicStatusUrl,
   sendCustomerEmail,
+  type MailFile,
   type OutboundMail,
 } from "@/lib/mail";
 import { isSendablePhone } from "@/lib/phone";
 import { allocatePublicShortCode } from "@/lib/public-link";
 import { sendCustomerSms } from "@/lib/sms";
 import { customerSmsPing } from "@/lib/sms-text";
+import { loadCustomerPdfFiles } from "@/lib/store-customer-pdf";
+import { createAndStoreReceiptPdf } from "@/server/customer-receipt";
 
 type MailContext = {
   ticketNumber: string;
@@ -104,6 +107,7 @@ function buildMail(
     preheader: string;
     paragraphs: string[];
     quote?: string;
+    files?: MailFile[];
   },
 ): OutboundMail {
   const statusUrl = publicStatusUrl(ctx.token);
@@ -142,6 +146,7 @@ function buildMail(
       bodyHtml,
       statusUrl,
     }),
+    files: opts.files,
   };
 }
 
@@ -160,11 +165,15 @@ function deviceBit(ctx: MailContext) {
 
 async function sendForTicket(
   ticketId: string,
-  compose: (ctx: MailContext) => { mail: OutboundMail; sms: string },
+  compose: (
+    ctx: MailContext,
+  ) =>
+    | { mail: OutboundMail; sms: string }
+    | Promise<{ mail: OutboundMail; sms: string }>,
 ) {
   const ctx = await loadContext(ticketId);
   if (!ctx) return;
-  const { mail, sms } = compose(ctx);
+  const { mail, sms } = await compose(ctx);
   if (isSendableCustomerEmail(ctx.customerEmail)) {
     await sendCustomerEmail(mail);
   }
@@ -174,10 +183,11 @@ async function sendForTicket(
 }
 
 export async function notifyServiceOrderCreated(ticketId: string) {
-  await enqueue(() =>
-    sendForTicket(ticketId, (ctx) => {
+  await enqueue(async () =>
+    sendForTicket(ticketId, async (ctx) => {
       const byPost = ctx.inboundMethod === "POST";
       const address = workshopAddressOneLine();
+      const files = await loadCustomerPdfFiles(ticketId, ["TERMS"]);
       return {
         mail: buildMail(ctx, {
           subject: `Serviceordre ${ctx.ticketNumber} er opprettet`,
@@ -190,14 +200,17 @@ export async function notifyServiceOrderCreated(ticketId: string) {
                 `Vi har registrert serviceordre ${ctx.ticketNumber}${deviceBit(ctx)}.`,
                 `Send enheten til ${address}.`,
                 `Merk pakken med referansenummer ${ctx.ticketNumber}.`,
+                "Signerte reparasjonsbetingelser ligger vedlagt som PDF.",
                 "Jobben starter når pakken er framme hos oss. Status: lenken under.",
               ]
             : [
                 `Vi har registrert serviceordre ${ctx.ticketNumber}${deviceBit(ctx)}.`,
                 "Du valgte å levere telefonen hos oss. Vi tar den ikke inn i verkstedet før den er fysisk levert.",
                 `Adresse: ${address}. Åpent ${WORKSHOP.hoursLabel}.`,
+                "Signerte reparasjonsbetingelser ligger vedlagt som PDF.",
                 "Velg dato og timeslot på innleveringssiden (samme lenke som status). Ta med telefonen til avtalt tid.",
               ],
+          files,
         }),
         sms: smsLine(
           ctx,
@@ -245,13 +258,14 @@ export async function notifyWaitingForCustomer(ticketId: string) {
 }
 
 export async function notifyReadyForPickup(ticketId: string) {
-  await enqueue(() =>
-    sendForTicket(ticketId, (ctx) => {
+  await enqueue(async () =>
+    sendForTicket(ticketId, async (ctx) => {
       const byPost = ctx.outboundMethod === "POST";
       const tracking = ctx.returnTrackingNumber;
       const trackingMail = tracking
         ? [`Sporingsnummer: ${tracking}.`]
         : [];
+      const receipt = await createAndStoreReceiptPdf(ticketId);
       return {
         mail: buildMail(ctx, {
           subject: byPost
@@ -266,12 +280,15 @@ export async function notifyReadyForPickup(ticketId: string) {
                 `Jobben på ${ctx.ticketNumber}${deviceBit(ctx)} er ferdig.`,
                 "Vi sender telefonen tilbake til adressen du oppga.",
                 ...trackingMail,
+                "Kvittering ligger vedlagt som PDF.",
               ]
             : [
                 `Jobben på ${ctx.ticketNumber}${deviceBit(ctx)} er ferdig.`,
                 `Du valgte henting i butikk. Hent telefonen hos oss: ${workshopAddressOneLine()}. Åpent ${WORKSHOP.hoursLabel}.`,
                 "Ta med legitimasjon. Si fra om saksnummeret i skranken.",
+                "Kvittering ligger vedlagt som PDF.",
               ],
+          files: receipt ? [receipt] : [],
         }),
         sms: smsLine(ctx, byPost ? "er ferdig. Vi sender den tilbake." : "er klar for henting."),
       };
@@ -280,9 +297,10 @@ export async function notifyReadyForPickup(ticketId: string) {
 }
 
 export async function notifyRepairCompleted(ticketId: string) {
-  await enqueue(() =>
-    sendForTicket(ticketId, (ctx) => {
+  await enqueue(async () =>
+    sendForTicket(ticketId, async (ctx) => {
       const byPost = ctx.outboundMethod === "POST";
+      const receipt = await createAndStoreReceiptPdf(ticketId);
       return {
         mail: buildMail(ctx, {
           subject: `Saken er avsluttet — ${ctx.ticketNumber}`,
@@ -293,8 +311,9 @@ export async function notifyRepairCompleted(ticketId: string) {
             byPost
               ? "Hvis telefonen skulle i retur med post, er den sendt eller levert. Mangler du pakken, svar på denne e-posten."
               : "Hvis du skulle hente i butikk, er saken ferdigbehandlet hos oss. Ta kontakt hvis noe mangler.",
-            "Statuslenken virker fortsatt hvis du trenger saksnummer eller historikk.",
+            "Kvittering ligger vedlagt som PDF. Statuslenken virker fortsatt hvis du trenger saksnummer eller historikk.",
           ],
+          files: receipt ? [receipt] : [],
         }),
         sms: smsLine(ctx, "er ferdig"),
       };

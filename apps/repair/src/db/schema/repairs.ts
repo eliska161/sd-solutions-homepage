@@ -212,6 +212,10 @@ export const repairTickets = pgTable(
     dropoffSlot: text("dropoff_slot"),
     /** Set when the workshop physically receives the device. */
     receivedAt: timestamp("received_at", { withTimezone: true }),
+    /** Version string of the terms the customer signed. */
+    termsVersion: text("terms_version"),
+    termsSignedAt: timestamp("terms_signed_at", { withTimezone: true }),
+    termsSignerName: text("terms_signer_name"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
