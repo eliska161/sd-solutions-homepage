@@ -285,6 +285,7 @@ export const vilkarReparasjon: LegalDocument = {
       title: "4. Pris, deler og betaling",
       paragraphs: [
         "Prisen du ser på statussiden er for tjenestene vi har lagt på saken, minus eventuell rabatt. Deler vi bruker i jobben er inkludert i tjenesteprisen med mindre vi sier noe annet.",
+        "Du velger selv deltype: aftermarket, OEM pull, refurbished eller komplett original. Prisen avhenger av hvilken type du velger. Tilgjengelighet kan variere. Hva som monteres, står på saken.",
         "Betaling skjer før utlevering eller før vi sender enheten, med mindre vi har avtalt noe annet. Kvittering sendes på e-post når jobben er ferdig.",
       ],
     },
@@ -322,7 +323,7 @@ export const garanti: LegalDocument = {
     {
       title: "1. Periode",
       paragraphs: [
-        `Utført arbeid og deler vi har satt i har ${WORKSHOP_FEES.warrantyDays} dagers garanti fra utlevering, med mindre vi har skrevet en annen periode på saken. Vi er et uavhengig verksted, ikke Apple Authorised Service Provider.`,
+        `Utført arbeid og deler vi har satt i har ${WORKSHOP_FEES.warrantyDays} dagers garanti fra utlevering, med mindre vi har skrevet en annen periode på saken.`,
       ],
     },
     {
@@ -428,7 +429,7 @@ export function signedWorkshopClauses(): string[] {
     `Dersom det ikke blir funnet feil på enheten, belastes ${f.noFaultKr} kr for undersøkelsen.`,
     `Takker du nei til reparasjon etter diagnose, belastes ${f.declinedAfterDiagnosisKr} kr for undersøkelsen. Godkjenner du og vi utfører jobben, inngår diagnosen i reparasjonsprisen og belastes ikke separat. Diagnose koster ellers ${f.diagnosisKr} kr.`,
     "Endelig pris og omfang avtales etter diagnose, med mindre vi har gitt en fast pris på forhånd. Du godkjenner arbeidet på statussiden eller skriftlig før vi går videre med betalt reparasjon utover diagnose.",
-    "SD Solutions er et uavhengig verksted. Vi er ikke Apple Authorised Service Provider. Deler kan være originale, kompatible eller aftermarket; det som brukes, står på saken.",
+    "Du velger selv hvilken deltype vi skal bruke: aftermarket, OEM pull, refurbished eller komplett original. Prisen avhenger av valget. Tilgjengelighet kan variere. Hva som monteres, står på saken.",
     "Uautoriserte inngrep eller modifikasjoner på enheten kan gi ekstra kostnad, med mindre det er avtalt skriftlig på forhånd. Vi står ikke ansvarlig for programvarefeil som skyldes overoppheting, væske, feilkonfigurasjon eller annet som ikke relaterer til vårt inngrep.",
     "Vi står ikke ansvarlig for skader som oppstår under demontering eller reparasjon dersom skaden relaterer til eksisterende skade (væske, bøyd ramme, tidligere reparasjon, skjult brudd).",
     "Personalisering som gravering, klistremerker og skins på deler som byttes, erstattes ikke.",
@@ -450,7 +451,7 @@ export const fysiskReparasjonsvilkar: LegalDocument = {
   filename: "sd-solutions-reparasjonsvilkar.pdf",
   version: LEGAL_VERSION,
   intro:
-    "Disse vilkårene signeres på ordrebekreftelsen når du oppretter serviceordre. SD Solutions er et uavhengig verksted, ikke Apple Authorised Service Provider.",
+    "Disse vilkårene signeres på ordrebekreftelsen når du oppretter serviceordre.",
   sections: signedWorkshopClauses().map((text, index) => ({
     title: `${index + 1}.`,
     paragraphs: [text],

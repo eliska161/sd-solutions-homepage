@@ -204,25 +204,22 @@ export async function renderOrderConfirmationPdf(
 
   const boxX = left + width / 2 + 8;
   const boxW = width / 2 - 8;
-  doc.roundedRect(boxX, 128, boxW, 86, 4).strokeColor(LINE).lineWidth(0.8).stroke();
+  doc.roundedRect(boxX, 128, boxW, 72, 4).strokeColor(LINE).lineWidth(0.8).stroke();
   doc.font(fonts.bold).fontSize(10).fillColor(INK);
   doc.text(input.deviceLabel, boxX + 10, 136, { width: boxW - 20 });
   doc.font(fonts.regular).fontSize(8).fillColor(MUTED);
   doc.text(
     input.serialNumber ? `Serienummer  ${input.serialNumber}` : "Serienummer  —",
     boxX + 10,
-    160,
+    158,
     { width: boxW - 20 },
   );
   doc.text(
     input.imei ? `IMEI  ${input.imei}` : "IMEI  —",
     boxX + 10,
-    174,
+    172,
     { width: boxW - 20 },
   );
-  doc.text("Ikke Apple Authorised Service Provider", boxX + 10, 192, {
-    width: boxW - 20,
-  });
 
   const gridY = 226;
   kv(doc, "Ordredato", dateLabel, left, gridY, 90, 140);
