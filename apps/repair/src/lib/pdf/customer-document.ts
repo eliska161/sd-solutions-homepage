@@ -1,24 +1,33 @@
+import { existsSync } from "fs";
 import PDFDocument from "pdfkit";
 import {
   LEGAL_PARTY,
-  LEGAL_VERSION,
   type LegalDocument,
   fysiskReparasjonsvilkar,
   getLegalDocument,
 } from "@/lib/legal";
 import { formatDate } from "@/lib/labels";
 import { formatNokFromOre } from "@/lib/money";
-import { PDF_COLORS, pdfFontPaths } from "@/lib/pdf/summary-document";
+import { renderOrderConfirmationPdf } from "@/lib/pdf/order-confirmation";
+import {
+  PDF_COLORS,
+  pdfFontPaths,
+  resolvePdfLogoFile,
+} from "@/lib/pdf/summary-document";
 
 export type TermsOrderSummary = {
   ticketNumber: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  customerAddress: string;
   deviceLabel: string;
+  serialNumber: string | null;
+  imei: string | null;
   problem: string;
   inboundLabel: string;
   outboundLabel: string;
+  statusUrl: string;
 };
 
 export type TermsSignature = {
@@ -50,29 +59,33 @@ function drawBrandHeader(
   const fonts = pdfFontPaths();
   const left = doc.page.margins.left;
   const width = pageWidth(doc);
+  const logo = resolvePdfLogoFile();
 
   doc.save();
-  doc.rect(0, 0, doc.page.width, 78).fill(PDF_COLORS.accent);
-  doc.fillColor(PDF_COLORS.white).font(fonts.bold).fontSize(11);
-  doc.text(LEGAL_PARTY.brandName, left, 16, { width });
-  doc.font(fonts.regular).fontSize(9).fillColor("#d1fae5");
-  doc.text(kicker, left, 32, { width });
+  doc.roundedRect(left, 36, 36, 36, 6).fill("#111111");
+  if (logo && existsSync(logo)) {
+    doc.image(logo, left + 4, 40, { width: 28, height: 28 });
+  }
   doc.restore();
+  doc.fillColor(PDF_COLORS.ink).font(fonts.bold).fontSize(12);
+  doc.text(LEGAL_PARTY.brandName, left + 46, 40, { lineBreak: false });
+  doc.font(fonts.regular).fontSize(8).fillColor(PDF_COLORS.muted);
+  doc.text(kicker, left + 46, 56, { width: width - 46 });
 
-  doc.y = 94;
-  doc.fillColor(PDF_COLORS.ink).font(fonts.bold).fontSize(18);
+  doc.y = 86;
+  doc.fillColor(PDF_COLORS.ink).font(fonts.bold).fontSize(16);
   doc.text(title, left, doc.y, { width });
   doc.moveDown(0.2);
   doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
   doc.text(subtitle, { width });
-  doc.moveDown(0.6);
+  doc.moveDown(0.5);
   doc
     .moveTo(left, doc.y)
     .lineTo(left + width, doc.y)
     .strokeColor(PDF_COLORS.line)
-    .lineWidth(1)
+    .lineWidth(0.8)
     .stroke();
-  doc.moveDown(0.7);
+  doc.moveDown(0.6);
 }
 
 function drawFooter(doc: PDFKit.PDFDocument) {
@@ -80,12 +93,14 @@ function drawFooter(doc: PDFKit.PDFDocument) {
   const range = doc.bufferedPageRange();
   for (let i = 0; i < range.count; i++) {
     doc.switchToPage(range.start + i);
+    const saved = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
     doc
       .font(fonts.regular)
       .fontSize(8)
       .fillColor(PDF_COLORS.muted)
       .text(
-        `${LEGAL_PARTY.brandName} · ${LEGAL_PARTY.legalName} · ${LEGAL_PARTY.address} · Side ${i + 1} av ${range.count}`,
+        `${LEGAL_PARTY.brandName} · ${LEGAL_PARTY.legalName} · ${LEGAL_PARTY.address} · ${LEGAL_PARTY.email} · Side ${i + 1} av ${range.count}`,
         doc.page.margins.left,
         doc.page.height - 36,
         {
@@ -94,6 +109,7 @@ function drawFooter(doc: PDFKit.PDFDocument) {
           lineBreak: false,
         },
       );
+    doc.page.margins.bottom = saved;
   }
 }
 
@@ -185,81 +201,27 @@ export async function renderLegalPdfBySlug(
   return renderLegalPdf(document);
 }
 
-export function renderSignedTermsPdf(input: {
+export async function renderSignedTermsPdf(input: {
   order: TermsOrderSummary;
   signature: TermsSignature;
 }): Promise<Buffer> {
-  const document = fysiskReparasjonsvilkar;
-  const doc = createDoc(
-    `Reparasjonsvilkår ${input.order.ticketNumber}`,
-    `Signert versjon ${document.version}`,
-  );
-  const chunks: Buffer[] = [];
-  const fonts = pdfFontPaths();
-  const left = doc.page.margins.left;
-  const width = pageWidth(doc);
-
-  drawBrandHeader(
-    doc,
-    "Signert serviceordre",
-    document.title,
-    `${input.order.ticketNumber} · versjon ${document.version} · signert ${formatDate(input.signature.signedAt)}`,
-  );
-
-  ensureSpace(doc, 90);
-  doc.fillColor(PDF_COLORS.accent).font(fonts.bold).fontSize(10);
-  doc.text("SERVICEORDRE", { width, characterSpacing: 0.4 });
-  doc.moveDown(0.3);
-  const rows: Array<[string, string]> = [
-    ["Kunde", input.order.customerName],
-    ["E-post", input.order.customerEmail],
-    ["Telefon", input.order.customerPhone],
-    ["Enhet", input.order.deviceLabel],
-    ["Feil", input.order.problem],
-    ["Innlevering", input.order.inboundLabel],
-    ["Utlevering", input.order.outboundLabel],
-  ];
-  for (const [label, value] of rows) {
-    ensureSpace(doc, 18);
-    const y = doc.y;
-    doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
-    doc.text(label, left, y, { width: 110, lineBreak: false });
-    doc.fillColor(PDF_COLORS.ink).text(value || "—", left + 118, y, {
-      width: width - 118,
-    });
-    doc.moveDown(0.15);
-  }
-  doc.moveDown(0.6);
-
-  drawLegalSections(doc, document);
-
-  ensureSpace(doc, 150);
-  doc.fillColor(PDF_COLORS.accent).font(fonts.bold).fontSize(10);
-  doc.text("SIGNATUR", { width, characterSpacing: 0.4 });
-  doc.moveDown(0.35);
-  doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.ink);
-  doc.text(
-    `${input.signature.signerName} har signert versjon ${LEGAL_VERSION} ${formatDate(input.signature.signedAt)}.`,
-    { width },
-  );
-  doc.moveDown(0.4);
-  try {
-    doc.image(input.signature.png, left, doc.y, { width: 220, height: 70 });
-    doc.y += 78;
-  } catch {
-    doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
-    doc.text("(Signaturbilde kunne ikke vises i PDF.)", { width });
-  }
-  doc
-    .moveTo(left, doc.y)
-    .lineTo(left + 220, doc.y)
-    .strokeColor(PDF_COLORS.line)
-    .stroke();
-  doc.moveDown(0.3);
-  doc.font(fonts.regular).fontSize(8).fillColor(PDF_COLORS.muted);
-  doc.text(input.signature.signerName, { width: 220 });
-
-  return finishPdf(doc, chunks);
+  return renderOrderConfirmationPdf({
+    ticketNumber: input.order.ticketNumber,
+    customerName: input.order.customerName,
+    customerEmail: input.order.customerEmail,
+    customerPhone: input.order.customerPhone,
+    customerAddress: input.order.customerAddress,
+    deviceLabel: input.order.deviceLabel,
+    serialNumber: input.order.serialNumber,
+    imei: input.order.imei,
+    problem: input.order.problem,
+    inboundLabel: input.order.inboundLabel,
+    outboundLabel: input.order.outboundLabel,
+    statusUrl: input.order.statusUrl,
+    signedAt: input.signature.signedAt,
+    signerName: input.signature.signerName,
+    signaturePng: input.signature.png,
+  });
 }
 
 export function renderReceiptPdf(input: {

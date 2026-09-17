@@ -16,6 +16,7 @@ import { matchIphoneModel } from "@/lib/apple-models";
 import { getDb } from "@/lib/db";
 import { lookupImeiCatalog, normalizeImei } from "@/lib/imei-lookup";
 import { CUSTOMER_POSTAGE_ORE } from "@/lib/money";
+import { publicStatusUrl } from "@/lib/mail";
 import { parsePngDataUrl, renderSignedTermsPdf } from "@/lib/pdf/customer-document";
 import { countryNameFromPhone, isSendablePhone, toE164Phone } from "@/lib/phone";
 import { allocatePublicShortCode, publicTicketLinkFilter } from "@/lib/public-link";
@@ -376,12 +377,21 @@ export async function createPublicServiceOrder(
         customerName: data.name,
         customerEmail: data.email,
         customerPhone: phone,
+        customerAddress: composeAddress({
+          streetAddress: data.streetAddress,
+          postalCode: data.postalCode,
+          city: data.city,
+          countryName,
+        }),
         deviceLabel,
+        serialNumber: data.serialNumber?.trim() || null,
+        imei,
         problem: data.customerProblem,
         inboundLabel:
           data.inboundMethod === "POST" ? "Send selv" : "Leveres i butikk",
         outboundLabel:
           data.outboundMethod === "POST" ? "Sendes tilbake" : "Hentes i butikk",
+        statusUrl: publicStatusUrl(publicShortCode),
       },
       signature: {
         signerName: data.termsSignerName,
@@ -392,8 +402,8 @@ export async function createPublicServiceOrder(
     await storeCustomerPdf({
       ticketId: ticket.id,
       category: "TERMS",
-      fileName: `betingelser-${ticketNumber}.pdf`,
-      description: "Signerte reparasjonsbetingelser",
+      fileName: `ordrebekreftelse-${ticketNumber}.pdf`,
+      description: "Ordrebekreftelse og signerte vilkår",
       buffer: pdf,
     });
   } catch (err) {

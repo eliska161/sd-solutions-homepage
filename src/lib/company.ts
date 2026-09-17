@@ -4,7 +4,7 @@ export const company = {
   repairName: "SD Solutions Repair",
   repairDescription:
     "Vi reparerer og refurbisher mobiltelefoner, hovedsaklig iPhone. Vanlige jobber er skjerm, batteri, ladeport, kamera, lyd og diagnostikk. Du oppretter en serviceordre, så tar vi saken inn når enheten er levert.",
-  email: "eliasskaugdanielsen10@gmail.com",
+  email: "kontakt@sd-solutions.org",
   address: {
     line1: "Slåttmyrvegen 49",
     postalCode: "2406",

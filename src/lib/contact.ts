@@ -34,7 +34,7 @@ export type ContactPayload = {
   repair?: RepairRequestDetails;
 };
 
-export const CONTACT_TO = "eliasskaugdanielsen10@gmail.com";
+export const CONTACT_TO = "kontakt@sd-solutions.org";
 export const CONTACT_FROM = "Kontaktskjema <kontaktskjema@kartarkiv.co>";
 
 export function inquiryLabel(id: InquiryTypeId): string {

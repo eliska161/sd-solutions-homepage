@@ -53,6 +53,18 @@ export function pdfFontPaths() {
   };
 }
 
+export function resolvePdfLogoFile(): string | null {
+  const candidates = [
+    path.join(process.cwd(), "assets", "brand", "sd-solutions-mark.png"),
+    path.join(process.cwd(), "apps", "repair", "assets", "brand", "sd-solutions-mark.png"),
+    path.join(process.cwd(), "public", "sd-solutions-mark.png"),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 function ensureSpace(doc: PDFKit.PDFDocument, needed: number) {
   const bottom = doc.page.height - doc.page.margins.bottom;
   if (doc.y + needed > bottom) {
@@ -66,12 +78,19 @@ function drawHeader(doc: PDFKit.PDFDocument, data: JobSummaryDocument) {
   const width =
     doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
+  const logo = resolvePdfLogoFile();
   doc.save();
-  doc.rect(0, 0, doc.page.width, 72).fill(PDF_COLORS.accent);
-  doc.fillColor(PDF_COLORS.white).font(fonts.bold).fontSize(11);
-  doc.text("SD Solutions", left, 18, { width });
-  doc.font(fonts.regular).fontSize(9).fillColor("#d1fae5");
-  doc.text("Verkstedssammendrag · arkiv / sending", left, 34, { width });
+  doc.rect(0, 0, doc.page.width, 72).fill("#111111");
+  doc.roundedRect(left, 18, 36, 36, 6).fill("#1f1f1f");
+  if (logo && existsSync(logo)) {
+    doc.image(logo, left + 4, 22, { width: 28, height: 28 });
+  }
+  doc.fillColor(PDF_COLORS.white).font(fonts.bold).fontSize(12);
+  doc.text("SD Solutions", left + 46, 22, { width: width - 46, lineBreak: false });
+  doc.font(fonts.regular).fontSize(8).fillColor("#c4c4c4");
+  doc.text("Uavhengig verksted · Elverum · verkstedssammendrag", left + 46, 40, {
+    width: width - 46,
+  });
   doc.restore();
 
   doc.y = 88;
@@ -182,7 +201,9 @@ function drawFooter(doc: PDFKit.PDFDocument) {
   const range = doc.bufferedPageRange();
   for (let i = 0; i < range.count; i++) {
     doc.switchToPage(range.start + i);
-    const text = `SD Solutions · Slåttmyrvegen 49, 2406 Elverum · Side ${i + 1} av ${range.count}`;
+    const text = `SD Solutions · Skaug-Danielsen Solutions · Slåttmyrvegen 49, 2406 Elverum · kontakt@sd-solutions.org · Side ${i + 1} av ${range.count}`;
+    const saved = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
     doc
       .font(fonts.regular)
       .fontSize(8)
@@ -193,6 +214,7 @@ function drawFooter(doc: PDFKit.PDFDocument) {
         align: "center",
         lineBreak: false,
       });
+    doc.page.margins.bottom = saved;
   }
 }
 

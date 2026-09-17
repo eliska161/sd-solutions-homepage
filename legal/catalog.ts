@@ -4,11 +4,44 @@ export const LEGAL_PARTY = {
   brandName: "SD Solutions",
   legalName: "Skaug-Danielsen Solutions",
   address: "Slåttmyrvegen 49, 2406 Elverum",
-  email: "service@sd-solutions.org",
+  email: "kontakt@sd-solutions.org",
   hours: "Mandag-lørdag 12:00-18:00",
   web: "https://sd-solutions.org",
   repair: "https://repair.sd-solutions.org",
 } as const;
+
+/** Faste beløp som står i vilkår og på ordrebekreftelse. Alle priser inkl. mva. */
+export const WORKSHOP_FEES = {
+  diagnosisKr: 399,
+  noFaultKr: 399,
+  declinedAfterDiagnosisKr: 399,
+  returnPostageKr: 69,
+  inboundPostageKr: 0,
+  warrantyDays: 90,
+  uncollectedDays: 90,
+} as const;
+
+/** Kort tabell til ordrebekreftelse og signeringssteg. Beløp inkl. mva. */
+export function workshopFeeLines(): { label: string; value: string }[] {
+  const f = WORKSHOP_FEES;
+  return [
+    { label: "Diagnose", value: `${f.diagnosisKr} kr` },
+    { label: "Ingen feil funnet", value: `${f.noFaultKr} kr` },
+    {
+      label: "Takker nei etter diagnose",
+      value: `${f.declinedAfterDiagnosisKr} kr`,
+    },
+    {
+      label: "Reparasjon utført etter diagnose",
+      value: "Diagnose inngår, ikke separat",
+    },
+    {
+      label: "Send selv inn (porto fra oss)",
+      value: `${f.inboundPostageKr} kr`,
+    },
+    { label: "Returporto", value: `${f.returnPostageKr} kr` },
+  ];
+}
 
 export type LegalSection = {
   title: string;
@@ -243,8 +276,9 @@ export const vilkarReparasjon: LegalDocument = {
     {
       title: "3. Diagnose og funn",
       paragraphs: [
-        "Diagnose kan avdekke flere feil enn du beskrev. Vi opplyser om det vi finner, og venter på svar fra deg hvis jobben endrer seg eller prisen øker.",
-        "Hvis du takker nei etter diagnose, kan vi ta betalt for diagnose og tid som allerede er brukt. Enheten kan da leveres tilbake uten reparasjon.",
+        `Diagnose koster ${WORKSHOP_FEES.diagnosisKr} kr. Finner vi ingen feil, belastes ${WORKSHOP_FEES.noFaultKr} kr for undersøkelsen.`,
+        `Takker du nei til reparasjon etter diagnose, belastes ${WORKSHOP_FEES.declinedAfterDiagnosisKr} kr. Godkjenner du og vi utfører jobben, inngår diagnosen i reparasjonsprisen og belastes ikke separat.`,
+        "Diagnose kan avdekke flere feil enn du beskrev. Vi opplyser om det vi finner, og venter på svar før vi går videre hvis omfang eller pris endrer seg.",
       ],
     },
     {
@@ -288,7 +322,7 @@ export const garanti: LegalDocument = {
     {
       title: "1. Periode",
       paragraphs: [
-        "Utført arbeid og deler vi har satt i har 90 dagers garanti fra utlevering, med mindre vi har skrevet en annen periode på saken.",
+        `Utført arbeid og deler vi har satt i har ${WORKSHOP_FEES.warrantyDays} dagers garanti fra utlevering, med mindre vi har skrevet en annen periode på saken. Vi er et uavhengig verksted, ikke Apple Authorised Service Provider.`,
       ],
     },
     {
@@ -343,13 +377,13 @@ export const innUtlevering: LegalDocument = {
     {
       title: "4. Retur med post",
       paragraphs: [
-        "Velger du retur med post, kommer avtalt returporto i tillegg. Sporingsnummer legges på statussiden når vi har det.",
+        `Velger du retur med post, kommer returporto på ${WORKSHOP_FEES.returnPostageKr} kr i tillegg. Sporingsnummer legges på statussiden når vi har det. Send selv inn til oss koster ${WORKSHOP_FEES.inboundPostageKr} kr i porto fra vår side.`,
       ],
     },
     {
       title: "5. Uavhentet enhet",
       paragraphs: [
-        "Hvis enheten ikke hentes eller adressen for retur ikke stemmer, varsler vi på e-post eller SMS. Etter 90 dager fra varsel kan vi behandle enheten som forlatt og selge eller destruere den for å dekke utlegg. Eventuelt overskudd tilhører deg etter fradrag for kostnader.",
+        `Hvis enheten ikke hentes eller adressen for retur ikke stemmer, varsler vi på e-post eller SMS. Etter ${WORKSHOP_FEES.uncollectedDays} dager fra varsel kan vi behandle enheten som forlatt og selge eller destruere den for å dekke utlegg, i tråd med lov om rett for handverkarar o.a. til å selje ting som ikkje vert henta. Eventuelt overskudd tilhører deg etter fradrag for kostnader.`,
       ],
     },
   ],
@@ -387,16 +421,26 @@ export const mottak: LegalDocument = {
   ],
 };
 
-function packSections(...docs: LegalDocument[]): LegalSection[] {
-  const out: LegalSection[] = [];
-  for (const doc of docs) {
-    out.push({
-      title: doc.title,
-      paragraphs: [doc.intro],
-    });
-    out.push(...doc.sections);
-  }
-  return out;
+/** Nummererte vilkår på ordrebekreftelse (side 2) og i signeringsflyten. */
+export function signedWorkshopClauses(): string[] {
+  const f = WORKSHOP_FEES;
+  return [
+    `Dersom det ikke blir funnet feil på enheten, belastes ${f.noFaultKr} kr for undersøkelsen.`,
+    `Takker du nei til reparasjon etter diagnose, belastes ${f.declinedAfterDiagnosisKr} kr for undersøkelsen. Godkjenner du og vi utfører jobben, inngår diagnosen i reparasjonsprisen og belastes ikke separat. Diagnose koster ellers ${f.diagnosisKr} kr.`,
+    "Endelig pris og omfang avtales etter diagnose, med mindre vi har gitt en fast pris på forhånd. Du godkjenner arbeidet på statussiden eller skriftlig før vi går videre med betalt reparasjon utover diagnose.",
+    "SD Solutions er et uavhengig verksted. Vi er ikke Apple Authorised Service Provider. Deler kan være originale, kompatible eller aftermarket; det som brukes, står på saken.",
+    "Uautoriserte inngrep eller modifikasjoner på enheten kan gi ekstra kostnad, med mindre det er avtalt skriftlig på forhånd. Vi står ikke ansvarlig for programvarefeil som skyldes overoppheting, væske, feilkonfigurasjon eller annet som ikke relaterer til vårt inngrep.",
+    "Vi står ikke ansvarlig for skader som oppstår under demontering eller reparasjon dersom skaden relaterer til eksisterende skade (væske, bøyd ramme, tidligere reparasjon, skjult brudd).",
+    "Personalisering som gravering, klistremerker og skins på deler som byttes, erstattes ikke.",
+    "Utskiftede deler tilhører verkstedet, med mindre du ber om å få dem med ved innlevering. Kostnad kan påløpe hvis det krever ekstra arbeid.",
+    `Garanti på utført arbeid og deler vi har satt i er ${f.warrantyDays} dager fra utlevering. For forbrukere gjelder i tillegg håndverkertjenesteloven. Garantien dekker ikke nye feil, slitasje, fall, væske eller feil bruk, og faller bort hvis andre åpner enheten etter utlevering.`,
+    `Uavhentede enheter kan selges eller kasseres etter ${f.uncollectedDays} dager fra varsel, jf. lov om rett for handverkarar o.a. til å selje ting som ikkje vert henta (29. mai 1953). Vi varsler på e-post eller SMS først.`,
+    `Send selv inn til oss koster ${f.inboundPostageKr} kr i porto fra vår side. Du merker pakken med saksnummer og sender på egen risiko til vi har registrert mottak. Retur med post koster ${f.returnPostageKr} kr. Henting i butikk krever legitimasjon og saksnummer.`,
+    "Du er selv ansvarlig for sikkerhetskopi. Reparasjon og testing kan medføre tap av data. Skjermlås og Apple-ID må kunne åpnes når jobben krever det.",
+    "Betaling skjer før utlevering eller før vi sender enheten, med mindre noe annet er avtalt. Kvittering sendes på e-post når jobben er ferdig.",
+    `Kontaktinformasjon brukes for å utføre saken, sende status (e-post/SMS) og bokføring. Personvernerklæring: ${LEGAL_PARTY.repair}/s/personvern`,
+    "Ved å signere bekrefter du at du har lest vilkårene, at du eier enheten eller har rett til å levere den inn, og at opplysningene i serviceordren er riktige.",
+  ];
 }
 
 export const fysiskReparasjonsvilkar: LegalDocument = {
@@ -406,16 +450,11 @@ export const fysiskReparasjonsvilkar: LegalDocument = {
   filename: "sd-solutions-reparasjonsvilkar.pdf",
   version: LEGAL_VERSION,
   intro:
-    "Dette er pakken du signerer når du oppretter serviceordre: vilkår for reparasjon, inn- og utlevering, og garanti.",
-  sections: [
-    ...packSections(vilkarReparasjon, innUtlevering, garanti),
-    {
-      title: "Signatur",
-      paragraphs: [
-        "Ved å signere bekrefter du at du har lest vilkårene, at du eier enheten eller har rett til å levere den inn, og at opplysningene i serviceordren er riktige.",
-      ],
-    },
-  ],
+    "Disse vilkårene signeres på ordrebekreftelsen når du oppretter serviceordre. SD Solutions er et uavhengig verksted, ikke Apple Authorised Service Provider.",
+  sections: signedWorkshopClauses().map((text, index) => ({
+    title: `${index + 1}.`,
+    paragraphs: [text],
+  })),
 };
 
 export const LEGAL_DOCUMENTS: LegalDocument[] = [
