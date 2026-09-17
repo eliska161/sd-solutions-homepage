@@ -1,1 +1,1 @@
-export * from "../../../../legal/catalog";
+export * from "./legal-catalog";

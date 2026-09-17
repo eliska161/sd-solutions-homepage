@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
       "./data/**/*",
       "./assets/fonts/**/*",
       "./node_modules/pdfkit/**/*",
-      "../../legal/**/*",
+      "./src/lib/legal-catalog.ts",
     ],
   },
   serverExternalPackages: ["pdfkit", "resend"],
