@@ -5,9 +5,7 @@ import {
   attachments,
   customers,
   devices,
-  parts,
   repairNotes,
-  repairParts,
   repairServices,
   repairTickets,
   services,
@@ -64,7 +62,7 @@ export async function getPublicRepairByToken(token: string) {
 
   if (!row) return null;
 
-  const [updates, photos, ticketParts, ticketServices] = await Promise.all([
+  const [updates, photos, ticketServices] = await Promise.all([
     db
       .select({
         id: repairNotes.id,
@@ -87,6 +85,7 @@ export async function getPublicRepairByToken(token: string) {
         description: attachments.description,
         category: attachments.category,
         mimeType: attachments.mimeType,
+        fileName: attachments.fileName,
         createdAt: attachments.createdAt,
       })
       .from(attachments)
@@ -100,19 +99,9 @@ export async function getPublicRepairByToken(token: string) {
       .orderBy(asc(attachments.createdAt)),
     db
       .select({
-        id: repairParts.id,
-        quantity: repairParts.quantity,
-        status: repairParts.status,
-        partName: parts.name,
-      })
-      .from(repairParts)
-      .leftJoin(parts, eq(parts.id, repairParts.partId))
-      .where(eq(repairParts.ticketId, row.id))
-      .orderBy(asc(repairParts.createdAt)),
-    db
-      .select({
         id: repairServices.id,
         serviceName: services.name,
+        priceOre: repairServices.priceOre,
       })
       .from(repairServices)
       .leftJoin(services, eq(services.id, repairServices.serviceId))
@@ -158,22 +147,9 @@ export async function getPublicRepairByToken(token: string) {
       .map((s) => ({
         id: s.id,
         name: s.serviceName?.trim() || "Tjeneste",
+        priceLabel: formatNokFromOre(s.priceOre),
       }))
       .filter((s) => s.name),
-    /** Parts in the job — names/qty only, no unit costs. */
-    parts: ticketParts
-      .filter((p) => p.status !== "CANCELLED")
-      .map((p) => ({
-        id: p.id,
-        name: p.partName?.trim() || "Del",
-        quantity: p.quantity,
-        status:
-          p.status === "ORDERED"
-            ? ("ordered" as const)
-            : p.status === "RECEIVED"
-              ? ("received" as const)
-              : ("used" as const),
-      })),
     updates: updates.map((u) => ({
       id: u.id,
       content: u.content,
@@ -181,14 +157,23 @@ export async function getPublicRepairByToken(token: string) {
       authorName: u.authorName?.trim() || (u.authorKind === "CUSTOMER" ? "Kunde" : "Verksted"),
       authorKind: u.authorKind === "CUSTOMER" ? ("customer" as const) : ("staff" as const),
     })),
-    photos: photos.map((p) => ({
-      id: p.id,
-      description: p.description,
-      category: p.category,
-      mimeType: p.mimeType,
-      createdAt: p.createdAt,
-      url: `/api/public/status/${token}/media/${p.id}`,
-    })),
+    documents: photos
+      .filter((p) => p.mimeType === "application/pdf")
+      .map((p) => ({
+        id: p.id,
+        name: p.description?.trim() || p.fileName || "PDF",
+        url: `/api/public/status/${token}/media/${p.id}`,
+      })),
+    photos: photos
+      .filter((p) => p.mimeType.startsWith("image/"))
+      .map((p) => ({
+        id: p.id,
+        description: p.description,
+        category: p.category,
+        mimeType: p.mimeType,
+        createdAt: p.createdAt,
+        url: `/api/public/status/${token}/media/${p.id}`,
+      })),
     createdAt: row.createdAt,
     received: Boolean(row.receivedAt),
     inboundMethod: row.inboundMethod,

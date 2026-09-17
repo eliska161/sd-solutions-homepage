@@ -85,6 +85,13 @@
       "when": 1789550000000,
       "tag": "0011_public_short_code",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789560000000,
+      "tag": "0012_repair_terms_signature",
+      "breakpoints": true
     }
   ]
 }

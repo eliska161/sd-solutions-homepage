@@ -16,10 +16,13 @@ import { matchIphoneModel } from "@/lib/apple-models";
 import { getDb } from "@/lib/db";
 import { lookupImeiCatalog, normalizeImei } from "@/lib/imei-lookup";
 import { CUSTOMER_POSTAGE_ORE } from "@/lib/money";
+import { parsePngDataUrl, renderSignedTermsPdf } from "@/lib/pdf/customer-document";
 import { countryNameFromPhone, isSendablePhone, toE164Phone } from "@/lib/phone";
 import { allocatePublicShortCode, publicTicketLinkFilter } from "@/lib/public-link";
 import { createPublicAccessToken } from "@/lib/public-token";
+import { REPAIR_TERMS_VERSION } from "@/lib/repair-terms";
 import { nextPublicId } from "@/lib/sequences";
+import { storeCustomerPdf } from "@/lib/store-customer-pdf";
 import { notifyServiceOrderCreated } from "@/server/customer-mail";
 
 const deliverySchema = z.enum(["IN_PERSON", "POST"]);
@@ -45,6 +48,12 @@ const publicOrderSchema = z
       .min(8, "Beskriv feilen med minst noen setninger"),
     inboundMethod: deliverySchema,
     outboundMethod: deliverySchema,
+    termsVersion: z.string().min(1),
+    termsAccepted: z
+      .boolean()
+      .refine((value) => value === true, "Du må godta betingelsene"),
+    termsSignerName: z.string().trim().min(2, "Skriv navnet ditt"),
+    signaturePng: z.string().min(80, "Signer i feltet"),
   })
   .superRefine((val, ctx) => {
     const serial = val.serialNumber?.trim();
@@ -181,6 +190,16 @@ export async function createPublicServiceOrder(
   if (data.honeypot) {
     return { ok: false, error: "Kunne ikke opprette ordre." };
   }
+  if (data.termsVersion !== REPAIR_TERMS_VERSION || !data.termsAccepted) {
+    return {
+      ok: false,
+      error: "Betingelsene er oppdatert. Les og signer på nytt.",
+    };
+  }
+  const signaturePng = parsePngDataUrl(data.signaturePng);
+  if (!signaturePng) {
+    return { ok: false, error: "Signaturen er ugyldig. Signer på nytt." };
+  }
 
   const phone = toE164Phone(data.phone);
   if (!phone || !isSendablePhone(phone)) {
@@ -308,6 +327,9 @@ export async function createPublicServiceOrder(
       outboundPostageOre,
       otherCostsOre: outboundPostageOre,
       receivedAt: null,
+      termsVersion: data.termsVersion,
+      termsSignedAt: new Date(),
+      termsSignerName: data.termsSignerName,
     })
     .returning();
 
@@ -342,6 +364,41 @@ export async function createPublicServiceOrder(
     message: `Kundeserviceordre ${ticketNumber} opprettet`,
     actorId: null,
   });
+
+  const signedAt = ticket.termsSignedAt ?? new Date();
+  const deviceLabel = ["Apple", data.model, data.storage, data.color]
+    .filter(Boolean)
+    .join(" ");
+  try {
+    const pdf = await renderSignedTermsPdf({
+      order: {
+        ticketNumber,
+        customerName: data.name,
+        customerEmail: data.email,
+        customerPhone: phone,
+        deviceLabel,
+        problem: data.customerProblem,
+        inboundLabel:
+          data.inboundMethod === "POST" ? "Send selv" : "Leveres i butikk",
+        outboundLabel:
+          data.outboundMethod === "POST" ? "Sendes tilbake" : "Hentes i butikk",
+      },
+      signature: {
+        signerName: data.termsSignerName,
+        signedAt,
+        png: signaturePng,
+      },
+    });
+    await storeCustomerPdf({
+      ticketId: ticket.id,
+      category: "TERMS",
+      fileName: `betingelser-${ticketNumber}.pdf`,
+      description: "Signerte reparasjonsbetingelser",
+      buffer: pdf,
+    });
+  } catch (err) {
+    console.error("==> Signert betingelses-PDF feilet", err);
+  }
 
   await notifyServiceOrderCreated(ticket.id);
 

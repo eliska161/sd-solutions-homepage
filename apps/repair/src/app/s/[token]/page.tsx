@@ -222,48 +222,33 @@ export default async function CustomerStatusPage({
           </CardBody>
         </Card>
 
-        {data.services.length > 0 || data.discount || data.parts.length > 0 ? (
+        {data.services.length > 0 || data.discount ? (
           <Card className="lg:col-span-3">
-            <CardHeader title="Jobb" />
-            <CardBody className="grid gap-5 text-sm sm:grid-cols-2">
-              {data.services.length > 0 || data.discount ? (
-                <div>
-                  <p className="text-[13px] text-muted">Tjenester</p>
-                  <ul className="mt-2 space-y-1.5">
-                    {data.services.map((s) => (
-                      <li key={s.id}>{s.name}</li>
-                    ))}
-                  </ul>
-                  {data.discount ? (
-                    <p className="mt-2 text-muted">
-                      {data.discount.label}: −{data.discount.amountLabel}
-                    </p>
-                  ) : null}
-                </div>
+            <CardHeader title="Tjenester" />
+            <CardBody className="text-sm">
+              <ul className="space-y-1.5">
+                {data.services.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex items-baseline justify-between gap-3"
+                  >
+                    <span>{s.name}</span>
+                    <span className="shrink-0 tabular-nums">{s.priceLabel}</span>
+                  </li>
+                ))}
+              </ul>
+              {data.discount ? (
+                <p className="mt-2 flex items-baseline justify-between gap-3 text-muted">
+                  <span>{data.discount.label}</span>
+                  <span className="shrink-0">−{data.discount.amountLabel}</span>
+                </p>
               ) : null}
-              {data.parts.length > 0 ? (
-                <div>
-                  <p className="text-[13px] text-muted">Deler</p>
-                  <ul className="mt-2 space-y-1.5">
-                    {data.parts.map((p) => (
-                      <li
-                        key={p.id}
-                        className="flex items-center justify-between gap-3"
-                      >
-                        <span>
-                          {p.quantity > 1 ? `${p.quantity} × ` : ""}
-                          {p.name}
-                        </span>
-                        {p.status === "ordered" ? (
-                          <Badge tone="warning">Bestilt</Badge>
-                        ) : p.status === "received" ? (
-                          <Badge tone="accent">Mottatt</Badge>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+              <p className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-3 font-medium">
+                <span>Totalpris</span>
+                <span className="shrink-0 tabular-nums">
+                  {data.customerPriceLabel ?? "Avventer"}
+                </span>
+              </p>
             </CardBody>
           </Card>
         ) : null}
@@ -295,6 +280,28 @@ export default async function CustomerStatusPage({
             <CustomerUpdateForm token={token} />
           </CardBody>
         </Card>
+
+        {data.documents.length > 0 ? (
+          <Card className="lg:col-span-3">
+            <CardHeader title="Dokumenter" />
+            <CardBody>
+              <ul className="space-y-2 text-sm">
+                {data.documents.map((d) => (
+                  <li key={d.id}>
+                    <a
+                      href={d.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-accent underline"
+                    >
+                      {d.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </CardBody>
+          </Card>
+        ) : null}
 
         {data.photos.length > 0 ? (
           <Card className="lg:col-span-3">

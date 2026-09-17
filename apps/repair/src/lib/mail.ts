@@ -6,11 +6,19 @@ const DEFAULT_FROM = "SD Solutions <service@sd-solutions.org>";
 /** Same mark as the landing header (`/sd-solutions-mark.png`). */
 const DEFAULT_LOGO = "https://sd-solutions.org/sd-solutions-mark.png";
 
+export type MailFile = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+  contentId?: string;
+};
+
 export type OutboundMail = {
   to: string;
   subject: string;
   text: string;
   html: string;
+  files?: MailFile[];
 };
 
 function mailFrom() {
@@ -80,6 +88,8 @@ export async function sendCustomerEmail(mail: OutboundMail): Promise<boolean> {
   if (!isSendableCustomerEmail(mail.to)) return false;
 
   const logo = logoAttachment();
+  const extra = mail.files ?? [];
+  const attachments = [...(logo ? [logo] : []), ...extra];
 
   try {
     const { error } = await resend.emails.send({
@@ -89,7 +99,7 @@ export async function sendCustomerEmail(mail: OutboundMail): Promise<boolean> {
       subject: mail.subject,
       text: mail.text,
       html: mail.html,
-      attachments: logo ? [logo] : undefined,
+      attachments: attachments.length ? attachments : undefined,
     });
     if (error) {
       console.error("==> Resend feilet", error);
