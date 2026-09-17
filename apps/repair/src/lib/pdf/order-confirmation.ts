@@ -73,11 +73,7 @@ function drawLogoWordmark(
   }
   doc.restore();
   doc.fillColor(INK).font(fonts.bold).fontSize(12);
-  doc.text(LEGAL_PARTY.brandName, left + plate + 10, top + 6, {
-    lineBreak: false,
-  });
-  doc.font(fonts.regular).fontSize(8).fillColor(MUTED);
-  doc.text("Uavhengig verksted · Elverum", left + plate + 10, top + 22, {
+  doc.text(LEGAL_PARTY.brandName, left + plate + 10, top + 12, {
     lineBreak: false,
   });
 }

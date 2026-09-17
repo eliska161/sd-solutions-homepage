@@ -10,9 +10,7 @@ export function RepairLegalArticle({
 }) {
   return (
     <article className="max-w-2xl text-sm leading-6">
-      <p className="text-[12px] text-muted">
-        {doc.kicker} · versjon {doc.version}
-      </p>
+      <p className="text-[12px] text-muted">Versjon {doc.version}</p>
       <h1 className="mt-1 text-xl font-semibold text-foreground">{doc.title}</h1>
       <p className="mt-3 text-muted">{doc.intro}</p>
       <p className="mt-3">

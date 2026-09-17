@@ -86,11 +86,7 @@ function drawHeader(doc: PDFKit.PDFDocument, data: JobSummaryDocument) {
     doc.image(logo, left + 4, 22, { width: 28, height: 28 });
   }
   doc.fillColor(PDF_COLORS.white).font(fonts.bold).fontSize(12);
-  doc.text("SD Solutions", left + 46, 22, { width: width - 46, lineBreak: false });
-  doc.font(fonts.regular).fontSize(8).fillColor("#c4c4c4");
-  doc.text("Uavhengig verksted · Elverum · verkstedssammendrag", left + 46, 40, {
-    width: width - 46,
-  });
+  doc.text("SD Solutions", left + 46, 28, { width: width - 46, lineBreak: false });
   doc.restore();
 
   doc.y = 88;

@@ -14,9 +14,7 @@ export default function KontaktPage() {
   return (
     <MarketingShell>
       <article className="mx-auto w-full max-w-2xl px-6 lg:px-8">
-        <p className="text-[12px] uppercase tracking-[0.08em] text-muted">
-          {virksomhet.kicker} · versjon {virksomhet.version}
-        </p>
+        <p className="text-[12px] text-muted">Versjon {virksomhet.version}</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
           {virksomhet.title}
         </h1>

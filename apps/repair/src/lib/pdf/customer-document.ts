@@ -52,9 +52,8 @@ function ensureSpace(doc: PDFKit.PDFDocument, needed: number) {
 
 function drawBrandHeader(
   doc: PDFKit.PDFDocument,
-  kicker: string,
   title: string,
-  subtitle: string,
+  subtitle?: string,
 ) {
   const fonts = pdfFontPaths();
   const left = doc.page.margins.left;
@@ -68,16 +67,16 @@ function drawBrandHeader(
   }
   doc.restore();
   doc.fillColor(PDF_COLORS.ink).font(fonts.bold).fontSize(12);
-  doc.text(LEGAL_PARTY.brandName, left + 46, 40, { lineBreak: false });
-  doc.font(fonts.regular).fontSize(8).fillColor(PDF_COLORS.muted);
-  doc.text(kicker, left + 46, 56, { width: width - 46 });
+  doc.text(LEGAL_PARTY.brandName, left + 46, 48, { lineBreak: false });
 
   doc.y = 86;
   doc.fillColor(PDF_COLORS.ink).font(fonts.bold).fontSize(16);
   doc.text(title, left, doc.y, { width });
-  doc.moveDown(0.2);
-  doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
-  doc.text(subtitle, { width });
+  if (subtitle) {
+    doc.moveDown(0.2);
+    doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
+    doc.text(subtitle, { width });
+  }
   doc.moveDown(0.5);
   doc
     .moveTo(left, doc.y)
@@ -179,12 +178,7 @@ function createDoc(title: string, subject: string) {
 export function renderLegalPdf(document: LegalDocument): Promise<Buffer> {
   const doc = createDoc(document.title, `Versjon ${document.version}`);
   const chunks: Buffer[] = [];
-  drawBrandHeader(
-    doc,
-    document.kicker,
-    document.title,
-    `Versjon ${document.version} · ${LEGAL_PARTY.address}`,
-  );
+  drawBrandHeader(doc, document.title, `Versjon ${document.version}`);
   drawLegalSections(doc, document);
   return finishPdf(doc, chunks);
 }
@@ -247,7 +241,6 @@ export function renderReceiptPdf(input: {
 
   drawBrandHeader(
     doc,
-    "Kvittering",
     `Kvittering ${input.ticketNumber}`,
     `${input.customerName} · ${input.deviceLabel} · ${formatDate(input.issuedAt)}`,
   );

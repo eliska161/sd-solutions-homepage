@@ -55,7 +55,6 @@ export type LegalSection = {
 export type LegalDocument = {
   slug: string;
   title: string;
-  kicker: string;
   filename: string;
   version: string;
   intro: string;
@@ -69,7 +68,6 @@ function partyLine() {
 export const personvernNettsted: LegalDocument = {
   slug: "personvern-nettsted",
   title: "Personvernerklæring",
-  kicker: "sd-solutions.org",
   filename: "sd-solutions-personvern.pdf",
   version: LEGAL_VERSION,
   intro:
@@ -111,7 +109,6 @@ export const personvernNettsted: LegalDocument = {
 export const personvernRepair: LegalDocument = {
   slug: "personvern-repair",
   title: "Personvernerklæring",
-  kicker: "repair.sd-solutions.org",
   filename: "sd-solutions-personvern-repair.pdf",
   version: LEGAL_VERSION,
   intro:
@@ -159,7 +156,6 @@ export const personvernRepair: LegalDocument = {
 export const cookies: LegalDocument = {
   slug: "cookies",
   title: "Informasjonskapsler",
-  kicker: "sd-solutions.org",
   filename: "sd-solutions-cookies.pdf",
   version: LEGAL_VERSION,
   intro:
@@ -189,7 +185,6 @@ export const cookies: LegalDocument = {
 export const bruksvilkar: LegalDocument = {
   slug: "bruksvilkar",
   title: "Bruksvilkår",
-  kicker: "sd-solutions.org",
   filename: "sd-solutions-bruksvilkar.pdf",
   version: LEGAL_VERSION,
   intro:
@@ -225,7 +220,6 @@ export const bruksvilkar: LegalDocument = {
 export const virksomhet: LegalDocument = {
   slug: "virksomhet",
   title: "Kontakt og virksomhetsinformasjon",
-  kicker: "SD Solutions",
   filename: "sd-solutions-virksomhet.pdf",
   version: LEGAL_VERSION,
   intro: "Hvem vi er, og hvordan du når oss.",
@@ -258,7 +252,6 @@ export const virksomhet: LegalDocument = {
 export const vilkarReparasjon: LegalDocument = {
   slug: "vilkar-reparasjon",
   title: "Vilkår for reparasjon",
-  kicker: "repair.sd-solutions.org",
   filename: "sd-solutions-vilkar-reparasjon.pdf",
   version: LEGAL_VERSION,
   intro:
@@ -319,7 +312,6 @@ export const vilkarReparasjon: LegalDocument = {
 export const garanti: LegalDocument = {
   slug: "garanti",
   title: "Reparasjonsgaranti",
-  kicker: "repair.sd-solutions.org",
   filename: "sd-solutions-garanti.pdf",
   version: LEGAL_VERSION,
   intro: "Hva garantien dekker etter at jobben er levert.",
@@ -355,7 +347,6 @@ export const garanti: LegalDocument = {
 export const innUtlevering: LegalDocument = {
   slug: "inn-utlevering",
   title: "Inn- og utleveringsvilkår",
-  kicker: "repair.sd-solutions.org",
   filename: "sd-solutions-inn-utlevering.pdf",
   version: LEGAL_VERSION,
   intro: "Hvordan enheten kommer inn og ut: butikk, send selv og returpost.",
@@ -397,7 +388,6 @@ export const innUtlevering: LegalDocument = {
 export const mottak: LegalDocument = {
   slug: "mottak",
   title: "Dokumentasjon ved mottak",
-  kicker: "Fysisk innlevering",
   filename: "sd-solutions-mottak.pdf",
   version: LEGAL_VERSION,
   intro:
@@ -451,7 +441,6 @@ export function signedWorkshopClauses(): string[] {
 export const fysiskReparasjonsvilkar: LegalDocument = {
   slug: "fysisk-reparasjonsvilkar",
   title: "Reparasjonsvilkår",
-  kicker: "Signeres ved serviceordre",
   filename: "sd-solutions-reparasjonsvilkar.pdf",
   version: LEGAL_VERSION,
   intro:
@@ -482,7 +471,6 @@ export function getLegalDocument(slug: string): LegalDocument | null {
 export function legalPlainText(doc: LegalDocument): string {
   const lines = [
     doc.title,
-    doc.kicker,
     `Versjon ${doc.version}`,
     "",
     doc.intro,
