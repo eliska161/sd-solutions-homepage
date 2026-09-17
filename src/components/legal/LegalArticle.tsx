@@ -23,6 +23,8 @@ export function LegalArticle({ doc }: { doc: LegalDocument }) {
         <p className="mt-4">
           <a
             href={pdfHref}
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-[13px] text-accent underline underline-offset-2"
           >
             Last ned PDF
