@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import {
   createPublicServiceOrder,
   lookupPublicImeiOrSerial,
@@ -424,21 +425,21 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
           </p>
           <p className="text-[13px] text-muted">
             Egne sider:{" "}
-            <a href="/s/vilkar" className="text-accent underline">
+            <Link href="/s/vilkar" className="text-accent underline">
               vilkår
-            </a>
+            </Link>
             {", "}
-            <a href="/s/innlevering-vilkar" className="text-accent underline">
+            <Link href="/s/innlevering-vilkar" className="text-accent underline">
               inn- og utlevering
-            </a>
+            </Link>
             {", "}
-            <a href="/s/garanti" className="text-accent underline">
+            <Link href="/s/garanti" className="text-accent underline">
               garanti
-            </a>
+            </Link>
             {" og "}
-            <a href="/s/personvern" className="text-accent underline">
+            <Link href="/s/personvern" className="text-accent underline">
               personvern
-            </a>
+            </Link>
             .
           </p>
           <div className="max-h-[360px] space-y-3 overflow-y-auto rounded border border-border bg-surface p-3 text-[13px] leading-5">
