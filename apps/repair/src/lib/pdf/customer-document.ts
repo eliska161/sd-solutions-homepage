@@ -1,13 +1,14 @@
 import PDFDocument from "pdfkit";
+import {
+  LEGAL_PARTY,
+  LEGAL_VERSION,
+  type LegalDocument,
+  fysiskReparasjonsvilkar,
+  getLegalDocument,
+} from "@/lib/legal";
 import { formatDate } from "@/lib/labels";
 import { formatNokFromOre } from "@/lib/money";
 import { PDF_COLORS, pdfFontPaths } from "@/lib/pdf/summary-document";
-import {
-  REPAIR_TERMS_VERSION,
-  repairTermsMeta,
-  repairTermsSections,
-} from "@/lib/repair-terms";
-import { workshopAddressOneLine, WORKSHOP } from "@/lib/workshop";
 
 export type TermsOrderSummary = {
   ticketNumber: string;
@@ -53,7 +54,7 @@ function drawBrandHeader(
   doc.save();
   doc.rect(0, 0, doc.page.width, 78).fill(PDF_COLORS.accent);
   doc.fillColor(PDF_COLORS.white).font(fonts.bold).fontSize(11);
-  doc.text(WORKSHOP.name, left, 16, { width });
+  doc.text(LEGAL_PARTY.brandName, left, 16, { width });
   doc.font(fonts.regular).fontSize(9).fillColor("#d1fae5");
   doc.text(kicker, left, 32, { width });
   doc.restore();
@@ -77,7 +78,6 @@ function drawBrandHeader(
 function drawFooter(doc: PDFKit.PDFDocument) {
   const fonts = pdfFontPaths();
   const range = doc.bufferedPageRange();
-  const meta = repairTermsMeta();
   for (let i = 0; i < range.count; i++) {
     doc.switchToPage(range.start + i);
     doc
@@ -85,7 +85,7 @@ function drawFooter(doc: PDFKit.PDFDocument) {
       .fontSize(8)
       .fillColor(PDF_COLORS.muted)
       .text(
-        `${meta.brandName} · ${meta.legalName} · ${meta.address} · Side ${i + 1} av ${range.count}`,
+        `${LEGAL_PARTY.brandName} · ${LEGAL_PARTY.legalName} · ${LEGAL_PARTY.address} · Side ${i + 1} av ${range.count}`,
         doc.page.margins.left,
         doc.page.height - 36,
         {
@@ -97,11 +97,17 @@ function drawFooter(doc: PDFKit.PDFDocument) {
   }
 }
 
-function drawSections(doc: PDFKit.PDFDocument) {
+function drawLegalSections(
+  doc: PDFKit.PDFDocument,
+  document: LegalDocument,
+) {
   const fonts = pdfFontPaths();
   const left = doc.page.margins.left;
   const width = pageWidth(doc);
-  for (const section of repairTermsSections()) {
+  doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.ink);
+  doc.text(document.intro, { width });
+  doc.moveDown(0.6);
+  for (const section of document.sections) {
     ensureSpace(doc, 56);
     doc.fillColor(PDF_COLORS.accent).font(fonts.bold).fontSize(10);
     doc.text(section.title.toUpperCase(), left, doc.y, {
@@ -144,7 +150,7 @@ function createDoc(title: string, subject: string) {
     bufferPages: true,
     info: {
       Title: title,
-      Author: WORKSHOP.name,
+      Author: LEGAL_PARTY.brandName,
       Subject: subject,
       CreationDate: new Date(),
     },
@@ -154,31 +160,39 @@ function createDoc(title: string, subject: string) {
   return doc;
 }
 
-export function renderUnsignedTermsPdf(): Promise<Buffer> {
-  const meta = repairTermsMeta();
-  const doc = createDoc(
-    "Reparasjonsbetingelser",
-    `Versjon ${meta.version}`,
-  );
+export function renderLegalPdf(document: LegalDocument): Promise<Buffer> {
+  const doc = createDoc(document.title, `Versjon ${document.version}`);
   const chunks: Buffer[] = [];
   drawBrandHeader(
     doc,
-    "Reparasjonsbetingelser",
-    "Reparasjonsbetingelser",
-    `Versjon ${meta.version} · Forslag til avtale · ${workshopAddressOneLine()}`,
+    document.kicker,
+    document.title,
+    `Versjon ${document.version} · ${LEGAL_PARTY.address}`,
   );
-  drawSections(doc);
+  drawLegalSections(doc, document);
   return finishPdf(doc, chunks);
+}
+
+export function renderUnsignedTermsPdf(): Promise<Buffer> {
+  return renderLegalPdf(fysiskReparasjonsvilkar);
+}
+
+export async function renderLegalPdfBySlug(
+  slug: string,
+): Promise<Buffer | null> {
+  const document = getLegalDocument(slug);
+  if (!document) return null;
+  return renderLegalPdf(document);
 }
 
 export function renderSignedTermsPdf(input: {
   order: TermsOrderSummary;
   signature: TermsSignature;
 }): Promise<Buffer> {
-  const meta = repairTermsMeta();
+  const document = fysiskReparasjonsvilkar;
   const doc = createDoc(
-    `Reparasjonsbetingelser ${input.order.ticketNumber}`,
-    `Signert versjon ${meta.version}`,
+    `Reparasjonsvilkår ${input.order.ticketNumber}`,
+    `Signert versjon ${document.version}`,
   );
   const chunks: Buffer[] = [];
   const fonts = pdfFontPaths();
@@ -188,8 +202,8 @@ export function renderSignedTermsPdf(input: {
   drawBrandHeader(
     doc,
     "Signert serviceordre",
-    "Reparasjonsbetingelser",
-    `${input.order.ticketNumber} · versjon ${meta.version} · signert ${formatDate(input.signature.signedAt)}`,
+    document.title,
+    `${input.order.ticketNumber} · versjon ${document.version} · signert ${formatDate(input.signature.signedAt)}`,
   );
 
   ensureSpace(doc, 90);
@@ -217,7 +231,7 @@ export function renderSignedTermsPdf(input: {
   }
   doc.moveDown(0.6);
 
-  drawSections(doc);
+  drawLegalSections(doc, document);
 
   ensureSpace(doc, 150);
   doc.fillColor(PDF_COLORS.accent).font(fonts.bold).fontSize(10);
@@ -225,7 +239,7 @@ export function renderSignedTermsPdf(input: {
   doc.moveDown(0.35);
   doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.ink);
   doc.text(
-    `${input.signature.signerName} har signert versjon ${REPAIR_TERMS_VERSION} ${formatDate(input.signature.signedAt)}.`,
+    `${input.signature.signerName} har signert versjon ${LEGAL_VERSION} ${formatDate(input.signature.signedAt)}.`,
     { width },
   );
   doc.moveDown(0.4);

@@ -413,9 +413,28 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
             Reparasjonsbetingelser
           </legend>
           <p className="text-[13px] text-muted">
-            Les gjennom, last ned PDF om du vil, og signer. Ordren opprettes
-            ikke før du har signert. Versjon {REPAIR_TERMS_VERSION}. Dette er
-            et forslag eier kan justere.
+            Les gjennom og signer. Ordren opprettes ikke før du har signert.
+            Versjon {REPAIR_TERMS_VERSION}. Dette er vilkår for reparasjon,
+            inn- og utlevering og garanti.
+          </p>
+          <p className="text-[13px] text-muted">
+            Egne sider:{" "}
+            <a href="/s/vilkar" className="text-accent underline">
+              vilkår
+            </a>
+            {", "}
+            <a href="/s/innlevering-vilkar" className="text-accent underline">
+              inn- og utlevering
+            </a>
+            {", "}
+            <a href="/s/garanti" className="text-accent underline">
+              garanti
+            </a>
+            {" og "}
+            <a href="/s/personvern" className="text-accent underline">
+              personvern
+            </a>
+            .
           </p>
           <div className="max-h-[360px] space-y-3 overflow-y-auto rounded border border-border bg-surface p-3 text-[13px] leading-5">
             {repairTermsSections().map((section) => (
