@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatNokFromOre, CUSTOMER_POSTAGE_ORE } from "@/lib/money";
-import { WORKSHOP_FEES } from "@/lib/legal";
+import { WORKSHOP_FEES, PART_GRADE_CUSTOMER_TEXT } from "@/lib/legal";
 import { REPAIR_TERMS_VERSION, repairTermsSections } from "@/lib/repair-terms";
 import type { IphoneModelOption } from "@/lib/apple-models";
 import { SignaturePad } from "@/components/forms/SignaturePad";
@@ -420,9 +420,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
             {WORKSHOP_FEES.noFaultKr} kr. Godkjent og utført reparasjon:
             diagnosen inngår i prisen og belastes ikke separat. Send selv inn:{" "}
             {WORKSHOP_FEES.inboundPostageKr} kr i porto fra oss. Returporto:{" "}
-            {WORKSHOP_FEES.returnPostageKr} kr. Du velger selv deltype
-            (aftermarket, OEM pull, refurbished eller komplett original); prisen
-            avhenger av valget.
+            {WORKSHOP_FEES.returnPostageKr} kr. {PART_GRADE_CUSTOMER_TEXT}
           </p>
           <p className="text-[13px] text-muted">
             Egne sider:{" "}

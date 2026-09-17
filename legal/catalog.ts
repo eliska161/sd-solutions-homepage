@@ -43,6 +43,10 @@ export function workshopFeeLines(): { label: string; value: string }[] {
   ];
 }
 
+/** Forklart uten fagspråk. Brukes i vilkår, ordrebekreftelse og signeringssteg. */
+export const PART_GRADE_CUSTOMER_TEXT =
+  "Du velger selv hvilken del vi skal sette i, og prisen avhenger av det. Alternativene er ny kompatibel del (ikke original), original del tatt ut av en annen telefon, original del som er istandsatt, eller helt ny original del. Ikke alle typer finnes til alle modeller. Hva som monteres, står på saken.";
+
 export type LegalSection = {
   title: string;
   paragraphs: string[];
@@ -285,7 +289,7 @@ export const vilkarReparasjon: LegalDocument = {
       title: "4. Pris, deler og betaling",
       paragraphs: [
         "Prisen du ser på statussiden er for tjenestene vi har lagt på saken, minus eventuell rabatt. Deler vi bruker i jobben er inkludert i tjenesteprisen med mindre vi sier noe annet.",
-        "Du velger selv deltype: aftermarket, OEM pull, refurbished eller komplett original. Prisen avhenger av hvilken type du velger. Tilgjengelighet kan variere. Hva som monteres, står på saken.",
+        PART_GRADE_CUSTOMER_TEXT,
         "Betaling skjer før utlevering eller før vi sender enheten, med mindre vi har avtalt noe annet. Kvittering sendes på e-post når jobben er ferdig.",
       ],
     },
@@ -429,7 +433,7 @@ export function signedWorkshopClauses(): string[] {
     `Dersom det ikke blir funnet feil på enheten, belastes ${f.noFaultKr} kr for undersøkelsen.`,
     `Takker du nei til reparasjon etter diagnose, belastes ${f.declinedAfterDiagnosisKr} kr for undersøkelsen. Godkjenner du og vi utfører jobben, inngår diagnosen i reparasjonsprisen og belastes ikke separat. Diagnose koster ellers ${f.diagnosisKr} kr.`,
     "Endelig pris og omfang avtales etter diagnose, med mindre vi har gitt en fast pris på forhånd. Du godkjenner arbeidet på statussiden eller skriftlig før vi går videre med betalt reparasjon utover diagnose.",
-    "Du velger selv hvilken deltype vi skal bruke: aftermarket, OEM pull, refurbished eller komplett original. Prisen avhenger av valget. Tilgjengelighet kan variere. Hva som monteres, står på saken.",
+    PART_GRADE_CUSTOMER_TEXT,
     "Uautoriserte inngrep eller modifikasjoner på enheten kan gi ekstra kostnad, med mindre det er avtalt skriftlig på forhånd. Vi står ikke ansvarlig for programvarefeil som skyldes overoppheting, væske, feilkonfigurasjon eller annet som ikke relaterer til vårt inngrep.",
     "Vi står ikke ansvarlig for skader som oppstår under demontering eller reparasjon dersom skaden relaterer til eksisterende skade (væske, bøyd ramme, tidligere reparasjon, skjult brudd).",
     "Personalisering som gravering, klistremerker og skins på deler som byttes, erstattes ikke.",
