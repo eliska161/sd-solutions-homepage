@@ -19,7 +19,8 @@ primary_region = "arn"
   NODE_ENV = "production"
   CI = "true"
   UPLOAD_DIR = "/data/uploads"
-  MAIL_FROM = "SD Solutions <service@sd-solutions.org>"
+  MAIL_FROM = "SD Solutions <kontakt@sd-solutions.org>"
+  MAIL_REPLY_TO = "kontakt@sd-solutions.org"
 
 [http_service]
   internal_port = 3001

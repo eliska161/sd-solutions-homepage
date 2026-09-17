@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { Resend } from "resend";
 
-const DEFAULT_FROM = "SD Solutions <service@sd-solutions.org>";
+const DEFAULT_FROM = "SD Solutions <kontakt@sd-solutions.org>";
 /** Same mark as the landing header (`/sd-solutions-mark.png`). */
 const DEFAULT_LOGO = "https://sd-solutions.org/sd-solutions-mark.png";
 
@@ -26,7 +26,7 @@ function mailFrom() {
 }
 
 function mailReplyTo() {
-  return process.env.MAIL_REPLY_TO?.trim() || "service@sd-solutions.org";
+  return process.env.MAIL_REPLY_TO?.trim() || "kontakt@sd-solutions.org";
 }
 
 export function publicAppOrigin() {

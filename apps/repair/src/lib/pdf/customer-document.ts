@@ -1,23 +1,33 @@
+import { existsSync } from "fs";
 import PDFDocument from "pdfkit";
+import {
+  LEGAL_PARTY,
+  type LegalDocument,
+  fysiskReparasjonsvilkar,
+  getLegalDocument,
+} from "@/lib/legal";
 import { formatDate } from "@/lib/labels";
 import { formatNokFromOre } from "@/lib/money";
-import { PDF_COLORS, pdfFontPaths } from "@/lib/pdf/summary-document";
+import { renderOrderConfirmationPdf } from "@/lib/pdf/order-confirmation";
 import {
-  REPAIR_TERMS_VERSION,
-  repairTermsMeta,
-  repairTermsSections,
-} from "@/lib/repair-terms";
-import { workshopAddressOneLine, WORKSHOP } from "@/lib/workshop";
+  PDF_COLORS,
+  pdfFontPaths,
+  resolvePdfLogoFile,
+} from "@/lib/pdf/summary-document";
 
 export type TermsOrderSummary = {
   ticketNumber: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  customerAddress: string;
   deviceLabel: string;
+  serialNumber: string | null;
+  imei: string | null;
   problem: string;
   inboundLabel: string;
   outboundLabel: string;
+  statusUrl: string;
 };
 
 export type TermsSignature = {
@@ -42,50 +52,54 @@ function ensureSpace(doc: PDFKit.PDFDocument, needed: number) {
 
 function drawBrandHeader(
   doc: PDFKit.PDFDocument,
-  kicker: string,
   title: string,
-  subtitle: string,
+  subtitle?: string,
 ) {
   const fonts = pdfFontPaths();
   const left = doc.page.margins.left;
   const width = pageWidth(doc);
+  const logo = resolvePdfLogoFile();
 
   doc.save();
-  doc.rect(0, 0, doc.page.width, 78).fill(PDF_COLORS.accent);
-  doc.fillColor(PDF_COLORS.white).font(fonts.bold).fontSize(11);
-  doc.text(WORKSHOP.name, left, 16, { width });
-  doc.font(fonts.regular).fontSize(9).fillColor("#d1fae5");
-  doc.text(kicker, left, 32, { width });
+  doc.roundedRect(left, 36, 36, 36, 6).fill("#111111");
+  if (logo && existsSync(logo)) {
+    doc.image(logo, left + 4, 40, { width: 28, height: 28 });
+  }
   doc.restore();
+  doc.fillColor(PDF_COLORS.ink).font(fonts.bold).fontSize(12);
+  doc.text(LEGAL_PARTY.brandName, left + 46, 48, { lineBreak: false });
 
-  doc.y = 94;
-  doc.fillColor(PDF_COLORS.ink).font(fonts.bold).fontSize(18);
+  doc.y = 86;
+  doc.fillColor(PDF_COLORS.ink).font(fonts.bold).fontSize(16);
   doc.text(title, left, doc.y, { width });
-  doc.moveDown(0.2);
-  doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
-  doc.text(subtitle, { width });
-  doc.moveDown(0.6);
+  if (subtitle) {
+    doc.moveDown(0.2);
+    doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
+    doc.text(subtitle, { width });
+  }
+  doc.moveDown(0.5);
   doc
     .moveTo(left, doc.y)
     .lineTo(left + width, doc.y)
     .strokeColor(PDF_COLORS.line)
-    .lineWidth(1)
+    .lineWidth(0.8)
     .stroke();
-  doc.moveDown(0.7);
+  doc.moveDown(0.6);
 }
 
 function drawFooter(doc: PDFKit.PDFDocument) {
   const fonts = pdfFontPaths();
   const range = doc.bufferedPageRange();
-  const meta = repairTermsMeta();
   for (let i = 0; i < range.count; i++) {
     doc.switchToPage(range.start + i);
+    const saved = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
     doc
       .font(fonts.regular)
       .fontSize(8)
       .fillColor(PDF_COLORS.muted)
       .text(
-        `${meta.brandName} · ${meta.legalName} · ${meta.address} · Side ${i + 1} av ${range.count}`,
+        `${LEGAL_PARTY.brandName} · ${LEGAL_PARTY.legalName} · ${LEGAL_PARTY.address} · ${LEGAL_PARTY.email} · Side ${i + 1} av ${range.count}`,
         doc.page.margins.left,
         doc.page.height - 36,
         {
@@ -94,14 +108,21 @@ function drawFooter(doc: PDFKit.PDFDocument) {
           lineBreak: false,
         },
       );
+    doc.page.margins.bottom = saved;
   }
 }
 
-function drawSections(doc: PDFKit.PDFDocument) {
+function drawLegalSections(
+  doc: PDFKit.PDFDocument,
+  document: LegalDocument,
+) {
   const fonts = pdfFontPaths();
   const left = doc.page.margins.left;
   const width = pageWidth(doc);
-  for (const section of repairTermsSections()) {
+  doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.ink);
+  doc.text(document.intro, { width });
+  doc.moveDown(0.6);
+  for (const section of document.sections) {
     ensureSpace(doc, 56);
     doc.fillColor(PDF_COLORS.accent).font(fonts.bold).fontSize(10);
     doc.text(section.title.toUpperCase(), left, doc.y, {
@@ -144,7 +165,7 @@ function createDoc(title: string, subject: string) {
     bufferPages: true,
     info: {
       Title: title,
-      Author: WORKSHOP.name,
+      Author: LEGAL_PARTY.brandName,
       Subject: subject,
       CreationDate: new Date(),
     },
@@ -154,98 +175,47 @@ function createDoc(title: string, subject: string) {
   return doc;
 }
 
-export function renderUnsignedTermsPdf(): Promise<Buffer> {
-  const meta = repairTermsMeta();
-  const doc = createDoc(
-    "Reparasjonsbetingelser",
-    `Versjon ${meta.version}`,
-  );
+export function renderLegalPdf(document: LegalDocument): Promise<Buffer> {
+  const doc = createDoc(document.title, `Versjon ${document.version}`);
   const chunks: Buffer[] = [];
-  drawBrandHeader(
-    doc,
-    "Reparasjonsbetingelser",
-    "Reparasjonsbetingelser",
-    `Versjon ${meta.version} · Forslag til avtale · ${workshopAddressOneLine()}`,
-  );
-  drawSections(doc);
+  drawBrandHeader(doc, document.title, `Versjon ${document.version}`);
+  drawLegalSections(doc, document);
   return finishPdf(doc, chunks);
 }
 
-export function renderSignedTermsPdf(input: {
+export function renderUnsignedTermsPdf(): Promise<Buffer> {
+  return renderLegalPdf(fysiskReparasjonsvilkar);
+}
+
+export async function renderLegalPdfBySlug(
+  slug: string,
+): Promise<Buffer | null> {
+  const document = getLegalDocument(slug);
+  if (!document) return null;
+  return renderLegalPdf(document);
+}
+
+export async function renderSignedTermsPdf(input: {
   order: TermsOrderSummary;
   signature: TermsSignature;
 }): Promise<Buffer> {
-  const meta = repairTermsMeta();
-  const doc = createDoc(
-    `Reparasjonsbetingelser ${input.order.ticketNumber}`,
-    `Signert versjon ${meta.version}`,
-  );
-  const chunks: Buffer[] = [];
-  const fonts = pdfFontPaths();
-  const left = doc.page.margins.left;
-  const width = pageWidth(doc);
-
-  drawBrandHeader(
-    doc,
-    "Signert serviceordre",
-    "Reparasjonsbetingelser",
-    `${input.order.ticketNumber} · versjon ${meta.version} · signert ${formatDate(input.signature.signedAt)}`,
-  );
-
-  ensureSpace(doc, 90);
-  doc.fillColor(PDF_COLORS.accent).font(fonts.bold).fontSize(10);
-  doc.text("SERVICEORDRE", { width, characterSpacing: 0.4 });
-  doc.moveDown(0.3);
-  const rows: Array<[string, string]> = [
-    ["Kunde", input.order.customerName],
-    ["E-post", input.order.customerEmail],
-    ["Telefon", input.order.customerPhone],
-    ["Enhet", input.order.deviceLabel],
-    ["Feil", input.order.problem],
-    ["Innlevering", input.order.inboundLabel],
-    ["Utlevering", input.order.outboundLabel],
-  ];
-  for (const [label, value] of rows) {
-    ensureSpace(doc, 18);
-    const y = doc.y;
-    doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
-    doc.text(label, left, y, { width: 110, lineBreak: false });
-    doc.fillColor(PDF_COLORS.ink).text(value || "—", left + 118, y, {
-      width: width - 118,
-    });
-    doc.moveDown(0.15);
-  }
-  doc.moveDown(0.6);
-
-  drawSections(doc);
-
-  ensureSpace(doc, 150);
-  doc.fillColor(PDF_COLORS.accent).font(fonts.bold).fontSize(10);
-  doc.text("SIGNATUR", { width, characterSpacing: 0.4 });
-  doc.moveDown(0.35);
-  doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.ink);
-  doc.text(
-    `${input.signature.signerName} har signert versjon ${REPAIR_TERMS_VERSION} ${formatDate(input.signature.signedAt)}.`,
-    { width },
-  );
-  doc.moveDown(0.4);
-  try {
-    doc.image(input.signature.png, left, doc.y, { width: 220, height: 70 });
-    doc.y += 78;
-  } catch {
-    doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
-    doc.text("(Signaturbilde kunne ikke vises i PDF.)", { width });
-  }
-  doc
-    .moveTo(left, doc.y)
-    .lineTo(left + 220, doc.y)
-    .strokeColor(PDF_COLORS.line)
-    .stroke();
-  doc.moveDown(0.3);
-  doc.font(fonts.regular).fontSize(8).fillColor(PDF_COLORS.muted);
-  doc.text(input.signature.signerName, { width: 220 });
-
-  return finishPdf(doc, chunks);
+  return renderOrderConfirmationPdf({
+    ticketNumber: input.order.ticketNumber,
+    customerName: input.order.customerName,
+    customerEmail: input.order.customerEmail,
+    customerPhone: input.order.customerPhone,
+    customerAddress: input.order.customerAddress,
+    deviceLabel: input.order.deviceLabel,
+    serialNumber: input.order.serialNumber,
+    imei: input.order.imei,
+    problem: input.order.problem,
+    inboundLabel: input.order.inboundLabel,
+    outboundLabel: input.order.outboundLabel,
+    statusUrl: input.order.statusUrl,
+    signedAt: input.signature.signedAt,
+    signerName: input.signature.signerName,
+    signaturePng: input.signature.png,
+  });
 }
 
 export function renderReceiptPdf(input: {
@@ -271,7 +241,6 @@ export function renderReceiptPdf(input: {
 
   drawBrandHeader(
     doc,
-    "Kvittering",
     `Kvittering ${input.ticketNumber}`,
     `${input.customerName} · ${input.deviceLabel} · ${formatDate(input.issuedAt)}`,
   );

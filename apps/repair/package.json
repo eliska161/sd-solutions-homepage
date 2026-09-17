@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "better-auth": "^1.7.3",
+    "bwip-js": "^4.11.4",
     "drizzle-orm": "^0.45.2",
     "ios-device-list": "^1.1.37",
     "libphonenumber-js": "^1.13.13",

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatNokFromOre, CUSTOMER_POSTAGE_ORE } from "@/lib/money";
+import { WORKSHOP_FEES, PART_GRADE_CUSTOMER_TEXT } from "@/lib/legal";
 import { REPAIR_TERMS_VERSION, repairTermsSections } from "@/lib/repair-terms";
 import type { IphoneModelOption } from "@/lib/apple-models";
 import { SignaturePad } from "@/components/forms/SignaturePad";
@@ -413,9 +414,32 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
             Reparasjonsbetingelser
           </legend>
           <p className="text-[13px] text-muted">
-            Les gjennom, last ned PDF om du vil, og signer. Ordren opprettes
-            ikke før du har signert. Versjon {REPAIR_TERMS_VERSION}. Dette er
-            et forslag eier kan justere.
+            Les gjennom og signer. Ordren opprettes ikke før du har signert.
+            Diagnose koster {WORKSHOP_FEES.diagnosisKr} kr. Ingen feil funnet,
+            eller hvis du takker nei etter diagnose:{" "}
+            {WORKSHOP_FEES.noFaultKr} kr. Godkjent og utført reparasjon:
+            diagnosen inngår i prisen og belastes ikke separat. Send selv inn:{" "}
+            {WORKSHOP_FEES.inboundPostageKr} kr i porto fra oss. Returporto:{" "}
+            {WORKSHOP_FEES.returnPostageKr} kr. {PART_GRADE_CUSTOMER_TEXT}
+          </p>
+          <p className="text-[13px] text-muted">
+            Egne sider:{" "}
+            <a href="/s/vilkar" className="text-accent underline">
+              vilkår
+            </a>
+            {", "}
+            <a href="/s/innlevering-vilkar" className="text-accent underline">
+              inn- og utlevering
+            </a>
+            {", "}
+            <a href="/s/garanti" className="text-accent underline">
+              garanti
+            </a>
+            {" og "}
+            <a href="/s/personvern" className="text-accent underline">
+              personvern
+            </a>
+            .
           </p>
           <div className="max-h-[360px] space-y-3 overflow-y-auto rounded border border-border bg-surface p-3 text-[13px] leading-5">
             {repairTermsSections().map((section) => (

@@ -200,14 +200,14 @@ export async function notifyServiceOrderCreated(ticketId: string) {
                 `Vi har registrert serviceordre ${ctx.ticketNumber}${deviceBit(ctx)}.`,
                 `Send enheten til ${address}.`,
                 `Merk pakken med referansenummer ${ctx.ticketNumber}.`,
-                "Signerte reparasjonsbetingelser ligger vedlagt som PDF.",
+                "Signert ordrebekreftelse med vilkår ligger vedlagt som PDF.",
                 "Jobben starter når pakken er framme hos oss. Status: lenken under.",
               ]
             : [
                 `Vi har registrert serviceordre ${ctx.ticketNumber}${deviceBit(ctx)}.`,
                 "Du valgte å levere telefonen hos oss. Vi tar den ikke inn i verkstedet før den er fysisk levert.",
                 `Adresse: ${address}. Åpent ${WORKSHOP.hoursLabel}.`,
-                "Signerte reparasjonsbetingelser ligger vedlagt som PDF.",
+                "Signert ordrebekreftelse med vilkår ligger vedlagt som PDF.",
                 "Velg dato og timeslot på innleveringssiden (samme lenke som status). Ta med telefonen til avtalt tid.",
               ],
           files,

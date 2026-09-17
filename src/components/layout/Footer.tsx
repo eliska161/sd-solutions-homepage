@@ -6,7 +6,7 @@ const links = [
   { label: "Reparasjon", href: "/" },
   { label: "Programvare", href: "/programvare" },
   { label: "Opprett serviceordre", href: SERVICE_ORDER_URL },
-  { label: "Kontakt", href: "/programvare#kontakt" },
+  { label: "Kontakt", href: "/kontakt" },
 ];
 
 export function Footer() {
@@ -41,6 +41,20 @@ export function Footer() {
             © 2026 Skaug-Danielsen Solutions.
             <br className="sm:hidden" /> Alle rettigheter forbeholdt.
           </p>
+          <nav className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-muted">
+            <Link href="/personvern" className="hover:text-foreground">
+              Personvern
+            </Link>
+            <Link href="/cookies" className="hover:text-foreground">
+              Cookies
+            </Link>
+            <Link href="/vilkar" className="hover:text-foreground">
+              Bruksvilkår
+            </Link>
+            <Link href="/kontakt" className="hover:text-foreground">
+              Kontakt
+            </Link>
+          </nav>
         </div>
       </div>
     </footer>

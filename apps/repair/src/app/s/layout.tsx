@@ -33,6 +33,25 @@ export default function CustomerStatusLayout({
         </div>
       </header>
       <div className="mx-auto max-w-4xl px-4 py-4 lg:px-5">{children}</div>
+      <footer className="mx-auto max-w-4xl px-4 pb-8 text-[12px] text-muted lg:px-5">
+        <nav className="flex flex-wrap gap-x-4 gap-y-1">
+          <Link href="/s/personvern" className="underline">
+            Personvern
+          </Link>
+          <Link href="/s/vilkar" className="underline">
+            Vilkår
+          </Link>
+          <Link href="/s/garanti" className="underline">
+            Garanti
+          </Link>
+          <Link href="/s/innlevering-vilkar" className="underline">
+            Inn- og utlevering
+          </Link>
+          <Link href="/s/mottak" className="underline">
+            Mottak
+          </Link>
+        </nav>
+      </footer>
     </div>
   );
 }

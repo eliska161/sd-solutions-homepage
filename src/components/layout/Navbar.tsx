@@ -11,7 +11,7 @@ const links = [
   { label: "Reparasjon", href: "/" },
   { label: "Programvare", href: "/programvare" },
   { label: "Om oss", href: "/programvare#om-oss" },
-  { label: "Kontakt", href: "/programvare#kontakt" },
+  { label: "Kontakt", href: "/kontakt" },
 ];
 
 export function Navbar() {
