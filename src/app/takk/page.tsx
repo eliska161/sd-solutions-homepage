@@ -11,10 +11,13 @@ export default function TakkPage() {
   return (
     <>
       <h1 className="mt-8 text-3xl font-medium tracking-[-0.03em] text-foreground">
-        Takk
+        Takk!
       </h1>
       <p className="mt-4 text-[15px] leading-relaxed text-muted">
-        Vi har fått meldingen. Vi tar kontakt så snart vi kan.
+        Vi har fått meldingen din, og tar kontakt så snart vi kan.
+      </p>
+      <p className="mt-8 text-[15px] leading-relaxed text-foreground">
+        Tusen takk for at du velger SD Solutions!
       </p>
       <Link
         href="/"

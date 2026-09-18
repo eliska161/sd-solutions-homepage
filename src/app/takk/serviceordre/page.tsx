@@ -21,17 +21,20 @@ export default async function ServiceordreTakkPage({
   return (
     <>
       <h1 className="mt-8 text-3xl font-medium tracking-[-0.03em] text-foreground">
-        Ordren er registrert
+        Takk!
       </h1>
       <p className="mt-4 text-[15px] leading-relaxed text-muted">
-        Du får bekreftelse på e-post eller SMS. Neste steg er å avtale
-        innlevering.
+        Ordren din er registrert. Du får en bekreftelse på e-post og SMS. Klikk
+        på knappen under for å avtale innlevering.
+      </p>
+      <p className="mt-8 text-[15px] leading-relaxed text-foreground">
+        Tusen takk for at du velger SD Solutions!
       </p>
       <a
         href={nextHref}
         className="mt-10 inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-medium text-black"
       >
-        Fortsett til innlevering
+        Avtale innlevering
       </a>
     </>
   );
