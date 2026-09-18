@@ -22,7 +22,7 @@ import { countryNameFromPhone, isSendablePhone, toE164Phone } from "@/lib/phone"
 import { allocatePublicShortCode, publicTicketLinkFilter } from "@/lib/public-link";
 import { createPublicAccessToken } from "@/lib/public-token";
 import { REPAIR_TERMS_VERSION } from "@/lib/repair-terms";
-import { nextPublicId } from "@/lib/sequences";
+import { nextRepairTicketNumber } from "@/lib/sequences";
 import { storeCustomerPdf } from "@/lib/store-customer-pdf";
 import { notifyServiceOrderCreated } from "@/server/customer-mail";
 
@@ -307,7 +307,7 @@ export async function createPublicServiceOrder(
     })
     .returning({ id: devices.id });
 
-  const ticketNumber = await nextPublicId("REP");
+  const ticketNumber = await nextRepairTicketNumber();
   const publicAccessToken = createPublicAccessToken();
   const publicShortCode = await allocatePublicShortCode();
 

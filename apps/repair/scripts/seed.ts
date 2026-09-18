@@ -7,7 +7,7 @@
 import { eq } from "drizzle-orm";
 import { getAuth } from "../src/lib/auth";
 import { getDb, getSql } from "../src/lib/db";
-import { nextPublicId } from "../src/lib/sequences";
+import { nextPublicId, nextRepairTicketNumber } from "../src/lib/sequences";
 import { createPublicAccessToken, createPublicShortCode } from "../src/lib/public-token";
 import { dealRisk, roiBps, krToOre } from "../src/lib/money";
 import {
@@ -238,9 +238,9 @@ async function seed() {
   ]);
 
   const ticketNumbers = [
-    await nextPublicId("REP"),
-    await nextPublicId("REP"),
-    await nextPublicId("REP"),
+    await nextRepairTicketNumber(),
+    await nextRepairTicketNumber(),
+    await nextRepairTicketNumber(),
   ];
 
   const [ticket1] = await db

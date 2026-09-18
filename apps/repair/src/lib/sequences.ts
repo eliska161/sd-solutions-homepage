@@ -1,12 +1,35 @@
+import { randomInt } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { idSequences } from "@/db/schema";
+import { idSequences, repairTickets } from "@/db/schema";
 import { currentYear, formatPublicId } from "@/lib/ids";
 
 export type SequenceKind = "REP" | "FLIP" | "PO";
 
+const REPAIR_TICKET_DIGITS = 5;
+const REPAIR_TICKET_SPAN = 10 ** REPAIR_TICKET_DIGITS;
+
+export function formatRepairTicketNumber(n: number) {
+  return `REP${String(n).padStart(REPAIR_TICKET_DIGITS, "0")}`;
+}
+
+/** REP + five random digits, unique among existing tickets. */
+export async function nextRepairTicketNumber(): Promise<string> {
+  const db = getDb();
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const ticketNumber = formatRepairTicketNumber(randomInt(0, REPAIR_TICKET_SPAN));
+    const [hit] = await db
+      .select({ id: repairTickets.id })
+      .from(repairTickets)
+      .where(eq(repairTickets.ticketNumber, ticketNumber))
+      .limit(1);
+    if (!hit) return ticketNumber;
+  }
+  throw new Error("Klarte ikke å lage unikt saksnummer");
+}
+
 /**
- * Atomically allocate the next public ID for REP/FLIP/PO within the current UTC year.
+ * Atomically allocate the next public ID for FLIP/PO within the current UTC year.
  * Format: KIND-YEAR-000001
  */
 export async function nextPublicId(kind: SequenceKind): Promise<string> {
