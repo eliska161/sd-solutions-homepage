@@ -9,6 +9,7 @@ import { SERVICE_ORDER_URL } from "@/lib/repair-portal";
 
 const links = [
   { label: "Reparasjon", href: "/" },
+  { label: "Anmeldelser", href: "/#anmeldelser" },
   { label: "Priser", href: "/#priser" },
   { label: "Programvare", href: "/programvare" },
   { label: "Om oss", href: "/programvare#om-oss" },

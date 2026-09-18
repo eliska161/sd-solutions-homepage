@@ -14,7 +14,8 @@ import {
 import { isSendablePhone } from "@/lib/phone";
 import { allocatePublicShortCode } from "@/lib/public-link";
 import { sendCustomerSms } from "@/lib/sms";
-import { customerSmsPing } from "@/lib/sms-text";
+import { customerSmsPing, customerSmsRepairDone } from "@/lib/sms-text";
+import { GOOGLE_REVIEW_URL } from "@/lib/google-review";
 import { loadCustomerPdfFiles } from "@/lib/store-customer-pdf";
 import { createAndStoreReceiptPdf } from "@/server/customer-receipt";
 
@@ -108,6 +109,7 @@ function buildMail(
     paragraphs: string[];
     quote?: string;
     files?: MailFile[];
+    extraCtas?: { label: string; url: string }[];
   },
 ): OutboundMail {
   const statusUrl = publicStatusUrl(ctx.token);
@@ -121,12 +123,18 @@ function buildMail(
       : "",
   ].join("");
 
+  const extraText = (opts.extraCtas ?? []).flatMap((cta) => [
+    "",
+    `${cta.label}: ${cta.url}`,
+  ]);
+
   const text = [
     `${greeting(ctx.customerName)},`,
     "",
     ...opts.paragraphs,
     opts.quote ? `\n${opts.quote}\n` : "",
     `Status: ${statusUrl}`,
+    ...extraText,
     "",
     "SD Solutions",
     "Slåttmyrvegen 49, 2406 Elverum",
@@ -145,6 +153,7 @@ function buildMail(
       deviceLabel: ctx.deviceLabel,
       bodyHtml,
       statusUrl,
+      extraCtas: opts.extraCtas,
     }),
     files: opts.files,
   };
@@ -158,6 +167,23 @@ function smsLine(ctx: MailContext, verb: string) {
     url: publicStatusUrl(ctx.shortCode),
   });
 }
+
+function smsDone(ctx: MailContext, verb: string) {
+  return customerSmsRepairDone({
+    name: ctx.customerName,
+    ticketNumber: ctx.ticketNumber,
+    verb,
+    url: publicStatusUrl(ctx.shortCode),
+  });
+}
+
+const googleReviewCta = {
+  label: "Gi Google-anmeldelse",
+  url: GOOGLE_REVIEW_URL,
+};
+
+const googleReviewParagraph =
+  "Hvis du vil, kan du legge igjen en anmeldelse på Google. Lenken ligger under.";
 
 function deviceBit(ctx: MailContext) {
   return ctx.deviceLabel.trim() ? ` (${ctx.deviceLabel})` : "";
@@ -281,16 +307,22 @@ export async function notifyReadyForPickup(ticketId: string) {
                 "Vi sender telefonen tilbake til adressen du oppga.",
                 ...trackingMail,
                 "Kvittering ligger vedlagt som PDF.",
+                googleReviewParagraph,
               ]
             : [
                 `Jobben på ${ctx.ticketNumber}${deviceBit(ctx)} er ferdig.`,
                 `Du valgte henting i butikk. Hent telefonen hos oss: ${workshopAddressOneLine()}. Åpent ${WORKSHOP.hoursLabel}.`,
                 "Ta med legitimasjon. Si fra om saksnummeret i skranken.",
                 "Kvittering ligger vedlagt som PDF.",
+                googleReviewParagraph,
               ],
+          extraCtas: [googleReviewCta],
           files: receipt ? [receipt] : [],
         }),
-        sms: smsLine(ctx, byPost ? "er ferdig. Vi sender den tilbake." : "er klar for henting."),
+        sms: smsDone(
+          ctx,
+          byPost ? "er ferdig. Vi sender den tilbake." : "er klar for henting.",
+        ),
       };
     }),
   );
@@ -312,10 +344,12 @@ export async function notifyRepairCompleted(ticketId: string) {
               ? "Hvis telefonen skulle i retur med post, er den sendt eller levert. Mangler du pakken, svar på denne e-posten."
               : "Hvis du skulle hente i butikk, er saken ferdigbehandlet hos oss. Ta kontakt hvis noe mangler.",
             "Kvittering ligger vedlagt som PDF. Statuslenken virker fortsatt hvis du trenger saksnummer eller historikk.",
+            googleReviewParagraph,
           ],
+          extraCtas: [googleReviewCta],
           files: receipt ? [receipt] : [],
         }),
-        sms: smsLine(ctx, "er ferdig"),
+        sms: smsDone(ctx, "er ferdig"),
       };
     }),
   );

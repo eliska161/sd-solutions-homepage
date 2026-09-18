@@ -8,6 +8,7 @@ import { formatDate, formatDateOnly } from "@/lib/labels";
 import { getPublicRepairByToken } from "@/server/public-status";
 import { CustomerUpdateForm } from "./CustomerUpdateForm";
 import { workshopAddressOneLine } from "@/lib/workshop";
+import { GOOGLE_REVIEW_URL } from "@/lib/google-review";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,20 @@ export default async function CustomerStatusPage({
         description={data.deviceLabel}
         actions={<Badge tone={badgeTone(data.status)}>{data.statusLabel}</Badge>}
       />
+
+      {data.status === "READY_FOR_PICKUP" || data.status === "COMPLETED" ? (
+        <p className="mb-4 rounded border border-border bg-surface px-4 py-3 text-sm">
+          Hvis du vil, kan du legge igjen en anmeldelse på Google:{" "}
+          <a
+            href={GOOGLE_REVIEW_URL}
+            className="text-accent underline"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            {GOOGLE_REVIEW_URL}
+          </a>
+        </p>
+      ) : null}
 
       {ny === "1" ? (
         <p className="mb-4 rounded border border-border bg-surface px-4 py-3 text-sm">
