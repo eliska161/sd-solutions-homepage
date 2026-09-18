@@ -6,4 +6,4 @@ export function repairPortalUrl(path = "") {
   return `${base}${path}`;
 }
 
-export const SERVICE_ORDER_URL = repairPortalUrl("/s/ny");
+export const SERVICE_ORDER_URL = repairPortalUrl("/");

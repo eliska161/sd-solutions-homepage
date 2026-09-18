@@ -5,7 +5,7 @@ Monorepo-style repository:
 | Path | Product | URL |
 |------|---------|-----|
 | Repository root | Public site (repair first) | www.sd-solutions.org |
-| `apps/repair` | Repair ops + public serviceordre `/s/ny` | repair.sd-solutions.org |
+| `apps/repair` | Repair ops + public landing (ny serviceordre). Admin: `/login` | repair.sd-solutions.org |
 
 ## Marketing site
 

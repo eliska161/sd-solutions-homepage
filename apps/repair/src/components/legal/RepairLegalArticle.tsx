@@ -31,7 +31,7 @@ export function RepairLegalArticle({
         ))}
       </div>
       <p className="mt-8 text-[12px] text-muted">
-        <Link href="/s/ny" className="underline">
+        <Link href="/" className="underline">
           Tilbake til serviceordre
         </Link>
       </p>
