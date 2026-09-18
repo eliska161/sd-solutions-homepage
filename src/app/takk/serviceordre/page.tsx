@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { MarketingShell } from "@/components/layout/MarketingShell";
 import { repairPortalUrl } from "@/lib/repair-portal";
 
 export const metadata: Metadata = {
@@ -21,29 +19,20 @@ export default async function ServiceordreTakkPage({
       : repairPortalUrl("/");
 
   return (
-    <MarketingShell>
-      <article className="mx-auto w-full max-w-xl px-6 text-center lg:px-8">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-          Takk
-        </h1>
-        <p className="mt-5 text-[15px] leading-relaxed text-muted">
-          Serviceordren er registrert. Du får bekreftelse på e-post eller SMS.
-          Neste steg er innlevering.
-        </p>
-        <p className="mt-8">
-          <a
-            href={nextHref}
-            className="inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-medium text-black"
-          >
-            Fortsett til innlevering
-          </a>
-        </p>
-        <p className="mt-4">
-          <Link href="/" className="text-[13px] text-muted underline">
-            Til startsiden
-          </Link>
-        </p>
-      </article>
-    </MarketingShell>
+    <>
+      <h1 className="mt-8 text-3xl font-medium tracking-[-0.03em] text-foreground">
+        Ordren er registrert
+      </h1>
+      <p className="mt-4 text-[15px] leading-relaxed text-muted">
+        Du får bekreftelse på e-post eller SMS. Neste steg er å avtale
+        innlevering.
+      </p>
+      <a
+        href={nextHref}
+        className="mt-10 inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-medium text-black"
+      >
+        Fortsett til innlevering
+      </a>
+    </>
   );
 }
