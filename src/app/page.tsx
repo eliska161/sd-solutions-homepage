@@ -4,10 +4,12 @@ import { Footer } from "@/components/layout/Footer";
 import { Topography } from "@/components/hero/Topography";
 import { RepairHero } from "@/components/sections/repair/RepairHero";
 import { RepairAbout } from "@/components/sections/repair/RepairAbout";
+import { RepairReviews } from "@/components/sections/repair/RepairReviews";
 import { RepairServices } from "@/components/sections/repair/RepairServices";
 import { RepairCTA } from "@/components/sections/repair/RepairCTA";
 import { RepairPriceList } from "@/components/sections/repair/RepairPriceList";
 import { company } from "@/lib/company";
+import { loadGoogleReviews } from "@/lib/google-reviews";
 
 export const metadata: Metadata = {
   title: "SD Solutions — iPhone-reparasjon",
@@ -20,7 +22,8 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Home() {
+export default async function Home() {
+  const reviews = await loadGoogleReviews();
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ElectronicsStore",
@@ -44,15 +47,27 @@ export default function Home() {
         serviceType: "Mobile phone repair",
       },
     },
+    ...(reviews.rating != null
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: reviews.rating,
+            reviewCount: Math.max(reviews.count, reviews.reviews.length, 1),
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
   };
 
   return (
     <div className="bg-atmosphere relative min-h-screen">
       <Topography />
-      <Navbar />
+      <Navbar showReviews={reviews.reviews.length > 0} />
       <main className="relative">
-        <RepairHero />
+        <RepairHero reviews={reviews} />
         <RepairAbout />
+        {reviews.reviews.length > 0 ? <RepairReviews data={reviews} /> : null}
         <RepairServices />
         <RepairPriceList />
         <RepairCTA />

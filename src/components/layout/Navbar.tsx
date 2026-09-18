@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/brand/Logo";
 import { SERVICE_ORDER_URL } from "@/lib/repair-portal";
 
-const links = [
+const baseLinks = [
   { label: "Reparasjon", href: "/" },
   { label: "Priser", href: "/#priser" },
   { label: "Programvare", href: "/programvare" },
@@ -15,7 +15,14 @@ const links = [
   { label: "Kontakt", href: "/kontakt" },
 ];
 
-export function Navbar() {
+export function Navbar({ showReviews = false }: { showReviews?: boolean }) {
+  const links = showReviews
+    ? [
+        baseLinks[0]!,
+        { label: "Anmeldelser", href: "/#anmeldelser" },
+        ...baseLinks.slice(1),
+      ]
+    : baseLinks;
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 

@@ -8,6 +8,7 @@ export function customerMailLayout(opts: {
   deviceLabel: string;
   bodyHtml: string;
   statusUrl: string;
+  extraCtas?: { label: string; url: string }[];
 }) {
   const heading = escapeHtml(opts.heading);
   const ticket = escapeHtml(opts.ticketNumber);
@@ -15,6 +16,19 @@ export function customerMailLayout(opts: {
   const preheader = escapeHtml(opts.preheader);
   const statusUrl = escapeHtml(opts.statusUrl);
   const logo = escapeHtml(mailLogoSrc());
+  const extraCtas = (opts.extraCtas ?? [])
+    .map((cta) => {
+      const href = escapeHtml(cta.url);
+      const label = escapeHtml(cta.label);
+      return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:10px;">
+                        <tr>
+                          <td style="background:#1b1e24;border-radius:4px;">
+                            <a href="${href}" style="display:inline-block;padding:9px 14px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:500;">${label}</a>
+                          </td>
+                        </tr>
+                      </table>`;
+    })
+    .join("");
 
   return `<!DOCTYPE html>
 <html lang="nb">
@@ -60,6 +74,7 @@ export function customerMailLayout(opts: {
                         </tr>
                       </table>
                       <p style="margin:10px 0 0;font-size:12px;color:#6b7280;word-break:break-all;">${statusUrl}</p>
+                      ${extraCtas}
                     </td>
                   </tr>
                 </table>
