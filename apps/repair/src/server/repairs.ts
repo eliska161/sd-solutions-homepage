@@ -26,7 +26,7 @@ import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
 import { allocatePublicShortCode } from "@/lib/public-link";
 import { createPublicAccessToken } from "@/lib/public-token";
-import { nextPublicId } from "@/lib/sequences";
+import { nextRepairTicketNumber } from "@/lib/sequences";
 import { requireSession } from "@/lib/session";
 import { resolveUploadAbsolutePath } from "@/lib/uploads";
 import { notifyDeviceReceived, notifyReadyForPickup, notifyRepairCompleted, notifyStaffUpdate, notifyWaitingForCustomer } from "@/server/customer-mail";
@@ -137,7 +137,7 @@ export async function createRepair(input: z.infer<typeof createRepairSchema>) {
   const data = createRepairSchema.parse(input);
   const db = getDb();
 
-  const ticketNumber = await nextPublicId("REP");
+  const ticketNumber = await nextRepairTicketNumber();
   const assigneeId = data.assigneeId || session.user.id;
 
   const [row] = await db
