@@ -16,7 +16,7 @@ export default function CustomerStatusLayout({
       <header className="bg-chrome text-white">
         <div className="mx-auto flex h-12 max-w-4xl items-center justify-between px-4 lg:px-5">
           <Link
-            href="/s/ny"
+            href="/"
             className="flex items-center gap-2 text-[13px] font-semibold tracking-tight"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -29,7 +29,12 @@ export default function CustomerStatusLayout({
             />
             SD Solutions
           </Link>
-          <p className="text-[12px] text-white/65">Kundestatus</p>
+          <Link
+            href="/login"
+            className="text-[12px] text-white/65 hover:text-white"
+          >
+            Ansatt
+          </Link>
         </div>
       </header>
       <div className="mx-auto max-w-4xl px-4 py-4 lg:px-5">{children}</div>

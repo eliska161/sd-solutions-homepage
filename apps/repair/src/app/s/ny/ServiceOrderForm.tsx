@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatNokFromOre, CUSTOMER_POSTAGE_ORE } from "@/lib/money";
-import { WORKSHOP_FEES, PART_GRADE_CUSTOMER_TEXT } from "@/lib/legal";
+import { LEGAL_PARTY, WORKSHOP_FEES, PART_GRADE_CUSTOMER_TEXT } from "@/lib/legal";
 import { REPAIR_TERMS_VERSION, repairTermsSections } from "@/lib/repair-terms";
 import type { IphoneModelOption } from "@/lib/apple-models";
 import { SignaturePad } from "@/components/forms/SignaturePad";
@@ -178,7 +178,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
       setError(result.error);
       return;
     }
-    window.location.href = `/s/takk?token=${encodeURIComponent(result.token)}`;
+    window.location.href = `${LEGAL_PARTY.web}/takk/serviceordre?token=${encodeURIComponent(result.token)}`;
   }
 
   return (

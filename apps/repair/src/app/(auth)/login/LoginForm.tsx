@@ -9,7 +9,13 @@ import { Input } from "@/components/ui/Input";
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/dashboard";
+  const requested = searchParams.get("next") || "/dashboard";
+  const next =
+    requested === "/" ||
+    requested.startsWith("/s/") ||
+    requested.startsWith("/login")
+      ? "/dashboard"
+      : requested;
 
   const [email, setEmail] = useState("admin@sd-solutions.org");
   const [password, setPassword] = useState("");

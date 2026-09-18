@@ -3,6 +3,11 @@ import { getSessionCookie } from "better-auth/cookies";
 
 const PUBLIC_PATHS = ["/login", "/s"];
 
+function isPublicPath(pathname: string) {
+  if (pathname === "/") return true;
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -16,7 +21,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
