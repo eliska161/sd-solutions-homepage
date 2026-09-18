@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import {
   INQUIRY_TYPES,
@@ -64,7 +65,8 @@ export function ContactForm({
     ...initialState,
     inquiryType: defaultInquiryType,
   });
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
+  const router = useRouter();
+  const [status, setStatus] = useState<"idle" | "loading" | "error">(
     "idle",
   );
   const [errorMessage, setErrorMessage] = useState("");
@@ -108,32 +110,12 @@ export function ContactForm({
         return;
       }
 
-      setStatus("success");
-      setForm({ ...initialState, inquiryType: form.inquiryType });
+      router.push("/takk");
+      return;
     } catch {
       setStatus("error");
       setErrorMessage("Noe gikk galt. Sjekk tilkoblingen og prøv igjen.");
     }
-  }
-
-  if (status === "success") {
-    return (
-      <div className="rounded-2xl border border-border px-6 py-10 text-center sm:px-8">
-        <p className="text-lg font-medium tracking-[-0.02em] text-foreground">
-          Takk for henvendelsen.
-        </p>
-        <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted">
-          Vi har mottatt meldingen din og tar kontakt så snart vi kan.
-        </p>
-        <button
-          type="button"
-          className="mt-8 text-sm text-muted transition-colors hover:text-foreground"
-          onClick={() => setStatus("idle")}
-        >
-          Send en ny henvendelse
-        </button>
-      </div>
-    );
   }
 
   return (

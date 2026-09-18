@@ -178,7 +178,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
       setError(result.error);
       return;
     }
-    window.location.href = `/s/${result.token}/innlevering`;
+    window.location.href = `/s/takk?token=${encodeURIComponent(result.token)}`;
   }
 
   return (
