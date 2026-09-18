@@ -178,12 +178,9 @@ function smsDone(ctx: MailContext, verb: string) {
 }
 
 const googleReviewCta = {
-  label: "Gi Google-anmeldelse",
+  label: "Google",
   url: GOOGLE_REVIEW_URL,
 };
-
-const googleReviewParagraph =
-  "Hvis du vil, kan du legge igjen en anmeldelse på Google. Lenken ligger under.";
 
 function deviceBit(ctx: MailContext) {
   return ctx.deviceLabel.trim() ? ` (${ctx.deviceLabel})` : "";
@@ -307,14 +304,12 @@ export async function notifyReadyForPickup(ticketId: string) {
                 "Vi sender telefonen tilbake til adressen du oppga.",
                 ...trackingMail,
                 "Kvittering ligger vedlagt som PDF.",
-                googleReviewParagraph,
               ]
             : [
                 `Jobben på ${ctx.ticketNumber}${deviceBit(ctx)} er ferdig.`,
                 `Du valgte henting i butikk. Hent telefonen hos oss: ${workshopAddressOneLine()}. Åpent ${WORKSHOP.hoursLabel}.`,
                 "Ta med legitimasjon. Si fra om saksnummeret i skranken.",
                 "Kvittering ligger vedlagt som PDF.",
-                googleReviewParagraph,
               ],
           extraCtas: [googleReviewCta],
           files: receipt ? [receipt] : [],
@@ -344,7 +339,6 @@ export async function notifyRepairCompleted(ticketId: string) {
               ? "Hvis telefonen skulle i retur med post, er den sendt eller levert. Mangler du pakken, svar på denne e-posten."
               : "Hvis du skulle hente i butikk, er saken ferdigbehandlet hos oss. Ta kontakt hvis noe mangler.",
             "Kvittering ligger vedlagt som PDF. Statuslenken virker fortsatt hvis du trenger saksnummer eller historikk.",
-            googleReviewParagraph,
           ],
           extraCtas: [googleReviewCta],
           files: receipt ? [receipt] : [],

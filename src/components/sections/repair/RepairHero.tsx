@@ -13,13 +13,10 @@ export function RepairHero({ reviews }: { reviews: GoogleReviewSummary }) {
         {rating != null ? (
           <FadeIn>
             <p
-              className="flex items-center gap-2 text-[13px] text-foreground/80"
-              aria-label={`${rating.toFixed(1).replace(".", ",")} av 5 på Google`}
+              className="flex items-center"
+              aria-label={`${rating.toFixed(1).replace(".", ",")} av 5`}
             >
               <GoogleStars rating={rating} size="md" />
-              <span className="tabular-nums tracking-[-0.02em]">
-                {rating.toFixed(1).replace(".", ",")}
-              </span>
             </p>
           </FadeIn>
         ) : null}

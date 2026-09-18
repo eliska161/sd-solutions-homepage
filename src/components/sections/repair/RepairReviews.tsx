@@ -7,26 +7,11 @@ import { Section } from "@/components/ui/Section";
 import type { GoogleReview, GoogleReviewSummary } from "@/lib/google-reviews";
 import { GoogleStars } from "@/components/sections/repair/GoogleRating";
 
-function formatPublishedAt(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("nb-NO", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(date);
-}
-
 function ReviewCard({ review }: { review: GoogleReview }) {
-  const when = formatPublishedAt(review.publishedAt);
   return (
     <article className="flex h-full w-[min(100%,22rem)] shrink-0 snap-start flex-col rounded-2xl border border-border bg-surface/80 p-5 sm:w-[24rem] sm:p-6">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[15px] font-medium text-foreground">{review.author}</p>
-          {when ? <p className="mt-1 text-[12px] text-muted">{when}</p> : null}
-        </div>
+        <p className="text-[15px] font-medium text-foreground">{review.author}</p>
         <GoogleStars rating={review.rating} size="sm" />
       </div>
       <p className="mt-4 flex-1 whitespace-pre-wrap text-[15px] leading-[1.7] text-foreground/90">

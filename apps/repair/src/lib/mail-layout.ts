@@ -26,8 +26,7 @@ export function customerMailLayout(opts: {
                             <a href="${href}" style="display:inline-block;padding:9px 14px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:500;">${label}</a>
                           </td>
                         </tr>
-                      </table>
-                      <p style="margin:10px 0 0;font-size:12px;color:#6b7280;word-break:break-all;">${href}</p>`;
+                      </table>`;
     })
     .join("");
 
