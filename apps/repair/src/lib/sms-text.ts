@@ -37,10 +37,8 @@ export function customerSmsRepairDone(opts: {
 }) {
   const first = (opts.name.trim().split(/\s+/)[0] || "hei").slice(0, 16);
   const ticket = opts.ticketNumber.trim();
-  const candidates = [
-    `Hei ${first}. ${ticket} ${opts.verb} ${opts.url} ${GOOGLE_REVIEW_URL}`,
-    `Hei ${first}. ${ticket} ferdig. ${opts.url} ${GOOGLE_REVIEW_URL}`,
-  ];
-  const packed = candidates.map((line) => toGsmSafeSms(line));
-  return packed.find((line) => line.length <= 160) ?? packed[packed.length - 1]!;
+  const ask = "Vi setter pris på om du legger igjen en anmeldelse:";
+  return toGsmSafeSms(
+    `Hei ${first}. ${ticket} ${opts.verb} ${opts.url} ${ask} ${GOOGLE_REVIEW_URL}`,
+  );
 }
