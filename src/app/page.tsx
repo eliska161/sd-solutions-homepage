@@ -63,11 +63,11 @@ export default async function Home() {
   return (
     <div className="bg-atmosphere relative min-h-screen">
       <Topography />
-      <Navbar />
+      <Navbar showReviews={reviews.reviews.length > 0} />
       <main className="relative">
         <RepairHero reviews={reviews} />
         <RepairAbout />
-        <RepairReviews data={reviews} />
+        {reviews.reviews.length > 0 ? <RepairReviews data={reviews} /> : null}
         <RepairServices />
         <RepairPriceList />
         <RepairCTA />

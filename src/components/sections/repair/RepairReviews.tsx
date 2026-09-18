@@ -5,11 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { Section } from "@/components/ui/Section";
 import type { GoogleReview, GoogleReviewSummary } from "@/lib/google-reviews";
-import {
-  GoogleMark,
-  GoogleStars,
-  formatGoogleRating,
-} from "@/components/sections/repair/GoogleRating";
+import { GoogleStars } from "@/components/sections/repair/GoogleRating";
 
 function formatPublishedAt(value: string | null) {
   if (!value) return null;
@@ -36,7 +32,6 @@ function ReviewCard({ review }: { review: GoogleReview }) {
       <p className="mt-4 flex-1 whitespace-pre-wrap text-[15px] leading-[1.7] text-foreground/90">
         {review.text}
       </p>
-      <p className="mt-5 text-[12px] text-muted">Hentet fra Google</p>
     </article>
   );
 }
@@ -44,6 +39,7 @@ function ReviewCard({ review }: { review: GoogleReview }) {
 export function RepairReviews({ data }: { data: GoogleReviewSummary }) {
   const scroller = useRef<HTMLDivElement>(null);
   const reviews = data.reviews;
+  if (reviews.length === 0) return null;
 
   function scrollByCard(dir: -1 | 1) {
     const el = scroller.current;
@@ -56,28 +52,9 @@ export function RepairReviews({ data }: { data: GoogleReviewSummary }) {
     <Section id="anmeldelser" className="border-y border-border py-20 md:py-28 lg:py-32">
       <FadeIn>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="flex items-center gap-2 text-[13px] text-muted">
-              <GoogleMark className="h-4 w-4" />
-              Google
-            </p>
-            <h2 className="mt-3 text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
-              Anmeldelser
-            </h2>
-            {data.rating != null ? (
-              <p className="mt-3 text-[15px] text-muted">
-                {formatGoogleRating(data.rating)} av 5
-                {data.count > 0
-                  ? ` · ${data.count} ${data.count === 1 ? "anmeldelse" : "anmeldelser"}`
-                  : ""}
-              </p>
-            ) : (
-              <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted">
-                Fulle kundeomtaler fra Google-profilen. Trykk innom Google for å
-                lese alt som ligger der.
-              </p>
-            )}
-          </div>
+          <h2 className="text-3xl font-medium tracking-[-0.03em] text-foreground sm:text-4xl">
+            Anmeldelser
+          </h2>
           {reviews.length > 1 ? (
             <div className="flex gap-2">
               <button
@@ -102,45 +79,17 @@ export function RepairReviews({ data }: { data: GoogleReviewSummary }) {
       </FadeIn>
 
       <FadeIn delay={0.08}>
-        {reviews.length > 0 ? (
-          <div
-            ref={scroller}
-            className="mt-10 flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory [scrollbar-width:thin]"
-          >
-            {reviews.map((review, index) => (
-              <ReviewCard
-                key={`${review.author}-${review.publishedAt ?? index}`}
-                review={review}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="mt-10 rounded-2xl border border-border bg-surface/80 p-6 sm:p-8">
-            <p className="max-w-xl text-[15px] leading-relaxed text-muted">
-              Anmeldelser fra Google vises her når de er offentlige på
-              profilen. Åpne Google for å lese og skrive.
-            </p>
-          </div>
-        )}
-        <p className="mt-6">
-          <a
-            href={data.mapsUrl}
-            className="text-[14px] text-foreground/80 underline decoration-white/20 underline-offset-4 transition-colors hover:text-foreground"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Alle anmeldelser på Google
-          </a>
-          <span className="text-muted"> · </span>
-          <a
-            href={data.writeUrl}
-            className="text-[14px] text-foreground/80 underline decoration-white/20 underline-offset-4 transition-colors hover:text-foreground"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Skriv en anmeldelse
-          </a>
-        </p>
+        <div
+          ref={scroller}
+          className="mt-10 flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory [scrollbar-width:thin]"
+        >
+          {reviews.map((review, index) => (
+            <ReviewCard
+              key={`${review.author}-${review.publishedAt ?? index}`}
+              review={review}
+            />
+          ))}
+        </div>
       </FadeIn>
     </Section>
   );
