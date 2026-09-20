@@ -4,6 +4,9 @@ export type KioskState =
   | "ADMIN"
   | "DELIVERY_PHONE"
   | "DELIVERY_SELECT"
+  | "DELIVERY_EMPTY"
+  | "DELIVERY_NEW_DEVICE"
+  | "DELIVERY_NEW_ISSUE"
   | "DELIVERY_ENVELOPE"
   | "DELIVERY_LABEL"
   | "DELIVERY_OPEN_LOCKER"
@@ -32,8 +35,9 @@ export type LockerBay = {
 export type RepairRow = {
   id: string;
   device: string;
-  status: "Klar for henting" | "Under reparasjon" | "Klar for innlevering";
+  status: string;
   phone?: string;
+  kind?: "dropoff" | "pickup" | "other";
 };
 
 export type ActivityEvent = {

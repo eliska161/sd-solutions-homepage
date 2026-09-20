@@ -61,6 +61,45 @@ export async function findDropoffsByPhone(phone: string, fail?: boolean) {
   return { ok: true as const, repairs };
 }
 
+export const KIOSK_DEVICES = [
+  "iPhone 16 Pro",
+  "iPhone 16",
+  "iPhone 15",
+  "iPhone 14",
+  "iPhone 13",
+  "iPhone 12",
+  "iPhone SE",
+  "Annet",
+] as const;
+
+export const KIOSK_ISSUES = [
+  "Skjerm",
+  "Batteri",
+  "Ladeport",
+  "Kamera",
+  "Vil ikke slå på",
+  "Annet",
+] as const;
+
+export async function createKioskServiceOrder(input: {
+  phone: string;
+  device: string;
+  issue: string;
+  fail?: boolean;
+}) {
+  await wait(500);
+  if (input.fail) return { ok: false as const, reason: "network" as const };
+  const n = Math.floor(Math.random() * 100000);
+  const id = `REP${String(n).padStart(5, "0")}`;
+  const repair: RepairRow = {
+    id,
+    device: `${input.device} · ${input.issue}`,
+    status: "Klar for innlevering",
+    phone: input.phone.replace(/\D/g, "").slice(-8),
+  };
+  return { ok: true as const, repair };
+}
+
 export function verifyPin(pin: string, kind: "customer" | "admin") {
   const expected = kind === "admin" ? ADMIN_PIN : CUSTOMER_PIN;
   return pin === expected;

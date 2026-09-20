@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PinPad } from "@/components/kiosk/PinPad";
-import { KioskButton, KioskLogo, ScreenFrame } from "@/components/kiosk/ui";
+import { ChoiceGrid, KioskButton, KioskLogo, ScreenFrame } from "@/components/kiosk/ui";
 import {
   CheckVisual,
   EnvelopeVisual,
@@ -11,12 +11,20 @@ import {
   LockerVisual,
 } from "@/components/kiosk/visuals";
 import {
+  createLiveLockerOrder,
+  fetchKioskBoard,
+  lookupLiveDropoffs,
+  receiveLiveTicket,
+} from "@/lib/kiosk/client";
+import {
   clockLabel,
   closeLocker,
+  createKioskServiceOrder,
   findDropoffsByPhone,
   initialActivity,
   initialLockers,
-  initialRepairs,
+  KIOSK_DEVICES,
+  KIOSK_ISSUES,
   MOCK_DEVICE,
   MOCK_LOCKER,
   MOCK_PHONE,
@@ -125,6 +133,9 @@ export function KioskApp() {
   const [lockerOpen, setLockerOpen] = useState<number | null>(null);
   const [matches, setMatches] = useState<RepairRow[]>([]);
   const [selected, setSelected] = useState<RepairRow | null>(null);
+  const [draftDevice, setDraftDevice] = useState("");
+  const [liveTickets, setLiveTickets] = useState<RepairRow[]>([]);
+  const lookupGen = useRef(0);
 
   const ticket = selected?.id ?? MOCK_TICKET;
   const device = selected?.device ?? MOCK_DEVICE;
@@ -157,6 +168,7 @@ export function KioskApp() {
       setPhone("");
       setMatches([]);
       setSelected(null);
+      setDraftDevice("");
       setBusy(false);
     }
   }, [model.screen]);
@@ -226,6 +238,9 @@ export function KioskApp() {
       status: next === "DELIVERY_SUCCESS" ? "occupied" : "empty",
     });
     dispatch({ type: "LOG", message: log });
+    if (next === "DELIVERY_SUCCESS") {
+      void receiveLiveTicket(ticket);
+    }
     dispatch({ type: "GO", screen: next });
   }
 
@@ -251,26 +266,66 @@ export function KioskApp() {
     dispatch({ type: "GO", screen: "ADMIN" });
   }
 
-  async function lookupPhone() {
+  async function lookupPhone(opts?: { silent?: boolean }) {
     if (phone.length < 8) return;
     if (model.demoFailNext === "network") {
-      dispatch({ type: "ERROR", kind: "network", retry: "DELIVERY_PHONE" });
+      if (!opts?.silent) {
+        dispatch({ type: "ERROR", kind: "network", retry: "DELIVERY_PHONE" });
+      }
       return;
     }
-    setBusy(true);
-    const result = await findDropoffsByPhone(phone);
-    setBusy(false);
+    const gen = ++lookupGen.current;
+    if (!opts?.silent) setBusy(true);
+    let result = await lookupLiveDropoffs(phone);
     if (!result.ok) {
-      dispatch({ type: "ERROR", kind: result.reason ?? "network", retry: "DELIVERY_PHONE" });
+      const fallback = await findDropoffsByPhone(phone);
+      result = fallback.ok
+        ? { ok: true, repairs: fallback.repairs }
+        : { ok: false, error: "Ingen nettverk" };
+    }
+    if (gen !== lookupGen.current) {
+      if (!opts?.silent) setBusy(false);
       return;
     }
-    if (result.repairs.length === 0) {
-      dispatch({ type: "ERROR", kind: "notfound", retry: "DELIVERY_PHONE" });
-      setPhone("");
+    if (!opts?.silent) setBusy(false);
+    if (!result.ok) {
+      if (!opts?.silent) {
+        dispatch({ type: "ERROR", kind: "network", retry: "DELIVERY_PHONE" });
+      }
       return;
     }
     setMatches(result.repairs);
-    dispatch({ type: "GO", screen: "DELIVERY_SELECT" });
+    const next: KioskState = result.repairs.length
+      ? "DELIVERY_SELECT"
+      : "DELIVERY_EMPTY";
+    if (model.screen === "DELIVERY_PHONE" || model.screen !== next) {
+      dispatch({ type: "GO", screen: next });
+    }
+  }
+
+  function startNewOrder() {
+    lookupGen.current += 1;
+    setBusy(false);
+    dispatch({ type: "GO", screen: "DELIVERY_NEW_DEVICE" });
+  }
+
+  async function finishNewOrder(issue: string) {
+    setBusy(true);
+    const live = await createLiveLockerOrder({
+      phone,
+      device: draftDevice,
+      issue,
+    });
+    const result = live.ok
+      ? live
+      : await createKioskServiceOrder({ phone, device: draftDevice, issue });
+    setBusy(false);
+    if (!result.ok) {
+      dispatch({ type: "ERROR", kind: "generic", retry: "DELIVERY_NEW_ISSUE" });
+      return;
+    }
+    setSelected(result.repair);
+    dispatch({ type: "GO", screen: "DELIVERY_ENVELOPE" });
   }
 
   useEffect(() => {
@@ -278,6 +333,27 @@ export function KioskApp() {
     if (model.screen === "DELIVERY_PHONE") void lookupPhone();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phone, model.screen]);
+
+  useEffect(() => {
+    const liveScreens =
+      model.screen === "DELIVERY_SELECT" ||
+      model.screen === "DELIVERY_EMPTY" ||
+      model.screen === "ADMIN";
+    if (!liveScreens) return;
+    const tick = () => {
+      if (model.screen === "ADMIN") {
+        void fetchKioskBoard().then((board) =>
+          setLiveTickets([...board.dropoffs, ...board.pickups]),
+        );
+        return;
+      }
+      if (phone.length === 8) void lookupPhone({ silent: true });
+    };
+    tick();
+    const id = setInterval(tick, 5000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model.screen, phone]);
 
   useEffect(() => {
     if (pin.length !== 6) return;
@@ -380,6 +456,15 @@ export function KioskApp() {
                     onChange={setPhone}
                     disabled={busy}
                   />
+                  <div className="mt-4 w-full max-w-[340px]">
+                    <KioskButton
+                      variant="ghost"
+                      disabled={phone.length < 8 || busy}
+                      onClick={startNewOrder}
+                    >
+                      Opprett serviceordre
+                    </KioskButton>
+                  </div>
                 </div>
               </ScreenFrame>
             ) : null}
@@ -411,6 +496,71 @@ export function KioskApp() {
                     </button>
                   ))}
                 </div>
+                <div className="mt-3">
+                  <KioskButton variant="ghost" onClick={startNewOrder}>
+                    Opprett ny serviceordre
+                  </KioskButton>
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_EMPTY" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <div className="flex flex-1 flex-col items-center justify-center text-center">
+                  <h1 className="text-[34px] font-bold tracking-tight">
+                    Ingen treff
+                  </h1>
+                  <p className="mt-3 max-w-[28ch] text-[24px] font-semibold text-[#3d4454]">
+                    Ingen innlevering på dette nummeret. Du kan opprette en serviceordre her.
+                  </p>
+                </div>
+                <KioskButton onClick={startNewOrder}>
+                  Opprett serviceordre
+                </KioskButton>
+                <div className="mt-3">
+                  <KioskButton
+                    variant="ghost"
+                    onClick={() => {
+                      setPhone("");
+                      dispatch({ type: "GO", screen: "DELIVERY_PHONE" });
+                    }}
+                  >
+                    Prøv et annet nummer
+                  </KioskButton>
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_NEW_DEVICE" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="mt-2 text-[32px] font-bold tracking-tight">
+                  Velg modell
+                </h1>
+                <p className="mt-1 mb-3 text-[22px] font-semibold text-[#3d4454]">
+                  Hva skal leveres inn?
+                </p>
+                <ChoiceGrid
+                  options={KIOSK_DEVICES}
+                  onPick={(value) => {
+                    setDraftDevice(value);
+                    dispatch({ type: "GO", screen: "DELIVERY_NEW_ISSUE" });
+                  }}
+                />
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_NEW_ISSUE" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="mt-2 text-[32px] font-bold tracking-tight">
+                  Hva er galt?
+                </h1>
+                <p className="mt-1 mb-3 text-[22px] font-semibold text-[#3d4454]">
+                  {draftDevice}
+                </p>
+                <ChoiceGrid
+                  options={KIOSK_ISSUES}
+                  onPick={(value) => void finishNewOrder(value)}
+                />
               </ScreenFrame>
             ) : null}
 
@@ -705,6 +855,7 @@ export function KioskApp() {
                 busy={busy}
                 lockerOpen={lockerOpen}
                 demoFailNext={model.demoFailNext}
+                liveTickets={liveTickets}
                 onOpen={adminOpen}
                 onPrint={adminPrint}
                 onDemoFail={(kind) => dispatch({ type: "DEMO_FAIL", kind })}
@@ -782,6 +933,7 @@ function CloseStep({
 function AdminScreen({
   lockers,
   activity,
+  liveTickets,
   busy,
   lockerOpen,
   demoFailNext,
@@ -794,6 +946,7 @@ function AdminScreen({
 }: {
   lockers: LockerBay[];
   activity: ActivityEvent[];
+  liveTickets: RepairRow[];
   busy: boolean;
   lockerOpen: number | null;
   demoFailNext: ErrorKind | null;
@@ -846,10 +999,10 @@ function AdminScreen({
         </div>
         <div className="min-h-0 overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
           <p className="mb-2 text-[13px] font-bold tracking-[0.1em] text-[#3d4454]">
-            AKTIVE SAKER
+            LIVE SAKER
           </p>
           <ul className="space-y-1.5 text-[15px] font-semibold">
-            {initialRepairs.map((row) => (
+            {(liveTickets.length ? liveTickets : []).slice(0, 8).map((row) => (
               <li key={row.id} className="flex justify-between gap-3">
                 <span>
                   #{row.id} — {row.device}
@@ -857,6 +1010,9 @@ function AdminScreen({
                 <span className="text-[#3d4454]">{row.status}</span>
               </li>
             ))}
+            {liveTickets.length === 0 ? (
+              <li className="text-[#3d4454]">Ingen åpne innleveringer</li>
+            ) : null}
           </ul>
           <p className="mb-2 mt-4 text-[13px] font-bold tracking-[0.1em] text-[#3d4454]">
             AKTIVITET

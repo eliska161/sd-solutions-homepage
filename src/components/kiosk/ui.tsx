@@ -43,6 +43,29 @@ export function KioskButton({
   );
 }
 
+export function ChoiceGrid({
+  options,
+  onPick,
+}: {
+  options: readonly string[];
+  onPick: (value: string) => void;
+}) {
+  return (
+    <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-auto">
+      {options.map((option) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => onPick(option)}
+          className="min-h-[72px] border-[3px] border-[#1f2430] bg-white px-3 text-[22px] font-bold active:bg-[#d5d8de] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function ScreenFrame({
   children,
   progress,
