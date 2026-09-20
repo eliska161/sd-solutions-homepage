@@ -12,16 +12,18 @@ export function KioskButton({
 }: {
   children: ReactNode;
   onClick?: () => void;
-  variant?: "primary" | "ghost" | "home";
+  variant?: "primary" | "ghost" | "home" | "homeAlt";
   disabled?: boolean;
 }) {
   const styles = {
     primary:
-      "h-[72px] bg-[#3ecf86] text-[#0c0e0d] active:bg-[#36bf7b]",
+      "h-[76px] border-[3px] border-[#1e4e82] bg-[#2b6cb0] text-white active:bg-[#245a96]",
     ghost:
-      "h-[64px] border border-white/12 bg-white/[0.04] text-white active:bg-white/[0.08]",
+      "h-[68px] border-[3px] border-[#1f2430] bg-white text-[#1f2430] active:bg-[#e8eaee]",
     home:
-      "h-[118px] border border-white/10 bg-[#161b18] text-white active:border-[#3ecf86]/50 active:bg-[#1c2420]",
+      "h-[124px] border-[3px] border-[#1e4e82] bg-[#2b6cb0] text-white active:bg-[#245a96]",
+    homeAlt:
+      "h-[124px] border-[3px] border-[#1b1e24] bg-[#1b1e24] text-white active:bg-[#2a2e38]",
   } as const;
 
   return (
@@ -30,8 +32,9 @@ export function KioskButton({
       disabled={disabled}
       onClick={onClick}
       className={[
-        "w-full rounded-2xl text-[20px] font-semibold tracking-[0.02em]",
-        "disabled:pointer-events-none disabled:opacity-40",
+        "w-full rounded text-[22px] font-bold tracking-[0.02em]",
+        "focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]",
+        "disabled:pointer-events-none disabled:opacity-50",
         styles[variant],
       ].join(" ")}
     >
@@ -50,14 +53,14 @@ export function ScreenFrame({
   onCancel?: () => void;
 }) {
   return (
-    <div className="flex h-full flex-col px-8 py-5">
-      <div className="flex h-8 items-center justify-between">
+    <div className="flex h-full flex-col px-6 py-4">
+      <div className="flex h-10 items-center justify-between gap-3">
         {progress ? <ProgressDots step={progress} /> : <span />}
         {onCancel ? (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-full px-3 py-1 text-[13px] text-white/45 active:text-white"
+                className="h-11 min-w-[96px] rounded border-[3px] border-[#1f2430] bg-white px-4 text-[16px] font-bold text-[#1f2430] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
           >
             Avbryt
           </button>
@@ -84,14 +87,14 @@ export function KioskLogo({
         alt=""
         width={96}
         height={96}
-        className={compact ? "h-8 w-8" : "h-12 w-12"}
+        className={compact ? "h-8 w-8" : "h-9 w-9"}
         priority
       />
-      <span className="text-left">
-        <span className={compact ? "block text-[13px] font-medium" : "block text-[17px] font-medium tracking-[0.02em]"}>
+      <span className="text-left leading-tight">
+        <span className="block text-[15px] font-semibold tracking-tight">
           SD Solutions
         </span>
-        <span className="block text-[11px] tracking-[0.18em] text-white/45">
+        <span className="block text-[11px] font-semibold tracking-[0.16em] text-white/80">
           LOCKER
         </span>
       </span>
@@ -99,15 +102,15 @@ export function KioskLogo({
   );
 
   if (!onClick) {
-    return <span className="inline-flex items-center gap-3">{inner}</span>;
+    return <span className="inline-flex items-center gap-2.5">{inner}</span>;
   }
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-3 rounded-xl px-2 py-1 active:bg-white/[0.04]"
-      aria-label="SD Solutions administrasjon"
+      className="inline-flex min-h-11 items-center gap-2.5 rounded px-1 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-white"
+      aria-label="Åpne administrasjon"
     >
       {inner}
     </button>

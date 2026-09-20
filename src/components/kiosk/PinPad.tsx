@@ -30,18 +30,24 @@ export function PinPad({
   }
 
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
+  const keyClass =
+    "h-[64px] rounded border-[3px] border-[#1f2430] bg-white text-[26px] font-bold text-[#1f2430] active:bg-[#d5d8de] disabled:opacity-40 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-1 focus-visible:outline-[#1e4e82]";
 
   return (
     <div className="flex w-full max-w-[340px] flex-col items-center gap-3">
-      <div className="flex items-center gap-2.5" aria-label="PIN">
+      <div
+        className="flex items-center gap-2.5"
+        aria-label={`${value.length} av ${length} siffer skrevet inn`}
+        role="status"
+      >
         {Array.from({ length }, (_, i) => (
           <span
             key={i}
             className={[
-              "h-3.5 w-3.5 rounded-full border",
+              "h-5 w-5 rounded-full border-[3px]",
               i < value.length
-                ? "border-[#3ecf86] bg-[#3ecf86]"
-                : "border-white/25 bg-transparent",
+                ? "border-[#1e4e82] bg-[#2b6cb0]"
+                : "border-[#1f2430] bg-white",
             ].join(" ")}
           />
         ))}
@@ -53,7 +59,7 @@ export function PinPad({
             type="button"
             disabled={disabled}
             onClick={() => press(key)}
-            className="h-[54px] rounded-xl bg-white/[0.06] text-[22px] font-medium text-white active:bg-white/[0.14] disabled:opacity-40"
+            className={keyClass}
           >
             {key}
           </button>
@@ -62,16 +68,16 @@ export function PinPad({
           type="button"
           disabled={disabled}
           onClick={clear}
-          className="flex h-[54px] items-center justify-center rounded-xl bg-white/[0.04] text-white/70 active:bg-white/[0.1]"
-          aria-label="Tøm"
+          className={`${keyClass} text-[15px]`}
+          aria-label="Tøm PIN"
         >
-          <Eraser size={20} />
+          <Eraser size={22} />
         </button>
         <button
           type="button"
           disabled={disabled}
           onClick={() => press("0")}
-          className="h-[54px] rounded-xl bg-white/[0.06] text-[22px] font-medium text-white active:bg-white/[0.14]"
+          className={keyClass}
         >
           0
         </button>
@@ -79,10 +85,10 @@ export function PinPad({
           type="button"
           disabled={disabled}
           onClick={backspace}
-          className="flex h-[54px] items-center justify-center rounded-xl bg-white/[0.04] text-white/70 active:bg-white/[0.1]"
-          aria-label="Slett"
+          className={keyClass}
+          aria-label="Slett siste siffer"
         >
-          <Delete size={20} />
+          <Delete size={22} />
         </button>
       </div>
     </div>

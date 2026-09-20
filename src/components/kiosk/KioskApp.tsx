@@ -107,10 +107,10 @@ function reducer(state: Model, action: Action): Model {
 }
 
 const fade = {
-  initial: { opacity: 0, y: 8 },
+  initial: { opacity: 0, y: 6 },
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
-  transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const },
+  exit: { opacity: 0, y: -6 },
+  transition: { duration: 0.18, ease: [0.22, 1, 0.36, 1] as const },
 };
 
 export function KioskApp() {
@@ -197,7 +197,10 @@ export function KioskApp() {
   }
 
   async function startOpen(next: KioskState, retry: KioskState) {
-    dispatch({ type: "GO", screen: next === "DELIVERY_INSERT" ? "DELIVERY_OPEN_LOCKER" : "PICKUP_OPEN_LOCKER" });
+    dispatch({
+      type: "GO",
+      screen: next === "DELIVERY_INSERT" ? "DELIVERY_OPEN_LOCKER" : "PICKUP_OPEN_LOCKER",
+    });
     setLockerOpen(null);
     const ok = await hardware((fail) => openLocker(MOCK_LOCKER, fail), retry);
     if (!ok) return;
@@ -282,381 +285,384 @@ export function KioskApp() {
   };
 
   return (
-    <div className="relative h-[100dvh] w-[100dvw] overflow-hidden bg-[#0c0e0d] text-white select-none [touch-action:manipulation]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(62,207,134,0.08),transparent_42%)]" />
-      <div className="relative mx-auto flex h-full max-w-[1024px] flex-col">
-        <header className="flex h-10 shrink-0 items-center justify-between px-6 text-[12px] text-white/40">
-          <span>SD Solutions Locker</span>
-          <span className="tabular-nums">{clock}</span>
-        </header>
+    <div className="relative flex h-[100dvh] w-[100dvw] flex-col overflow-hidden bg-[#e8eaee] text-[#1f2430] select-none [touch-action:manipulation]">
+      <header className="flex h-14 shrink-0 items-center justify-between bg-[#1b1e24] px-5 text-white">
+        <KioskLogo
+          onClick={() => dispatch({ type: "GO", screen: "ADMIN_PIN" })}
+        />
+        <p className="text-[15px] font-semibold tabular-nums" aria-live="off">
+          {clock}
+        </p>
+      </header>
 
-        <div className="relative min-h-0 flex-1">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={model.screen}
-              className="absolute inset-0"
-              {...fade}
-            >
-              {model.screen === "HOME" ? (
-                <div className="flex h-full flex-col items-center justify-center px-16 pb-6">
-                  <KioskLogo onClick={() => dispatch({ type: "GO", screen: "ADMIN_PIN" })} />
-                  <div className="mt-10 grid w-full max-w-[640px] gap-4">
-                    <KioskButton
-                      variant="home"
-                      onClick={() =>
-                        dispatch({ type: "GO", screen: "DELIVERY_ENVELOPE" })
-                      }
-                    >
-                      LEVER INN ENHET
-                    </KioskButton>
-                    <KioskButton
-                      variant="home"
-                      onClick={() => dispatch({ type: "GO", screen: "PICKUP_PIN" })}
-                    >
-                      HENT ENHET
-                    </KioskButton>
-                  </div>
-                </div>
-              ) : null}
-
-              {model.screen === "DELIVERY_ENVELOPE" ? (
-                <ScreenFrame
-                  progress={1}
-                  onCancel={() => dispatch({ type: "HOME" })}
-                >
-                  <h1 className="mt-3 text-[28px] font-medium tracking-[-0.03em]">
-                    Lever inn enhet
-                  </h1>
-                  <p className="mt-1 text-[15px] text-white/55">
-                    Vi guider deg gjennom innleveringen.
-                  </p>
-                  <div className="flex flex-1 items-center">
-                    <EnvelopeVisual packed={envelopePacked} />
-                  </div>
-                  <p className="mb-4 text-center text-[17px]">
-                    Legg enheten i en plastkonvolutt
-                  </p>
-                  <KioskButton onClick={startPrint}>Jeg har gjort dette</KioskButton>
-                </ScreenFrame>
-              ) : null}
-
-              {model.screen === "DELIVERY_LABEL" ? (
-                <ScreenFrame
-                  progress={2}
-                  onCancel={() => dispatch({ type: "HOME" })}
-                >
-                  <h1 className="mt-3 text-[28px] font-medium tracking-[-0.03em]">
-                    Fest etiketten
-                  </h1>
-                  <p className="mt-1 text-[15px] text-white/55">
-                    Ta etiketten under og fest den på konvolutten
-                  </p>
-                  <div className="flex flex-1 items-center">
-                    <LabelVisual printed={labelPrinted} />
-                  </div>
+      <div className="relative mx-auto min-h-0 w-full max-w-[1024px] flex-1">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={model.screen}
+            className="absolute inset-0"
+            {...fade}
+          >
+            {model.screen === "HOME" ? (
+              <div className="flex h-full flex-col items-center justify-center px-10 pb-8">
+                <h1 className="mb-8 text-center text-[34px] font-bold tracking-tight">
+                  Hva vil du gjøre?
+                </h1>
+                <div className="grid w-full max-w-[680px] gap-4">
                   <KioskButton
-                    disabled={!labelPrinted || busy}
-                    onClick={() => startOpen("DELIVERY_INSERT", "DELIVERY_LABEL")}
-                  >
-                    Etiketten er festet
-                  </KioskButton>
-                </ScreenFrame>
-              ) : null}
-
-              {model.screen === "DELIVERY_OPEN_LOCKER" ? (
-                <ScreenFrame progress={3}>
-                  <h1 className="mt-3 text-[28px] font-medium tracking-[-0.03em]">
-                    Åpner luke...
-                  </h1>
-                  <div className="flex flex-1 items-center">
-                    <LockerVisual
-                      openId={lockerOpen}
-                      highlightId={MOCK_LOCKER}
-                      occupied={occupied}
-                    />
-                  </div>
-                </ScreenFrame>
-              ) : null}
-
-              {model.screen === "DELIVERY_INSERT" ? (
-                <ScreenFrame
-                  progress={3}
-                  onCancel={() => dispatch({ type: "HOME" })}
-                >
-                  <h1 className="mt-3 text-[28px] font-medium tracking-[-0.03em]">
-                    Legg konvolutten i luke {MOCK_LOCKER}
-                  </h1>
-                  <div className="flex flex-1 items-center">
-                    <LockerVisual
-                      openId={lockerOpen}
-                      highlightId={MOCK_LOCKER}
-                      occupied={occupied.filter((id) => id !== MOCK_LOCKER)}
-                    />
-                  </div>
-                  <KioskButton
+                    variant="home"
                     onClick={() =>
-                      dispatch({ type: "GO", screen: "DELIVERY_CLOSE_LOCKER" })
+                      dispatch({ type: "GO", screen: "DELIVERY_ENVELOPE" })
                     }
                   >
-                    Jeg har lagt den inn
+                    Lever inn enhet
                   </KioskButton>
-                </ScreenFrame>
-              ) : null}
-
-              {model.screen === "DELIVERY_CLOSE_LOCKER" ? (
-                <CloseStep
-                  progress={4}
-                  occupied={occupied}
-                  lockerOpen={lockerOpen}
-                  onClose={() => {
-                    setLockerOpen(null);
-                    void finishClose(
-                      "DELIVERY_SUCCESS",
-                      "DELIVERY_CLOSE_LOCKER",
-                      `Repair #${MOCK_TICKET} deposited`,
-                    );
-                  }}
-                />
-              ) : null}
-
-              {model.screen === "DELIVERY_SUCCESS" ? (
-                <ScreenFrame>
-                  <div className="flex flex-1 flex-col items-center justify-center text-center">
-                    <CheckVisual />
-                    <h1 className="mt-5 text-[28px] font-medium tracking-[-0.03em]">
-                      Enheten er mottatt
-                    </h1>
-                    <p className="mt-2 text-[16px] text-[#3ecf86]">
-                      Reparasjon #{MOCK_TICKET}
-                    </p>
-                    <p className="mt-2 max-w-[36ch] text-[15px] text-white/55">
-                      Du kan følge reparasjonen fra status-siden.
-                    </p>
-                  </div>
-                  <KioskButton onClick={() => dispatch({ type: "HOME" })}>
-                    Ferdig
-                  </KioskButton>
-                </ScreenFrame>
-              ) : null}
-
-              {model.screen === "PICKUP_PIN" ? (
-                <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
-                  <div className="flex h-full flex-col items-center justify-center">
-                    <h1 className="text-[28px] font-medium tracking-[-0.03em]">
-                      Hent enheten din
-                    </h1>
-                    <p className="mt-1 mb-5 text-[15px] text-white/55">
-                      Skriv inn PIN-koden du har fått.
-                    </p>
-                    <PinPad value={pin} onChange={setPin} />
-                  </div>
-                </ScreenFrame>
-              ) : null}
-
-              {model.screen === "PICKUP_FOUND" ? (
-                <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
-                  <h1 className="mt-3 text-[28px] font-medium tracking-[-0.03em]">
-                    Fant reparasjonen
-                  </h1>
-                  <div className="mx-auto mt-6 w-full max-w-[360px] rounded-2xl border border-white/10 bg-[#141816] p-5">
-                    <p className="text-[11px] tracking-[0.16em] text-white/45">
-                      SD SOLUTIONS
-                    </p>
-                    <p className="mt-2 text-[22px] font-medium">
-                      REPARASJON #{MOCK_TICKET}
-                    </p>
-                    <p className="mt-1 text-[16px] text-white/70">{MOCK_DEVICE}</p>
-                    <p className="mt-3 text-[13px] font-medium text-[#3ecf86]">
-                      KLAR FOR HENTING
-                    </p>
-                  </div>
-                  <div className="flex-1" />
                   <KioskButton
-                    onClick={() => startOpen("PICKUP_RETRIEVE", "PICKUP_FOUND")}
+                    variant="homeAlt"
+                    onClick={() => dispatch({ type: "GO", screen: "PICKUP_PIN" })}
                   >
-                    Åpne luke
+                    Hent enhet
                   </KioskButton>
-                </ScreenFrame>
-              ) : null}
+                </div>
+              </div>
+            ) : null}
 
-              {model.screen === "PICKUP_OPEN_LOCKER" ? (
-                <ScreenFrame progress={3}>
-                  <h1 className="mt-3 text-[28px] font-medium tracking-[-0.03em]">
-                    Åpner luke {MOCK_LOCKER}...
+            {model.screen === "DELIVERY_ENVELOPE" ? (
+              <ScreenFrame
+                progress={1}
+                onCancel={() => dispatch({ type: "HOME" })}
+              >
+                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                  Lever inn enhet
+                </h1>
+                <p className="mt-1 text-[18px] font-semibold text-[#3d4454]">
+                  Vi går gjennom innleveringen steg for steg.
+                </p>
+                <div className="flex flex-1 items-center">
+                  <EnvelopeVisual packed={envelopePacked} />
+                </div>
+                <p className="mb-4 text-center text-[20px] font-bold">
+                  Legg enheten i en plastkonvolutt
+                </p>
+                <KioskButton onClick={startPrint}>Jeg har gjort dette</KioskButton>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_LABEL" ? (
+              <ScreenFrame
+                progress={2}
+                onCancel={() => dispatch({ type: "HOME" })}
+              >
+                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                  Fest etiketten
+                </h1>
+                <p className="mt-1 text-[18px] font-semibold text-[#3d4454]">
+                  Ta etiketten under og fest den på konvolutten.
+                </p>
+                <div className="flex flex-1 items-center">
+                  <LabelVisual printed={labelPrinted} />
+                </div>
+                <KioskButton
+                  disabled={!labelPrinted || busy}
+                  onClick={() => startOpen("DELIVERY_INSERT", "DELIVERY_LABEL")}
+                >
+                  Etiketten er festet
+                </KioskButton>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_OPEN_LOCKER" ? (
+              <ScreenFrame progress={3}>
+                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                  Åpner luke…
+                </h1>
+                <div className="flex flex-1 items-center">
+                  <LockerVisual
+                    openId={lockerOpen}
+                    highlightId={MOCK_LOCKER}
+                    occupied={occupied}
+                  />
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_INSERT" ? (
+              <ScreenFrame
+                progress={3}
+                onCancel={() => dispatch({ type: "HOME" })}
+              >
+                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                  Legg konvolutten i luke {MOCK_LOCKER}
+                </h1>
+                <div className="flex flex-1 items-center">
+                  <LockerVisual
+                    openId={lockerOpen}
+                    highlightId={MOCK_LOCKER}
+                    occupied={occupied.filter((id) => id !== MOCK_LOCKER)}
+                  />
+                </div>
+                <KioskButton
+                  onClick={() =>
+                    dispatch({ type: "GO", screen: "DELIVERY_CLOSE_LOCKER" })
+                  }
+                >
+                  Jeg har lagt den inn
+                </KioskButton>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_CLOSE_LOCKER" ? (
+              <CloseStep
+                occupied={occupied}
+                lockerOpen={lockerOpen}
+                onClose={() => {
+                  setLockerOpen(null);
+                  void finishClose(
+                    "DELIVERY_SUCCESS",
+                    "DELIVERY_CLOSE_LOCKER",
+                    `Repair #${MOCK_TICKET} deposited`,
+                  );
+                }}
+              />
+            ) : null}
+
+            {model.screen === "DELIVERY_SUCCESS" ? (
+              <ScreenFrame>
+                <div className="flex flex-1 flex-col items-center justify-center text-center">
+                  <CheckVisual />
+                  <h1 className="mt-5 text-[30px] font-bold tracking-tight">
+                    Enheten er mottatt
                   </h1>
-                  <div className="flex flex-1 items-center">
-                    <LockerVisual
-                      openId={lockerOpen}
-                      highlightId={MOCK_LOCKER}
-                      occupied={occupied}
-                    />
-                  </div>
-                </ScreenFrame>
-              ) : null}
+                  <p className="mt-2 text-[20px] font-bold text-[#2f855a]">
+                    Reparasjon #{MOCK_TICKET}
+                  </p>
+                  <p className="mt-2 max-w-[36ch] text-[18px] font-semibold text-[#3d4454]">
+                    Du kan følge reparasjonen fra status-siden.
+                  </p>
+                </div>
+                <KioskButton onClick={() => dispatch({ type: "HOME" })}>
+                  Ferdig
+                </KioskButton>
+              </ScreenFrame>
+            ) : null}
 
-              {model.screen === "PICKUP_RETRIEVE" ? (
-                <ScreenFrame progress={3}>
-                  <h1 className="mt-3 text-[28px] font-medium tracking-[-0.03em]">
-                    Ta ut enheten din
+            {model.screen === "PICKUP_PIN" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <div className="flex h-full flex-col items-center justify-center">
+                  <h1 className="text-[30px] font-bold tracking-tight">
+                    Hent enheten din
                   </h1>
-                  <div className="flex flex-1 flex-col items-center justify-center gap-3">
-                    <LockerVisual
-                      openId={lockerOpen}
-                      highlightId={MOCK_LOCKER}
-                      occupied={occupied.filter((id) => id !== MOCK_LOCKER)}
-                    />
-                    <ParcelOutVisual visible={parcelOut || true} />
-                  </div>
-                  <KioskButton
-                    onClick={() => {
-                      setParcelOut(true);
-                      dispatch({ type: "GO", screen: "PICKUP_CLOSE_LOCKER" });
-                    }}
-                  >
-                    Jeg har hentet enheten
-                  </KioskButton>
-                </ScreenFrame>
-              ) : null}
+                  <p className="mt-1 mb-5 text-[18px] font-semibold text-[#3d4454]">
+                    Skriv inn PIN-koden du har fått.
+                  </p>
+                  <PinPad value={pin} onChange={setPin} />
+                </div>
+              </ScreenFrame>
+            ) : null}
 
-              {model.screen === "PICKUP_CLOSE_LOCKER" ? (
-                <CloseStep
-                  progress={4}
-                  occupied={occupied.filter((id) => id !== MOCK_LOCKER)}
-                  lockerOpen={lockerOpen}
-                  onClose={() => {
-                    setLockerOpen(null);
-                    void finishClose(
-                      "RATING",
-                      "PICKUP_CLOSE_LOCKER",
-                      `Locker ${MOCK_LOCKER} closed`,
-                    );
+            {model.screen === "PICKUP_FOUND" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                  Fant reparasjonen
+                </h1>
+                <div className="mx-auto mt-6 w-full max-w-[400px] border-[3px] border-[#1f2430] bg-white p-5">
+                  <p className="text-[13px] font-bold tracking-[0.14em] text-[#3d4454]">
+                    SD SOLUTIONS
+                  </p>
+                  <p className="mt-2 text-[24px] font-bold">
+                    REPARASJON #{MOCK_TICKET}
+                  </p>
+                  <p className="mt-1 text-[18px] font-semibold">{MOCK_DEVICE}</p>
+                  <p className="mt-3 text-[16px] font-bold text-[#2f855a]">
+                    Klar for henting
+                  </p>
+                </div>
+                <div className="flex-1" />
+                <KioskButton
+                  onClick={() => startOpen("PICKUP_RETRIEVE", "PICKUP_FOUND")}
+                >
+                  Åpne luke
+                </KioskButton>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "PICKUP_OPEN_LOCKER" ? (
+              <ScreenFrame progress={3}>
+                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                  Åpner luke {MOCK_LOCKER}…
+                </h1>
+                <div className="flex flex-1 items-center">
+                  <LockerVisual
+                    openId={lockerOpen}
+                    highlightId={MOCK_LOCKER}
+                    occupied={occupied}
+                  />
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "PICKUP_RETRIEVE" ? (
+              <ScreenFrame progress={3}>
+                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                  Ta ut enheten din
+                </h1>
+                <div className="flex flex-1 flex-col items-center justify-center gap-3">
+                  <LockerVisual
+                    openId={lockerOpen}
+                    highlightId={MOCK_LOCKER}
+                    occupied={occupied.filter((id) => id !== MOCK_LOCKER)}
+                  />
+                  <ParcelOutVisual visible={parcelOut || true} />
+                </div>
+                <KioskButton
+                  onClick={() => {
+                    setParcelOut(true);
+                    dispatch({ type: "GO", screen: "PICKUP_CLOSE_LOCKER" });
                   }}
-                />
-              ) : null}
+                >
+                  Jeg har hentet enheten
+                </KioskButton>
+              </ScreenFrame>
+            ) : null}
 
-              {model.screen === "RATING" ? (
-                <ScreenFrame>
-                  <div className="flex flex-1 flex-col items-center justify-center text-center">
-                    <h1 className="text-[28px] font-medium tracking-[-0.03em]">
-                      Takk for besøket
-                    </h1>
-                    <p className="mt-2 text-[15px] text-white/55">
-                      Hvordan var opplevelsen?
-                    </p>
-                    <div className="mt-8 flex gap-3">
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          aria-label={`${n} stjerner`}
-                          onClick={() => {
-                            dispatch({ type: "RATING", value: n });
-                            void submitRating(n);
-                            dispatch({ type: "GO", screen: "RATING_THANKS" });
-                          }}
-                          className="flex h-[64px] w-[64px] items-center justify-center rounded-2xl text-[#3ecf86] active:bg-white/[0.06]"
-                        >
-                          <svg viewBox="0 0 24 24" className="h-10 w-10">
-                            <path
-                              d="M12 3.2 14.6 8.8l6.2.9-4.5 4.4 1.1 6.2L12 17.4 6.6 20.3l1.1-6.2L3.2 9.7l6.2-.9L12 3.2z"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.4"
-                            />
-                          </svg>
-                        </button>
-                      ))}
-                    </div>
+            {model.screen === "PICKUP_CLOSE_LOCKER" ? (
+              <CloseStep
+                occupied={occupied.filter((id) => id !== MOCK_LOCKER)}
+                lockerOpen={lockerOpen}
+                onClose={() => {
+                  setLockerOpen(null);
+                  void finishClose(
+                    "RATING",
+                    "PICKUP_CLOSE_LOCKER",
+                    `Locker ${MOCK_LOCKER} closed`,
+                  );
+                }}
+              />
+            ) : null}
+
+            {model.screen === "RATING" ? (
+              <ScreenFrame>
+                <div className="flex flex-1 flex-col items-center justify-center text-center">
+                  <h1 className="text-[30px] font-bold tracking-tight">
+                    Takk for besøket
+                  </h1>
+                  <p className="mt-2 text-[18px] font-semibold text-[#3d4454]">
+                    Hvordan var opplevelsen?
+                  </p>
+                  <div className="mt-8 flex gap-3" role="group" aria-label="Vurdering fra 1 til 5">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        aria-label={`${n} stjerner`}
+                        onClick={() => {
+                          dispatch({ type: "RATING", value: n });
+                          void submitRating(n);
+                          dispatch({ type: "GO", screen: "RATING_THANKS" });
+                        }}
+                        className="flex h-[72px] w-[72px] items-center justify-center border-[3px] border-[#1f2430] bg-white text-[#1e4e82] active:bg-[#d6e4f3] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-10 w-10" aria-hidden>
+                          <path
+                            d="M12 3.2 14.6 8.8l6.2.9-4.5 4.4 1.1 6.2L12 17.4 6.6 20.3l1.1-6.2L3.2 9.7l6.2-.9L12 3.2z"
+                            fill="#2b6cb0"
+                            stroke="#1e4e82"
+                            strokeWidth="1.2"
+                          />
+                        </svg>
+                      </button>
+                    ))}
                   </div>
-                </ScreenFrame>
-              ) : null}
+                </div>
+              </ScreenFrame>
+            ) : null}
 
-              {model.screen === "RATING_THANKS" ? (
-                <ScreenFrame>
-                  <div className="flex flex-1 flex-col items-center justify-center text-center">
-                    <CheckVisual />
-                    <h1 className="mt-5 text-[28px] font-medium tracking-[-0.03em]">
-                      Takk for tilbakemeldingen
-                    </h1>
-                    <p className="mt-2 text-[22px] tracking-[0.2em] text-[#3ecf86]">
-                      {"★".repeat(model.rating)}
-                      <span className="text-white/20">
-                        {"☆".repeat(Math.max(0, 5 - model.rating))}
-                      </span>
-                    </p>
-                  </div>
-                  <KioskButton onClick={() => dispatch({ type: "HOME" })}>
-                    Ferdig
-                  </KioskButton>
-                </ScreenFrame>
-              ) : null}
+            {model.screen === "RATING_THANKS" ? (
+              <ScreenFrame>
+                <div className="flex flex-1 flex-col items-center justify-center text-center">
+                  <CheckVisual />
+                  <h1 className="mt-5 text-[30px] font-bold tracking-tight">
+                    Takk for tilbakemeldingen
+                  </h1>
+                  <p className="mt-2 text-[28px] font-bold tracking-[0.12em] text-[#1e4e82]" aria-label={`${model.rating} av 5 stjerner`}>
+                    {"★".repeat(model.rating)}
+                    <span className="text-[#8b93a3]">
+                      {"☆".repeat(Math.max(0, 5 - model.rating))}
+                    </span>
+                  </p>
+                </div>
+                <KioskButton onClick={() => dispatch({ type: "HOME" })}>
+                  Ferdig
+                </KioskButton>
+              </ScreenFrame>
+            ) : null}
 
-              {model.screen === "ADMIN_PIN" ? (
-                <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
-                  <div className="flex h-full flex-col items-center justify-center">
-                    <h1 className="text-[28px] font-medium tracking-[-0.03em]">
-                      Administrasjon
-                    </h1>
-                    <p className="mt-1 mb-5 text-[15px] text-white/55">
-                      Skriv inn admin-PIN.
-                    </p>
-                    <PinPad value={pin} onChange={setPin} />
-                  </div>
-                </ScreenFrame>
-              ) : null}
+            {model.screen === "ADMIN_PIN" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <div className="flex h-full flex-col items-center justify-center">
+                  <h1 className="text-[30px] font-bold tracking-tight">
+                    Administrasjon
+                  </h1>
+                  <p className="mt-1 mb-5 text-[18px] font-semibold text-[#3d4454]">
+                    Skriv inn admin-PIN.
+                  </p>
+                  <PinPad value={pin} onChange={setPin} />
+                </div>
+              </ScreenFrame>
+            ) : null}
 
-              {model.screen === "ADMIN" ? (
-                <AdminScreen
-                  lockers={model.lockers}
-                  activity={model.activity}
-                  busy={busy}
-                  lockerOpen={lockerOpen}
-                  demoFailNext={model.demoFailNext}
-                  onOpen={adminOpen}
-                  onPrint={adminPrint}
-                  onDemoFail={(kind) => dispatch({ type: "DEMO_FAIL", kind })}
-                  onTestPin={() => {
-                    setPin("");
-                    dispatch({ type: "GO", screen: "PICKUP_PIN" });
-                  }}
-                  onReset={() => dispatch({ type: "RESET" })}
-                  onBack={() => dispatch({ type: "HOME" })}
-                />
-              ) : null}
+            {model.screen === "ADMIN" ? (
+              <AdminScreen
+                lockers={model.lockers}
+                activity={model.activity}
+                busy={busy}
+                lockerOpen={lockerOpen}
+                demoFailNext={model.demoFailNext}
+                onOpen={adminOpen}
+                onPrint={adminPrint}
+                onDemoFail={(kind) => dispatch({ type: "DEMO_FAIL", kind })}
+                onTestPin={() => {
+                  setPin("");
+                  dispatch({ type: "GO", screen: "PICKUP_PIN" });
+                }}
+                onReset={() => dispatch({ type: "RESET" })}
+                onBack={() => dispatch({ type: "HOME" })}
+              />
+            ) : null}
 
-              {model.screen === "ERROR" ? (
-                <ScreenFrame>
-                  <div className="flex flex-1 flex-col items-center justify-center text-center">
-                    <p className="text-[13px] tracking-[0.16em] text-white/40">
-                      FEIL
-                    </p>
-                    <h1 className="mt-3 text-[28px] font-medium tracking-[-0.03em]">
-                      {errorCopy[model.errorKind].title}
-                    </h1>
-                    <p className="mt-2 max-w-[36ch] text-[15px] text-white/55">
-                      {errorCopy[model.errorKind].body}
-                    </p>
-                  </div>
-                  <KioskButton onClick={() => dispatch({ type: "CLEAR_ERROR" })}>
-                    Prøv igjen
-                  </KioskButton>
-                </ScreenFrame>
-              ) : null}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+            {model.screen === "ERROR" ? (
+              <ScreenFrame>
+                <div
+                  className="mx-auto mt-8 w-full max-w-[480px] border-[3px] border-[#9b2c2c] bg-white p-6 text-center"
+                  role="alert"
+                >
+                  <p className="text-[14px] font-bold tracking-[0.14em] text-[#9b2c2c]">
+                    FEIL
+                  </p>
+                  <h1 className="mt-2 text-[30px] font-bold tracking-tight">
+                    {errorCopy[model.errorKind].title}
+                  </h1>
+                  <p className="mt-2 text-[18px] font-semibold text-[#3d4454]">
+                    {errorCopy[model.errorKind].body}
+                  </p>
+                </div>
+                <div className="flex-1" />
+                <KioskButton onClick={() => dispatch({ type: "CLEAR_ERROR" })}>
+                  Prøv igjen
+                </KioskButton>
+              </ScreenFrame>
+            ) : null}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );
 }
 
 function CloseStep({
-  progress,
   occupied,
   lockerOpen,
   onClose,
 }: {
-  progress: number;
   occupied: number[];
   lockerOpen: number | null;
   onClose: () => void;
@@ -668,10 +674,8 @@ function CloseStep({
   }, []);
 
   return (
-    <ScreenFrame progress={progress}>
-      <h1 className="mt-3 text-[28px] font-medium tracking-[-0.03em]">
-        Lukk luken
-      </h1>
+    <ScreenFrame progress={4}>
+      <h1 className="mt-3 text-[30px] font-bold tracking-tight">Lukk luken</h1>
       <div className="flex flex-1 items-center">
         <LockerVisual
           openId={closing ? null : lockerOpen}
@@ -710,19 +714,18 @@ function AdminScreen({
   onBack: () => void;
 }) {
   return (
-    <div className="flex h-full flex-col px-6 py-3">
+    <div className="flex h-full flex-col px-6 py-4">
       <div className="mb-3 flex items-center justify-between">
-        <KioskLogo compact />
-        <p className="text-right text-[13px] text-white/50">
-          Administrasjon
-          <span className="mt-0.5 block text-[11px] text-white/30">
-            Kunde-PIN 123456
-          </span>
+        <h1 className="text-[24px] font-bold">Administrasjon</h1>
+        <p className="text-[15px] font-semibold text-[#3d4454]">
+          Kunde-PIN 123456
         </p>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-[1.1fr_1fr] gap-4">
         <div>
-          <p className="mb-2 text-[12px] tracking-[0.12em] text-white/40">LUKER</p>
+          <p className="mb-2 text-[13px] font-bold tracking-[0.1em] text-[#3d4454]">
+            LUKER
+          </p>
           <div className="grid grid-cols-2 gap-2">
             {lockers.map((bay) => (
               <button
@@ -730,10 +733,12 @@ function AdminScreen({
                 type="button"
                 disabled={busy}
                 onClick={() => onOpen(bay.id)}
-                className="rounded-xl border border-white/10 bg-[#141816] px-3 py-3 text-left active:bg-[#1b211e]"
+                className="border-[3px] border-[#1f2430] bg-white px-3 py-3 text-left active:bg-[#d5d8de] disabled:opacity-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
               >
-                <p className="text-[13px] text-white/50">Luke {bay.id}</p>
-                <p className="mt-1 text-[16px] font-medium">
+                <p className="text-[14px] font-semibold text-[#3d4454]">
+                  Luke {bay.id}
+                </p>
+                <p className="mt-1 text-[18px] font-bold">
                   {lockerOpen === bay.id
                     ? "Lås åpnet"
                     : bay.status === "occupied"
@@ -748,24 +753,24 @@ function AdminScreen({
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
         </div>
-        <div className="min-h-0 overflow-hidden">
-          <p className="mb-2 text-[12px] tracking-[0.12em] text-white/40">
+        <div className="min-h-0 overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
+          <p className="mb-2 text-[13px] font-bold tracking-[0.1em] text-[#3d4454]">
             AKTIVE SAKER
           </p>
-          <ul className="space-y-1.5 text-[14px]">
+          <ul className="space-y-1.5 text-[15px] font-semibold">
             {initialRepairs.map((row) => (
-              <li key={row.id} className="flex justify-between gap-3 text-white/80">
+              <li key={row.id} className="flex justify-between gap-3">
                 <span>
                   #{row.id} — {row.device}
                 </span>
-                <span className="text-white/45">{row.status}</span>
+                <span className="text-[#3d4454]">{row.status}</span>
               </li>
             ))}
           </ul>
-          <p className="mb-2 mt-4 text-[12px] tracking-[0.12em] text-white/40">
+          <p className="mb-2 mt-4 text-[13px] font-bold tracking-[0.1em] text-[#3d4454]">
             AKTIVITET
           </p>
-          <ul className="space-y-1 text-[13px] text-white/55">
+          <ul className="space-y-1 text-[14px] font-semibold text-[#3d4454]">
             {activity.map((row) => (
               <li key={row.id}>
                 {row.time} — {row.message}
@@ -774,7 +779,7 @@ function AdminScreen({
           </ul>
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <DemoChip
           active={demoFailNext === "locker"}
           onClick={() => onDemoFail(demoFailNext === "locker" ? null : "locker")}
@@ -796,7 +801,7 @@ function AdminScreen({
         <button
           type="button"
           onClick={onReset}
-          className="rounded-full px-3 py-2 text-[13px] text-white/45"
+          className="h-12 border-[3px] border-[#1f2430] bg-white px-4 text-[15px] font-bold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
         >
           Tilbakestill
         </button>
@@ -804,7 +809,7 @@ function AdminScreen({
         <button
           type="button"
           onClick={onBack}
-          className="h-12 min-w-[120px] rounded-xl bg-[#3ecf86] px-5 text-[15px] font-semibold text-[#0c0e0d]"
+          className="h-12 min-w-[140px] border-[3px] border-[#1e4e82] bg-[#2b6cb0] px-5 text-[16px] font-bold text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
         >
           Tilbake
         </button>
@@ -824,7 +829,7 @@ function MiniAction({
     <button
       type="button"
       onClick={onClick}
-      className="h-12 rounded-xl border border-white/10 text-[13px] text-white/80 active:bg-white/[0.05]"
+      className="h-12 border-[3px] border-[#1f2430] bg-white text-[14px] font-bold active:bg-[#d5d8de] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
     >
       {children}
     </button>
@@ -844,9 +849,12 @@ function DemoChip({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={[
-        "rounded-full px-3 py-2 text-[12px]",
-        active ? "bg-[#3ecf86]/20 text-[#3ecf86]" : "text-white/40",
+        "h-12 border-[3px] px-3 text-[14px] font-bold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]",
+        active
+          ? "border-[#9b2c2c] bg-[#9b2c2c] text-white"
+          : "border-[#1f2430] bg-white text-[#1f2430]",
       ].join(" ")}
     >
       {children}
