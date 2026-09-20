@@ -32,7 +32,7 @@ export function KioskButton({
       disabled={disabled}
       onClick={onClick}
       className={[
-        "w-full rounded text-[22px] font-bold tracking-[0.02em]",
+        "w-full rounded text-[26px] font-bold tracking-[0.02em]",
         "focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]",
         "disabled:pointer-events-none disabled:opacity-50",
         styles[variant],

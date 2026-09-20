@@ -9,16 +9,17 @@ import {
   EnvelopeVisual,
   LabelVisual,
   LockerVisual,
-  ParcelOutVisual,
 } from "@/components/kiosk/visuals";
 import {
   clockLabel,
   closeLocker,
+  findDropoffsByPhone,
   initialActivity,
   initialLockers,
   initialRepairs,
   MOCK_DEVICE,
   MOCK_LOCKER,
+  MOCK_PHONE,
   MOCK_TICKET,
   nowTime,
   openLocker,
@@ -31,6 +32,7 @@ import type {
   ErrorKind,
   KioskState,
   LockerBay,
+  RepairRow,
 } from "@/lib/kiosk/types";
 
 type Model = {
@@ -116,12 +118,16 @@ const fade = {
 export function KioskApp() {
   const [model, dispatch] = useReducer(reducer, initial);
   const [pin, setPin] = useState("");
+  const [phone, setPhone] = useState("");
   const [clock, setClock] = useState(clockLabel);
   const [busy, setBusy] = useState(false);
-  const [envelopePacked, setEnvelopePacked] = useState(false);
   const [labelPrinted, setLabelPrinted] = useState(false);
   const [lockerOpen, setLockerOpen] = useState<number | null>(null);
-  const [parcelOut, setParcelOut] = useState(false);
+  const [matches, setMatches] = useState<RepairRow[]>([]);
+  const [selected, setSelected] = useState<RepairRow | null>(null);
+
+  const ticket = selected?.id ?? MOCK_TICKET;
+  const device = selected?.device ?? MOCK_DEVICE;
 
   useEffect(() => {
     const id = setInterval(() => setClock(clockLabel()), 15_000);
@@ -129,11 +135,11 @@ export function KioskApp() {
   }, []);
 
   useEffect(() => {
-    if (model.screen === "ADMIN") return;
+    if (model.screen === "ADMIN" || model.screen === "ADMIN_PIN") return;
     if (model.screen === "HOME") return;
     const id = setTimeout(() => dispatch({ type: "HOME" }), 90_000);
     return () => clearTimeout(id);
-  }, [model.screen]);
+  }, [model.screen, pin, phone]);
 
   useEffect(() => {
     if (model.screen !== "DELIVERY_SUCCESS" && model.screen !== "RATING_THANKS") {
@@ -144,13 +150,13 @@ export function KioskApp() {
   }, [model.screen]);
 
   useEffect(() => {
-    if (model.screen === "DELIVERY_ENVELOPE") setEnvelopePacked(true);
     if (model.screen === "HOME") {
-      setEnvelopePacked(false);
       setLabelPrinted(false);
       setLockerOpen(null);
-      setParcelOut(false);
       setPin("");
+      setPhone("");
+      setMatches([]);
+      setSelected(null);
       setBusy(false);
     }
   }, [model.screen]);
@@ -245,6 +251,34 @@ export function KioskApp() {
     dispatch({ type: "GO", screen: "ADMIN" });
   }
 
+  async function lookupPhone() {
+    if (phone.length < 8) return;
+    if (model.demoFailNext === "network") {
+      dispatch({ type: "ERROR", kind: "network", retry: "DELIVERY_PHONE" });
+      return;
+    }
+    setBusy(true);
+    const result = await findDropoffsByPhone(phone);
+    setBusy(false);
+    if (!result.ok) {
+      dispatch({ type: "ERROR", kind: result.reason ?? "network", retry: "DELIVERY_PHONE" });
+      return;
+    }
+    if (result.repairs.length === 0) {
+      dispatch({ type: "ERROR", kind: "notfound", retry: "DELIVERY_PHONE" });
+      setPhone("");
+      return;
+    }
+    setMatches(result.repairs);
+    dispatch({ type: "GO", screen: "DELIVERY_SELECT" });
+  }
+
+  useEffect(() => {
+    if (phone.length !== 8) return;
+    if (model.screen === "DELIVERY_PHONE") void lookupPhone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone, model.screen]);
+
   useEffect(() => {
     if (pin.length !== 6) return;
     if (model.screen === "PICKUP_PIN") submitCustomerPin();
@@ -282,6 +316,10 @@ export function KioskApp() {
       title: "Noe gikk galt",
       body: "Handlingen ble ikke fullført.",
     },
+    notfound: {
+      title: "Ingen treff",
+      body: "Vi fant ingen innleveringer på dette nummeret.",
+    },
   };
 
   return (
@@ -304,14 +342,14 @@ export function KioskApp() {
           >
             {model.screen === "HOME" ? (
               <div className="flex h-full flex-col items-center justify-center px-10 pb-8">
-                <h1 className="mb-8 text-center text-[34px] font-bold tracking-tight">
+                <h1 className="mb-8 text-center text-[40px] font-bold tracking-tight">
                   Hva vil du gjøre?
                 </h1>
                 <div className="grid w-full max-w-[680px] gap-4">
                   <KioskButton
                     variant="home"
                     onClick={() =>
-                      dispatch({ type: "GO", screen: "DELIVERY_ENVELOPE" })
+                      dispatch({ type: "GO", screen: "DELIVERY_PHONE" })
                     }
                   >
                     Lever inn enhet
@@ -326,21 +364,68 @@ export function KioskApp() {
               </div>
             ) : null}
 
+            {model.screen === "DELIVERY_PHONE" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <div className="flex h-full flex-col items-center justify-center">
+                  <h1 className="text-[34px] font-bold tracking-tight">
+                    Lever inn enhet
+                  </h1>
+                  <p className="mt-2 mb-5 text-center text-[24px] font-semibold text-[#3d4454]">
+                    Skriv inn telefonnummeret saken er registrert på.
+                  </p>
+                  <PinPad
+                    mode="phone"
+                    length={8}
+                    value={phone}
+                    onChange={setPhone}
+                    disabled={busy}
+                  />
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_SELECT" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="mt-2 text-[32px] font-bold tracking-tight">
+                  Velg reparasjon
+                </h1>
+                <p className="mt-1 mb-4 text-[22px] font-semibold text-[#3d4454]">
+                  Trykk på saken du skal levere inn.
+                </p>
+                <div className="grid min-h-0 flex-1 content-start gap-3 overflow-auto">
+                  {matches.map((row) => (
+                    <button
+                      key={row.id}
+                      type="button"
+                      onClick={() => {
+                        setSelected(row);
+                        dispatch({ type: "GO", screen: "DELIVERY_ENVELOPE" });
+                      }}
+                      className="w-full border-[3px] border-[#1f2430] bg-white px-5 py-4 text-left active:bg-[#d5d8de] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
+                    >
+                      <p className="text-[26px] font-bold">Reparasjon #{row.id}</p>
+                      <p className="mt-1 text-[22px] font-semibold">{row.device}</p>
+                      <p className="mt-1 text-[18px] font-bold text-[#2b6cb0]">
+                        {row.status}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </ScreenFrame>
+            ) : null}
+
             {model.screen === "DELIVERY_ENVELOPE" ? (
               <ScreenFrame
                 progress={1}
                 onCancel={() => dispatch({ type: "HOME" })}
               >
-                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                <h1 className="mt-2 text-[32px] font-bold tracking-tight">
                   Lever inn enhet
                 </h1>
-                <p className="mt-1 text-[18px] font-semibold text-[#3d4454]">
-                  Vi går gjennom innleveringen steg for steg.
-                </p>
                 <div className="flex flex-1 items-center">
-                  <EnvelopeVisual packed={envelopePacked} />
+                  <EnvelopeVisual />
                 </div>
-                <p className="mb-4 text-center text-[20px] font-bold">
+                <p className="mb-4 text-center text-[32px] font-bold leading-tight">
                   Legg enheten i en plastkonvolutt
                 </p>
                 <KioskButton onClick={startPrint}>Jeg har gjort dette</KioskButton>
@@ -352,15 +437,15 @@ export function KioskApp() {
                 progress={2}
                 onCancel={() => dispatch({ type: "HOME" })}
               >
-                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                <h1 className="mt-2 text-[32px] font-bold tracking-tight">
                   Fest etiketten
                 </h1>
-                <p className="mt-1 text-[18px] font-semibold text-[#3d4454]">
-                  Ta etiketten under og fest den på konvolutten.
-                </p>
                 <div className="flex flex-1 items-center">
-                  <LabelVisual printed={labelPrinted} />
+                  <LabelVisual printed={labelPrinted} ticket={ticket} device={device} />
                 </div>
+                <p className="mb-4 text-center text-[32px] font-bold leading-tight">
+                  Ta etiketten og fest den på konvolutten
+                </p>
                 <KioskButton
                   disabled={!labelPrinted || busy}
                   onClick={() => startOpen("DELIVERY_INSERT", "DELIVERY_LABEL")}
@@ -372,7 +457,7 @@ export function KioskApp() {
 
             {model.screen === "DELIVERY_OPEN_LOCKER" ? (
               <ScreenFrame progress={3}>
-                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                <h1 className="mt-2 text-[32px] font-bold tracking-tight">
                   Åpner luke…
                 </h1>
                 <div className="flex flex-1 items-center">
@@ -390,7 +475,7 @@ export function KioskApp() {
                 progress={3}
                 onCancel={() => dispatch({ type: "HOME" })}
               >
-                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                <h1 className="mt-2 text-[32px] font-bold leading-tight tracking-tight">
                   Legg konvolutten i luke {MOCK_LOCKER}
                 </h1>
                 <div className="flex flex-1 items-center">
@@ -398,6 +483,7 @@ export function KioskApp() {
                     openId={lockerOpen}
                     highlightId={MOCK_LOCKER}
                     occupied={occupied.filter((id) => id !== MOCK_LOCKER)}
+                    action="insert"
                   />
                 </div>
                 <KioskButton
@@ -419,7 +505,7 @@ export function KioskApp() {
                   void finishClose(
                     "DELIVERY_SUCCESS",
                     "DELIVERY_CLOSE_LOCKER",
-                    `Repair #${MOCK_TICKET} deposited`,
+                    `Repair #${ticket} deposited`,
                   );
                 }}
               />
@@ -429,13 +515,13 @@ export function KioskApp() {
               <ScreenFrame>
                 <div className="flex flex-1 flex-col items-center justify-center text-center">
                   <CheckVisual />
-                  <h1 className="mt-5 text-[30px] font-bold tracking-tight">
+                  <h1 className="mt-5 text-[34px] font-bold tracking-tight">
                     Enheten er mottatt
                   </h1>
-                  <p className="mt-2 text-[20px] font-bold text-[#2f855a]">
-                    Reparasjon #{MOCK_TICKET}
+                  <p className="mt-2 text-[26px] font-bold text-[#2f855a]">
+                    Reparasjon #{ticket}
                   </p>
-                  <p className="mt-2 max-w-[36ch] text-[18px] font-semibold text-[#3d4454]">
+                  <p className="mt-2 max-w-[36ch] text-[22px] font-semibold text-[#3d4454]">
                     Du kan følge reparasjonen fra status-siden.
                   </p>
                 </div>
@@ -448,10 +534,10 @@ export function KioskApp() {
             {model.screen === "PICKUP_PIN" ? (
               <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
                 <div className="flex h-full flex-col items-center justify-center">
-                  <h1 className="text-[30px] font-bold tracking-tight">
+                  <h1 className="text-[34px] font-bold tracking-tight">
                     Hent enheten din
                   </h1>
-                  <p className="mt-1 mb-5 text-[18px] font-semibold text-[#3d4454]">
+                  <p className="mt-2 mb-5 text-[24px] font-semibold text-[#3d4454]">
                     Skriv inn PIN-koden du har fått.
                   </p>
                   <PinPad value={pin} onChange={setPin} />
@@ -461,7 +547,7 @@ export function KioskApp() {
 
             {model.screen === "PICKUP_FOUND" ? (
               <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
-                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                <h1 className="mt-2 text-[32px] font-bold tracking-tight">
                   Fant reparasjonen
                 </h1>
                 <div className="mx-auto mt-6 w-full max-w-[400px] border-[3px] border-[#1f2430] bg-white p-5">
@@ -487,7 +573,7 @@ export function KioskApp() {
 
             {model.screen === "PICKUP_OPEN_LOCKER" ? (
               <ScreenFrame progress={3}>
-                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                <h1 className="mt-2 text-[32px] font-bold tracking-tight">
                   Åpner luke {MOCK_LOCKER}…
                 </h1>
                 <div className="flex flex-1 items-center">
@@ -502,20 +588,22 @@ export function KioskApp() {
 
             {model.screen === "PICKUP_RETRIEVE" ? (
               <ScreenFrame progress={3}>
-                <h1 className="mt-3 text-[30px] font-bold tracking-tight">
+                <h1 className="mt-2 text-[32px] font-bold tracking-tight">
                   Ta ut enheten din
                 </h1>
-                <div className="flex flex-1 flex-col items-center justify-center gap-3">
+                <div className="flex flex-1 items-center">
                   <LockerVisual
                     openId={lockerOpen}
                     highlightId={MOCK_LOCKER}
                     occupied={occupied.filter((id) => id !== MOCK_LOCKER)}
+                    action="retrieve"
                   />
-                  <ParcelOutVisual visible={parcelOut || true} />
                 </div>
+                <p className="mb-4 text-center text-[32px] font-bold leading-tight">
+                  Ta ut konvolutten fra luke {MOCK_LOCKER}
+                </p>
                 <KioskButton
                   onClick={() => {
-                    setParcelOut(true);
                     dispatch({ type: "GO", screen: "PICKUP_CLOSE_LOCKER" });
                   }}
                 >
@@ -675,7 +763,7 @@ function CloseStep({
 
   return (
     <ScreenFrame progress={4}>
-      <h1 className="mt-3 text-[30px] font-bold tracking-tight">Lukk luken</h1>
+      <h1 className="mt-2 text-[32px] font-bold tracking-tight">Lukk luken</h1>
       <div className="flex flex-1 items-center">
         <LockerVisual
           openId={closing ? null : lockerOpen}
@@ -683,6 +771,9 @@ function CloseStep({
           occupied={occupied}
         />
       </div>
+      <p className="mb-4 text-center text-[32px] font-bold leading-tight">
+        Skyv luken igjen
+      </p>
       <KioskButton onClick={onClose}>Luken er lukket</KioskButton>
     </ScreenFrame>
   );
@@ -718,7 +809,7 @@ function AdminScreen({
       <div className="mb-3 flex items-center justify-between">
         <h1 className="text-[24px] font-bold">Administrasjon</h1>
         <p className="text-[15px] font-semibold text-[#3d4454]">
-          Kunde-PIN 123456
+                    Kunde-PIN 123456 · Innlevering {MOCK_PHONE}
         </p>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-[1.1fr_1fr] gap-4">

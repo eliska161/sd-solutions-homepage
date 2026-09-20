@@ -1,17 +1,20 @@
 "use client";
 
 import { Delete, Eraser } from "lucide-react";
+import { formatNoMobile } from "@/lib/kiosk/mock";
 
 export function PinPad({
   value,
   length = 6,
   onChange,
   disabled,
+  mode = "pin",
 }: {
   value: string;
   length?: number;
   onChange: (next: string) => void;
   disabled?: boolean;
+  mode?: "pin" | "phone";
 }) {
   function press(digit: string) {
     if (disabled) return;
@@ -35,23 +38,37 @@ export function PinPad({
 
   return (
     <div className="flex w-full max-w-[340px] flex-col items-center gap-3">
-      <div
-        className="flex items-center gap-2.5"
-        aria-label={`${value.length} av ${length} siffer skrevet inn`}
-        role="status"
-      >
-        {Array.from({ length }, (_, i) => (
-          <span
-            key={i}
-            className={[
-              "h-5 w-5 rounded-full border-[3px]",
-              i < value.length
-                ? "border-[#1e4e82] bg-[#2b6cb0]"
-                : "border-[#1f2430] bg-white",
-            ].join(" ")}
-          />
-        ))}
-      </div>
+      {mode === "phone" ? (
+        <p
+          className="min-h-[48px] text-[32px] font-bold tabular-nums tracking-wide"
+          aria-label={`${value.length} av ${length} siffer skrevet inn`}
+          role="status"
+        >
+          {value.length === 0 ? (
+            <span className="text-[#8b93a3]">+47 •••• ••••</span>
+          ) : (
+            formatNoMobile(value)
+          )}
+        </p>
+      ) : (
+        <div
+          className="flex items-center gap-2.5"
+          aria-label={`${value.length} av ${length} siffer skrevet inn`}
+          role="status"
+        >
+          {Array.from({ length }, (_, i) => (
+            <span
+              key={i}
+              className={[
+                "h-5 w-5 rounded-full border-[3px]",
+                i < value.length
+                  ? "border-[#1e4e82] bg-[#2b6cb0]"
+                  : "border-[#1f2430] bg-white",
+              ].join(" ")}
+            />
+          ))}
+        </div>
+      )}
       <div className="grid w-full grid-cols-3 gap-2">
         {keys.map((key) => (
           <button
@@ -69,7 +86,7 @@ export function PinPad({
           disabled={disabled}
           onClick={clear}
           className={`${keyClass} text-[15px]`}
-          aria-label="Tøm PIN"
+          aria-label={mode === "phone" ? "Tøm nummer" : "Tøm PIN"}
         >
           <Eraser size={22} />
         </button>
