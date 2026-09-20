@@ -20,7 +20,6 @@ import {
   clockLabel,
   closeLocker,
   createKioskServiceOrder,
-  findDropoffsByPhone,
   initialActivity,
   initialLockers,
   KIOSK_DEVICES,
@@ -127,7 +126,7 @@ export function KioskApp() {
   const [model, dispatch] = useReducer(reducer, initial);
   const [pin, setPin] = useState("");
   const [phone, setPhone] = useState("");
-  const [clock, setClock] = useState(clockLabel);
+  const [clock, setClock] = useState("");
   const [busy, setBusy] = useState(false);
   const [labelPrinted, setLabelPrinted] = useState(false);
   const [lockerOpen, setLockerOpen] = useState<number | null>(null);
@@ -141,6 +140,7 @@ export function KioskApp() {
   const device = selected?.device ?? MOCK_DEVICE;
 
   useEffect(() => {
+    setClock(clockLabel());
     const id = setInterval(() => setClock(clockLabel()), 15_000);
     return () => clearInterval(id);
   }, []);
@@ -276,12 +276,14 @@ export function KioskApp() {
     }
     const gen = ++lookupGen.current;
     if (!opts?.silent) setBusy(true);
-    let result = await lookupLiveDropoffs(phone);
+    const result = await lookupLiveDropoffs(phone);
     if (!result.ok) {
-      const fallback = await findDropoffsByPhone(phone);
-      result = fallback.ok
-        ? { ok: true, repairs: fallback.repairs }
-        : { ok: false, error: "Ingen nettverk" };
+      if (!opts?.silent) setBusy(false);
+      if (gen !== lookupGen.current) return;
+      if (!opts?.silent) {
+        dispatch({ type: "ERROR", kind: "network", retry: "DELIVERY_PHONE" });
+      }
+      return;
     }
     if (gen !== lookupGen.current) {
       if (!opts?.silent) setBusy(false);
@@ -404,7 +406,7 @@ export function KioskApp() {
         <KioskLogo
           onClick={() => dispatch({ type: "GO", screen: "ADMIN_PIN" })}
         />
-        <p className="text-[15px] font-semibold tabular-nums" aria-live="off">
+        <p className="text-[15px] font-semibold tabular-nums" suppressHydrationWarning>
           {clock}
         </p>
       </header>
@@ -885,9 +887,25 @@ export function KioskApp() {
                   </p>
                 </div>
                 <div className="flex-1" />
-                <KioskButton onClick={() => dispatch({ type: "CLEAR_ERROR" })}>
-                  Prøv igjen
-                </KioskButton>
+                {model.errorKind === "notfound" ? (
+                  <>
+                    <KioskButton onClick={startNewOrder}>
+                      Opprett serviceordre
+                    </KioskButton>
+                    <div className="mt-3">
+                      <KioskButton
+                        variant="ghost"
+                        onClick={() => dispatch({ type: "CLEAR_ERROR" })}
+                      >
+                        Prøv igjen
+                      </KioskButton>
+                    </div>
+                  </>
+                ) : (
+                  <KioskButton onClick={() => dispatch({ type: "CLEAR_ERROR" })}>
+                    Prøv igjen
+                  </KioskButton>
+                )}
               </ScreenFrame>
             ) : null}
           </motion.div>

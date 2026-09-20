@@ -12,9 +12,14 @@ export async function lookupLiveDropoffs(phone: string): Promise<KioskLookupResu
       body: JSON.stringify({ action: "lookup", phone }),
       cache: "no-store",
     });
-    const data = await res.json();
-    if (!data?.ok) return { ok: false, error: data?.error || "Kunne ikke hente saker" };
-    return { ok: true, repairs: data.repairs ?? [] };
+    const text = await res.text();
+    try {
+      const data = JSON.parse(text);
+      if (!data?.ok) return { ok: false, error: data?.error || "Kunne ikke hente saker" };
+      return { ok: true, repairs: data.repairs ?? [] };
+    } catch {
+      return { ok: false, error: "Kunne ikke hente saker" };
+    }
   } catch {
     return { ok: false, error: "Ingen nettverk" };
   }
