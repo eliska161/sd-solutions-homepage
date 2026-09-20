@@ -713,7 +713,12 @@ function AdminScreen({
     <div className="flex h-full flex-col px-6 py-3">
       <div className="mb-3 flex items-center justify-between">
         <KioskLogo compact />
-        <p className="text-[15px] text-white/50">Administrasjon</p>
+        <p className="text-right text-[13px] text-white/50">
+          Administrasjon
+          <span className="mt-0.5 block text-[11px] text-white/30">
+            Kunde-PIN 123456
+          </span>
+        </p>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-[1.1fr_1fr] gap-4">
         <div>
