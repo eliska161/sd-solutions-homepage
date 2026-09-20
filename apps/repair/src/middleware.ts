@@ -14,6 +14,7 @@ export function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/public") ||
+    pathname.startsWith("/api/kiosk") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico)$/)
