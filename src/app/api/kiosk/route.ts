@@ -28,9 +28,16 @@ async function forward(request: Request) {
   try {
     const res = await fetch(target, init);
     const text = await res.text();
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      return NextResponse.json(
+        { ok: false, error: "Kiosken når ikke reparasjonsdatabasen." },
+        { status: 502 },
+      );
+    }
     return new NextResponse(text, {
       status: res.status,
-      headers: { "Content-Type": res.headers.get("content-type") || "application/json" },
+      headers: { "Content-Type": "application/json" },
     });
   } catch {
     return NextResponse.json(

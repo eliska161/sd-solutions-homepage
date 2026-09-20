@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, notInArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, or, sql } from "drizzle-orm";
 import { customers, devices, repairNotes, repairTickets, repairTicketStatusHistory } from "@/db/schema";
 import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
@@ -30,13 +30,13 @@ function lastEight(raw: string) {
 function phoneWhere(raw: string) {
   const eight = lastEight(raw);
   const e164 = toE164Phone(raw) ?? toE164Phone(`+47${eight}`);
-  const parts = [
+  return or(
+    e164 ? eq(customers.phone, e164) : sql`false`,
     eq(customers.phone, eight),
     eq(customers.phone, `+47${eight}`),
-    sql`right(regexp_replace(${customers.phone}, '[^0-9]', '', 'g'), 8) = ${eight}`,
-  ];
-  if (e164) parts.unshift(eq(customers.phone, e164));
-  return or(...parts);
+    sql`right(regexp_replace(coalesce(${customers.phone}, ''), '[^0-9]', '', 'g'), 8) = ${eight}`,
+    sql`regexp_replace(coalesce(${customers.phone}, ''), '[^0-9]', '', 'g') like ${"%" + eight}`,
+  );
 }
 
 function mapRow(row: {
@@ -47,7 +47,8 @@ function mapRow(row: {
   phone: string;
 }): KioskRepair {
   const pickup = row.status === "READY_FOR_PICKUP";
-  const dropoff = !row.receivedAt && !pickup && !CLOSED.includes(row.status as (typeof CLOSED)[number]);
+  const closed = CLOSED.includes(row.status as (typeof CLOSED)[number]);
+  const dropoff = !pickup && !closed;
   return {
     id: row.ticketNumber,
     device: row.model,
@@ -96,13 +97,12 @@ export async function lookupKioskDropoffs(phoneRaw: string): Promise<KioskRepair
     .where(
       and(
         phoneWhere(phoneRaw),
-        isNull(repairTickets.receivedAt),
-        notInArray(repairTickets.status, [...CLOSED]),
+        sql`${repairTickets.status} not in ('CANCELLED', 'COMPLETED', 'RETURNED')`,
       ),
     )
     .orderBy(desc(repairTickets.updatedAt))
     .limit(20);
-  return rows.map(mapRow).filter((row) => row.kind === "dropoff");
+  return rows.map(mapRow);
 }
 
 export async function kioskBoard() {
@@ -118,12 +118,7 @@ export async function kioskBoard() {
     .from(repairTickets)
     .innerJoin(customers, eq(customers.id, repairTickets.customerId))
     .innerJoin(devices, eq(devices.id, repairTickets.deviceId))
-    .where(
-      and(
-        isNull(repairTickets.receivedAt),
-        notInArray(repairTickets.status, [...CLOSED]),
-      ),
-    )
+    .where(sql`${repairTickets.status} not in ('CANCELLED', 'COMPLETED', 'RETURNED')`)
     .orderBy(desc(repairTickets.updatedAt))
     .limit(12);
 
