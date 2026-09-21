@@ -1,5 +1,5 @@
 /**
- * ESC/POS for 58 mm labels. Height is compact (~12 mm) with small type.
+ * ESC/POS for 80 mm thermal (576 dots at 203 DPI). Height follows the layout.
  * Logo and CODE128 are raster so native GS k cannot print as garbage.
  */
 
@@ -8,9 +8,9 @@ import { LEGAL_VERSION } from "@/lib/legal";
 const ESC = 0x1b;
 const GS = 0x1d;
 
-/** Usual 58 mm printable width at 203 DPI. */
-export const LABEL_WIDTH_DOTS = 384;
-export const LABEL_HEIGHT_DOTS = 96;
+/** Standard 80 mm printable width at 203 DPI. */
+export const LABEL_WIDTH_DOTS = 576;
+export const LABEL_HEIGHT_DOTS = 200;
 
 function concat(...parts: Uint8Array[]) {
   const size = parts.reduce((n, p) => n + p.length, 0);
@@ -354,27 +354,28 @@ export async function buildLockerSticker(input: StickerInput) {
   const version = (input.version || LEGAL_VERSION).trim();
   const w = LABEL_WIDTH_DOTS;
   const map = new Bitmap(w, LABEL_HEIGHT_DOTS);
-  const pad = 4;
-  const logo = 32;
-  const top = 2;
+  const pad = 12;
+  const logo = 88;
+  const top = 8;
 
   await stampPngLogo(map, pad, top, logo);
-  const barcodeMax = 200;
+  const barcodeMax = 340;
   const barW = barcodePixelWidth(ticket, barcodeMax).width;
-  drawBarcode(map, ticket, w - pad - barW, top + 1, barcodeMax, 30);
+  drawBarcode(map, ticket, w - pad - barW, top + 8, barcodeMax, 72);
 
-  const mid = 40;
-  map.text(model.slice(0, 16), pad, mid, 1);
-  const specX = Math.min(170, pad + map.textWidth(model.slice(0, 16), 1) + 8);
-  if (storage) map.text(storage.slice(0, 10), specX, mid, 1);
-  if (color) map.text(color.slice(0, 12), specX, mid + 10, 1);
-  if (phone) map.textRight(phone, w - pad, mid, 1);
+  const mid = 108;
+  map.text(model.slice(0, 18), pad, mid, 2);
+  const specX = Math.min(280, pad + map.textWidth(model.slice(0, 18), 2) + 16);
+  if (storage) map.text(storage.slice(0, 10), specX, mid, 2);
+  if (color) map.text(color.slice(0, 12), specX, mid + 20, 2);
+  if (phone) map.textRight(phone, w - pad, mid, 2);
 
-  const lineY = 64;
+  const lineY = 156;
   for (let x = pad; x < w - pad; x++) map.set(x, lineY);
+  for (let x = pad; x < w - pad; x++) map.set(x, lineY + 1);
 
-  if (grade) map.text(grade, pad, 72, 1);
-  if (version) map.textRight(version, w - pad, 72, 1);
+  if (grade) map.text(grade, pad, 168, 2);
+  if (version) map.textRight(version, w - pad, 168, 2);
 
   return concat(
     cmd(ESC, 0x40),
@@ -383,6 +384,6 @@ export async function buildLockerSticker(input: StickerInput) {
     cmd(GS, 0x57, w & 0xff, (w >> 8) & 0xff),
     cmd(ESC, 0x33, 0),
     gsRaster(map),
-    cmd(ESC, 0x4a, 12),
+    cmd(ESC, 0x4a, 24),
   );
 }
