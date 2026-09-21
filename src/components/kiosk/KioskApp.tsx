@@ -533,13 +533,12 @@ export function KioskApp() {
   }
 
   async function adminConnectUsb() {
+    const { connectUsbPrinter, printerLinkLabel, explainPrinterError } = await import("@/lib/kiosk/usb-printer");
     try {
-      const { connectUsbPrinter, printerLinkLabel } = await import("@/lib/kiosk/usb-printer");
       await connectUsbPrinter();
       dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}` });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "USB-skriveren er opptatt";
-      dispatch({ type: "LOG", message });
+      dispatch({ type: "LOG", message: explainPrinterError(err) });
     }
   }
 
@@ -572,7 +571,7 @@ export function KioskApp() {
       dispatch({ type: "LOG", message: "Testetikett sendt til skriveren" });
       return;
     }
-    dispatch({ type: "LOG", message: "Utskrift feilet. Prøv TTY 115200 på OTID TM#3." });
+    dispatch({ type: "LOG", message: "Utskrift feilet. Koble til USB (ikke TTY-listen). På Linux: sudo bash scripts/kiosk-usb-linux.sh" });
   }
 
   const errorCopy: Record<ErrorKind, { title: string; body: string }> = {
@@ -598,7 +597,7 @@ export function KioskApp() {
     },
     printer: {
       title: "Skriveren svarer ikke",
-      body: "Velg TTY-enheten OTID TM#3, ikke POS-skriveren kiosk-OS allerede bruker. Bruk 115200 baud.",
+      body: "OTID vises ikke i Chrome sin TTY-liste. Trykk «Koble til USB». På Linux: sudo bash scripts/kiosk-usb-linux.sh, logg ut og inn, bruk Chrome .deb.",
     },
   };
 
@@ -1426,8 +1425,8 @@ function AdminScreen({
             ))}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <MiniAction onClick={onConnectSerial}>Koble til TTY / OTID</MiniAction>
             <MiniAction onClick={onConnectUsb}>Koble til USB</MiniAction>
+            <MiniAction onClick={onConnectSerial}>Koble til TTY</MiniAction>
             <MiniAction onClick={() => onSetBaud(9600)}>Baud 9600</MiniAction>
             <MiniAction onClick={() => onSetBaud(19200)}>Baud 19200</MiniAction>
             <MiniAction onClick={() => onSetBaud(115200)}>Baud 115200</MiniAction>
@@ -1435,7 +1434,8 @@ function AdminScreen({
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
           <p className="mt-2 text-[13px] font-semibold leading-snug text-[#3d4454]">
-            OTID vises som TTY. Ikke velg POS-skriveren hvis kiosk-OS allerede bruker den.
+            OTID er USB-skriver og vises ikke i Chrome sin serie/TTY-liste. Bruk «Koble til USB».
+            På Linux: sudo bash scripts/kiosk-usb-linux.sh, logg ut og inn, Google Chrome .deb (ikke Snap), stopp kiosk-OS-skriveren.
           </p>
         </div>
         <div className="min-h-0 overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
