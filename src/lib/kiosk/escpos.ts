@@ -10,7 +10,7 @@ const GS = 0x1d;
 
 /** Standard 80 mm printable width at 203 DPI. */
 export const LABEL_WIDTH_DOTS = 576;
-export const LABEL_HEIGHT_DOTS = 280;
+export const LABEL_HEIGHT_DOTS = 200;
 
 function concat(...parts: Uint8Array[]) {
   const size = parts.reduce((n, p) => n + p.length, 0);
@@ -139,6 +139,31 @@ class Bitmap {
     return this.text(value, Math.max(0, right - w), y, scale);
   }
 
+  cropBottom(padding = 6) {
+    let last = 0;
+    for (let y = this.height - 1; y >= 0; y--) {
+      let ink = false;
+      for (let x = 0; x < this.width; x++) {
+        if (this.bits[y * this.width + x]) {
+          ink = true;
+          break;
+        }
+      }
+      if (ink) {
+        last = y;
+        break;
+      }
+    }
+    const h = Math.min(this.height, last + padding);
+    const next = new Bitmap(this.width, h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < this.width; x++) {
+        if (this.bits[y * this.width + x]) next.set(x, y);
+      }
+    }
+    return next;
+  }
+
   toRaster(): Uint8Array {
     const byteWidth = Math.ceil(this.width / 8);
     const data = new Uint8Array(byteWidth * this.height);
@@ -257,40 +282,30 @@ function paintBarcode(
   }
 }
 
-function paintLogo(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(x, y, w, h);
-  ctx.clip();
-  const scale = Math.min(w / 56, h / 40);
-  const ox = x + (w - 56 * scale) / 2;
-  const oy = y + (h - 40 * scale) / 2;
-  ctx.translate(ox, oy);
-  ctx.scale(scale, scale);
-  ctx.strokeStyle = "#000000";
-  ctx.lineWidth = 8;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.beginPath();
-  ctx.moveTo(8.2, 15.1);
-  ctx.bezierCurveTo(8.2, 11.2, 11.6, 8.6, 16, 8.6);
-  ctx.bezierCurveTo(20.3, 8.6, 23.5, 10.8, 23.5, 14.1);
-  ctx.bezierCurveTo(23.5, 21.1, 8.1, 19.1, 8.1, 28.6);
-  ctx.bezierCurveTo(8.1, 32.9, 11.8, 35.6, 16.5, 35.6);
-  ctx.bezierCurveTo(21.3, 35.6, 24.7, 33, 25, 29);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(33.2, 8.6);
-  ctx.lineTo(33.2, 31.4);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(33.2, 8.6);
-  ctx.lineTo(36.8, 8.6);
-  ctx.bezierCurveTo(43.8, 8.6, 48.3, 13.7, 48.3, 20);
-  ctx.bezierCurveTo(48.3, 26.3, 43.8, 31.4, 36.8, 31.4);
-  ctx.lineTo(33.2, 31.4);
-  ctx.stroke();
-  ctx.restore();
+async function paintLogo(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  const img = new Image();
+  img.decoding = "sync";
+  img.src = "/sd-solutions-mark.png";
+  await img.decode();
+  const tmp = document.createElement("canvas");
+  tmp.width = w;
+  tmp.height = h;
+  const tctx = tmp.getContext("2d");
+  if (!tctx) return;
+  tctx.clearRect(0, 0, w, h);
+  tctx.drawImage(img, 0, 0, w, h);
+  const pixels = tctx.getImageData(0, 0, w, h);
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    const lum = (pixels.data[i] + pixels.data[i + 1] + pixels.data[i + 2]) / 3;
+    const a = pixels.data[i + 3];
+    const ink = a > 40 && lum > 80;
+    pixels.data[i] = ink ? 0 : 255;
+    pixels.data[i + 1] = ink ? 0 : 255;
+    pixels.data[i + 2] = ink ? 0 : 255;
+    pixels.data[i + 3] = 255;
+  }
+  tctx.putImageData(pixels, 0, 0);
+  ctx.drawImage(tmp, x, y);
 }
 
 function fitText(
@@ -310,7 +325,7 @@ function fitText(
 }
 
 function partialCut() {
-  return concat(cmd(ESC, 0x4a, 40), cmd(GS, 0x56, 0x41, 0x10));
+  return concat(cmd(ESC, 0x4a, 8), cmd(GS, 0x56, 0x41, 0x00));
 }
 
 function labelGrade(parts?: string[]) {
@@ -373,33 +388,32 @@ export async function buildLockerSticker(input: StickerInput) {
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
 
-  const pad = 16;
-  const left = { x: pad, y: pad, w: 280 };
-  const right = { x: 312, y: pad, w: w - pad - 312 };
-  const logo = { x: left.x, y: 12, w: 128, h: 92 };
-  const bar = { x: right.x, y: 12, w: right.w, h: 72 };
-  const ticketBox = { x: right.x, y: 90, w: right.w, h: 28 };
-  const modelBox = { x: left.x, y: 118, w: left.w, h: 40 };
-  const specBox = { x: left.x, y: 162, w: left.w, h: 56 };
-  const phoneBox = { x: right.x, y: 132, w: right.w, h: 40 };
-  const lineY = 228;
-  const footY = 242;
-  const gradeBox = { x: left.x, y: footY, w: 300, h: 28 };
-  const verBox = { x: 328, y: footY, w: w - pad - 328, h: 28 };
+  const pad = 8;
+  const logo = { x: pad, y: pad, w: 88, h: 88 };
+  const bar = { x: 104, y: pad, w: w - pad - 104, h: 64 };
+  const barMetrics = barcodePixelWidth(ticket, bar.w);
+  const barLeft = bar.x + barMetrics.quiet * barMetrics.moduleW;
+  const ticketBox = { x: barLeft, y: pad + 66, w: w - pad - barLeft, h: 24 };
+  const modelBox = { x: pad, y: 108, w: 300, h: 32 };
+  const specBox = { x: pad, y: 142, w: 200, h: 28 };
+  const phoneBox = { x: 300, y: 108, w: w - pad - 300, h: 32 };
+  const lineY = 172;
+  const footY = 180;
+  const gradeBox = { x: pad, y: footY, w: 300, h: 22 };
+  const verBox = { x: 320, y: footY, w: w - pad - 320, h: 22 };
 
-  paintLogo(ctx, logo.x, logo.y, logo.w, logo.h);
+  await paintLogo(ctx, logo.x, logo.y, logo.w, logo.h);
   paintBarcode(ctx, ticket, bar.x, bar.y, bar.w, bar.h);
   ctx.font = "700 22px sans-serif";
-  fitText(ctx, ticket, ticketBox.x, ticketBox.y, ticketBox.w, "right");
-
-  ctx.font = "700 34px sans-serif";
-  fitText(ctx, model, modelBox.x, modelBox.y, modelBox.w);
-
-  ctx.font = "600 26px sans-serif";
-  if (storage) fitText(ctx, storage, specBox.x, specBox.y, specBox.w);
-  if (color) fitText(ctx, color, specBox.x, specBox.y + 30, specBox.w);
+  fitText(ctx, ticket, ticketBox.x, ticketBox.y, ticketBox.w, "left");
 
   ctx.font = "700 30px sans-serif";
+  fitText(ctx, model, modelBox.x, modelBox.y, modelBox.w);
+  ctx.font = "600 24px sans-serif";
+  const spec = [storage, color].filter(Boolean).join("  ");
+  if (spec) fitText(ctx, spec, specBox.x, specBox.y, specBox.w);
+
+  ctx.font = "700 26px sans-serif";
   if (phone) fitText(ctx, phone, phoneBox.x, phoneBox.y, phoneBox.w, "right");
 
   ctx.fillRect(pad, lineY, w - pad * 2, 3);
@@ -408,7 +422,7 @@ export async function buildLockerSticker(input: StickerInput) {
   if (grade) fitText(ctx, grade, gradeBox.x, gradeBox.y, gradeBox.w);
   if (version) fitText(ctx, version, verBox.x, verBox.y, verBox.w, "right");
 
-  const map = canvasToBitmap(canvas, true);
+  const map = canvasToBitmap(canvas, false).cropBottom(8);
 
   return concat(
     cmd(ESC, 0x40),

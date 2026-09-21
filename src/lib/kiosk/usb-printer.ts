@@ -9,7 +9,7 @@ type Handle = UsbHandle | SerialHandle;
 export const SERIAL_BAUDS = [9600, 19200, 38400, 115200] as const;
 
 let handle: Handle | null = null;
-let lastSerialBaud = 9600;
+let lastSerialBaud = 115200;
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -162,12 +162,12 @@ async function armSerial(port: SerialPort, baudRate: number): Promise<SerialHand
   } catch {
     /* some adapters have no control lines */
   }
-  await wait(120);
+  await wait(20);
   const next: SerialHandle = { kind: "serial", port, baudRate };
   handle = next;
   lastSerialBaud = baudRate;
   await writeSerial(port, Uint8Array.from([0x1b, 0x40]));
-  await wait(80);
+  await wait(20);
   return next;
 }
 
@@ -255,6 +255,9 @@ export async function printUsbSticker(input: StickerInput) {
   }
   const payload = await buildLockerSticker(input);
   try {
+    if (handle?.kind === "serial" && handle.baudRate !== 115200) {
+      await armSerial(handle.port, 115200);
+    }
     if (!handle) {
       const granted = (await pickGrantedSerial()) ?? (await pickGrantedUsb());
       if (granted) handle = granted;
