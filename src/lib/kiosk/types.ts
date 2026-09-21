@@ -3,12 +3,15 @@ export type KioskState =
   | "ADMIN_PIN"
   | "ADMIN"
   | "DELIVERY_PHONE"
+  | "DELIVERY_CODE"
   | "DELIVERY_SELECT"
   | "DELIVERY_EMPTY"
   | "DELIVERY_NEW_ID"
   | "DELIVERY_NEW_DEVICE"
   | "DELIVERY_NEW_ISSUE"
   | "DELIVERY_NEW_COMMENT"
+  | "DELIVERY_NEW_TERMS"
+  | "DELIVERY_NEW_SIGN"
   | "DELIVERY_NEW_PHONE"
   | "DELIVERY_ENVELOPE"
   | "DELIVERY_LABEL"
@@ -25,7 +28,7 @@ export type KioskState =
   | "RATING_THANKS"
   | "ERROR";
 
-export type ErrorKind = "pin" | "locker" | "network" | "generic" | "notfound";
+export type ErrorKind = "pin" | "locker" | "network" | "generic" | "notfound" | "printer";
 
 export type LockerStatus = "empty" | "occupied" | "open";
 
