@@ -613,3 +613,59 @@ export async function receiveKioskTicket(ticketNumber: string) {
   await notifyDeviceReceived(ticket.id);
   return { ok: true as const, already: false };
 }
+
+export async function completeKioskTicket(ticketNumber: string) {
+  const db = getDb();
+  const [ticket] = await db
+    .select({
+      id: repairTickets.id,
+      status: repairTickets.status,
+      completedAt: repairTickets.completedAt,
+      publicAccessToken: repairTickets.publicAccessToken,
+      publicShortCode: repairTickets.publicShortCode,
+    })
+    .from(repairTickets)
+    .where(eq(repairTickets.ticketNumber, ticketNumber.trim()))
+    .limit(1);
+  if (!ticket) return { ok: false as const, error: "Saken ble ikke funnet" };
+  if (ticket.status === "COMPLETED" || ticket.completedAt) {
+    return { ok: true as const, already: true };
+  }
+  if (ticket.status !== "READY_FOR_PICKUP") {
+    return { ok: false as const, error: "Saken er ikke klar for henting" };
+  }
+
+  const completedAt = new Date();
+  await db
+    .update(repairTickets)
+    .set({
+      status: "COMPLETED",
+      completedAt,
+      updatedAt: completedAt,
+    })
+    .where(eq(repairTickets.id, ticket.id));
+
+  await db.insert(repairTicketStatusHistory).values({
+    ticketId: ticket.id,
+    fromStatus: ticket.status,
+    toStatus: "COMPLETED",
+    changedById: null,
+    note: "Hentet i locker",
+  });
+  await writeAuditLog({
+    actorId: null,
+    entityType: "repair_ticket",
+    entityId: ticket.id,
+    action: "complete_kiosk",
+    after: { status: "COMPLETED", completedAt: true },
+  });
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: ticket.id,
+    type: "repair.status",
+    message: "Status: READY_FOR_PICKUP → COMPLETED",
+    actorId: null,
+    meta: { from: "READY_FOR_PICKUP", to: "COMPLETED", source: "kiosk" },
+  });
+  return { ok: true as const, already: false };
+}

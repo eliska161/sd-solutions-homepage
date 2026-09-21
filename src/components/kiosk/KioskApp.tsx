@@ -19,7 +19,9 @@ import {
   lookupLiveDropoffs,
   lookupLivePickup,
   receiveLiveTicket,
+  completeLiveTicket,
 } from "@/lib/kiosk/client";
+import { kioskEstimateDisclaimer, kioskIssueEstimate } from "@/lib/kiosk/estimate";
 import {
   clockLabel,
   closeLocker,
@@ -158,6 +160,17 @@ export function KioskApp() {
   const stickerPhone = selected?.phone ?? (phone || MOCK_PHONE);
   const stickerPhoneLabel = formatNoMobile(stickerPhone);
   const stickerParts = selected?.parts ?? [];
+  const issueCaptions = useMemo(() => {
+    const next: Record<string, string> = {};
+    for (const option of KIOSK_ISSUES) {
+      const estimate = kioskIssueEstimate(draftDevice, option);
+      if (estimate) next[option] = `ca. ${estimate.text}`;
+    }
+    return next;
+  }, [draftDevice]);
+  const draftEstimate = draftIssue
+    ? kioskIssueEstimate(draftDevice, draftIssue)
+    : null;
 
   useEffect(() => {
     setClock(clockLabel());
@@ -286,6 +299,9 @@ export function KioskApp() {
     dispatch({ type: "LOG", message: log });
     if (next === "DELIVERY_SUCCESS") {
       void receiveLiveTicket(ticket);
+    }
+    if (next === "RATING") {
+      void completeLiveTicket(ticket);
     }
     dispatch({ type: "GO", screen: next });
   }
@@ -646,13 +662,13 @@ export function KioskApp() {
 
             {model.screen === "DELIVERY_PHONE" ? (
               <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
-                <div className="flex h-full flex-col items-center justify-center">
-                  <h1 className="text-[34px] font-bold tracking-tight">
-                    Finn saken
-                  </h1>
-                  <p className="mt-2 mb-5 text-center text-[22px] font-semibold text-[#3d4454]">
-                    Skriv telefonnummeret saken er registrert på.
-                  </p>
+                <h1 className="text-[32px] font-bold tracking-tight">
+                  Finn saken
+                </h1>
+                <p className="mt-1 text-center text-[20px] font-semibold text-[#3d4454]">
+                  Skriv telefonnummeret saken er registrert på.
+                </p>
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-2">
                   <PinPad
                     mode="phone"
                     length={8}
@@ -660,18 +676,27 @@ export function KioskApp() {
                     onChange={setPhone}
                     disabled={busy}
                   />
-                  <div className="mt-5 grid w-full max-w-[340px] gap-2">
-                    <KioskButton
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => dispatch({ type: "GO", screen: "DELIVERY_CODE" })}
-                    >
-                      IMEI / serienummer
-                    </KioskButton>
-                    <KioskButton variant="ghost" disabled={busy} onClick={startNewOrder}>
-                      Ny serviceordre
-                    </KioskButton>
-                  </div>
+                </div>
+                <p className="mb-3 text-center text-[22px] font-bold tracking-wide text-[#3d4454]">
+                  eller
+                </p>
+                <div className="mx-auto w-full max-w-[340px]">
+                  <KioskButton
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => dispatch({ type: "GO", screen: "DELIVERY_CODE" })}
+                  >
+                    IMEI / serienummer
+                  </KioskButton>
+                </div>
+                <div
+                  className="mx-auto my-4 h-[3px] w-full max-w-[340px] bg-[#1f2430]"
+                  role="separator"
+                />
+                <div className="mx-auto w-full max-w-[340px]">
+                  <KioskButton variant="ghost" disabled={busy} onClick={startNewOrder}>
+                    Ny serviceordre
+                  </KioskButton>
                 </div>
               </ScreenFrame>
             ) : null}
@@ -843,11 +868,15 @@ export function KioskApp() {
                 </p>
                 <ChoiceGrid
                   options={KIOSK_ISSUES}
+                  captions={issueCaptions}
                   onPick={(value) => {
                     setDraftIssue(value);
                     dispatch({ type: "GO", screen: "DELIVERY_NEW_COMMENT" });
                   }}
                 />
+                <p className="mt-3 text-center text-[16px] font-semibold text-[#3d4454]">
+                  {kioskEstimateDisclaimer()}
+                </p>
               </ScreenFrame>
             ) : null}
 
@@ -859,6 +888,11 @@ export function KioskApp() {
                 <p className="mt-1 mb-4 text-[22px] font-semibold text-[#3d4454]">
                   Valgfritt. Trykk én, eller hopp over.
                 </p>
+                {draftEstimate ? (
+                  <p className="mb-3 text-center text-[20px] font-bold text-[#2b6cb0]">
+                    Estimat {draftDevice}: {draftEstimate.text}
+                  </p>
+                ) : null}
                 <CommentList
                   options={KIOSK_COMMENTS}
                   onPick={(value) => {
@@ -888,6 +922,15 @@ export function KioskApp() {
                 <p className="mt-1 mb-2 text-[18px] font-semibold text-[#3d4454]">
                   Scroll gjennom, og bekreft nederst.
                 </p>
+                {draftEstimate ? (
+                  <p className="mb-2 text-center text-[18px] font-bold text-[#2b6cb0]">
+                    Estimat {draftEstimate.text}. {kioskEstimateDisclaimer()}
+                  </p>
+                ) : (
+                  <p className="mb-2 text-center text-[16px] font-semibold text-[#3d4454]">
+                    {kioskEstimateDisclaimer()}
+                  </p>
+                )}
                 <div className="min-h-0 flex-1 overflow-auto border-[3px] border-[#1f2430] bg-white p-4 text-[18px] leading-snug">
                   {fysiskReparasjonsvilkar.sections.map((section) => (
                     <p key={section.title} className="mb-3">
@@ -930,6 +973,7 @@ export function KioskApp() {
                 </h1>
                 <p className="mt-1 mb-3 text-[20px] font-semibold text-[#3d4454]">
                   Skriv med fingeren. Uten signatur opprettes ikke ordren.
+                  {draftEstimate ? ` Estimat ${draftEstimate.text}.` : ""}
                 </p>
                 <div className="min-h-0 flex-1">
                   <KioskSignaturePad onChange={setSignaturePng} />

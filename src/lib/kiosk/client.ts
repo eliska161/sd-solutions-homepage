@@ -111,6 +111,19 @@ export async function receiveLiveTicket(ticketNumber: string) {
   }
 }
 
+export async function completeLiveTicket(ticketNumber: string) {
+  try {
+    await fetch("/api/kiosk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "complete", ticketNumber }),
+      cache: "no-store",
+    });
+  } catch {
+    /* locker hardware flow continues */
+  }
+}
+
 export async function fetchKioskBoard(): Promise<{
   dropoffs: RepairRow[];
   pickups: RepairRow[];
