@@ -251,7 +251,7 @@ export function KioskApp() {
 
   async function startPrint() {
     dispatch({ type: "GO", screen: "DELIVERY_LABEL" });
-    setLabelPrinted(false);
+    setLabelPrinted(true);
     const ok = await hardware(
       (fail) =>
         printLabel(
