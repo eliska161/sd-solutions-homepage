@@ -523,11 +523,11 @@ export function KioskApp() {
 
   async function adminConnectSerial() {
     try {
-      const { connectBluetoothPrinter, printerLinkLabel } = await import("@/lib/kiosk/usb-printer");
-      await connectBluetoothPrinter();
-      dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}. La porten stå åpen.` });
+      const { connectSerialPrinter, printerLinkLabel } = await import("@/lib/kiosk/usb-printer");
+      await connectSerialPrinter();
+      dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}. Velg OTID i serial-listen.` });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Bluetooth-skriveren svarte ikke";
+      const message = err instanceof Error ? err.message : "Serial-skriveren svarte ikke";
       dispatch({ type: "LOG", message });
     }
   }
@@ -572,7 +572,7 @@ export function KioskApp() {
       dispatch({ type: "LOG", message: "Testetikett sendt til skriveren" });
       return;
     }
-    dispatch({ type: "LOG", message: "Utskrift feilet. Koble til Bluetooth og velg OTID i Chrome sin serial-liste." });
+    dispatch({ type: "LOG", message: "Utskrift feilet. Koble til serial og velg OTID. Start Chrome med --disable-serial-blocklist." });
   }
 
   const errorCopy: Record<ErrorKind, { title: string; body: string }> = {
@@ -598,7 +598,7 @@ export function KioskApp() {
     },
     printer: {
       title: "Skriveren svarer ikke",
-      body: "Flagget finnes ikke i chrome://flags. Lukk Chrome og start med: google-chrome --disable-serial-blocklist",
+      body: "Skriveren vises i Chrome serial, ikke i Bluetooth-innstillinger. Lukk Chrome og start: google-chrome --disable-serial-blocklist. Deretter Koble til serial.",
     },
   };
 
@@ -1426,7 +1426,7 @@ function AdminScreen({
             ))}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <MiniAction onClick={onConnectSerial}>Koble til Bluetooth</MiniAction>
+            <MiniAction onClick={onConnectSerial}>Koble til serial</MiniAction>
             <MiniAction onClick={onConnectUsb}>Koble til USB</MiniAction>
             <MiniAction onClick={() => onSetBaud(9600)}>Baud 9600</MiniAction>
             <MiniAction onClick={() => onSetBaud(19200)}>Baud 19200</MiniAction>
@@ -1435,7 +1435,7 @@ function AdminScreen({
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
           <p className="mt-2 text-[13px] font-semibold leading-snug text-[#3d4454]">
-            Blocklist-flagget er ikke i chrome://flags. Lukk Chrome helt og start: google-chrome --disable-serial-blocklist
+            Bluetooth er valgfritt på denne skriveren. Den vises i Chrome serial, ikke i Settings. Start: google-chrome --disable-serial-blocklist — så «Koble til serial».
           </p>
         </div>
         <div className="min-h-0 overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
