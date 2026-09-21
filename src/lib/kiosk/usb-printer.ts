@@ -144,15 +144,15 @@ function serialFailMessage(err: unknown) {
   const msg = err instanceof Error ? err.message : String(err ?? "");
   const blob = `${name} ${msg}`.toLowerCase();
   if (/security|not allowed|blocklist|permission/i.test(blob)) {
-    return "Chrome serial-blocklist stopper open(). Flagget er borte fra chrome://flags. Start Chrome med: google-chrome --disable-serial-blocklist";
+    return "Chrome blocklist. Lukk Chrome og start: google-chrome --disable-serial-blocklist — så Koble til serial og velg OTID. Ikke Bluetooth-innstillinger.";
   }
   if (/network|failed to open|open serial/i.test(blob)) {
-    return "Bluetooth er valgt, men SPP åpnet ikke. OTID må være Connected i Linux-Bluetooth. Start Chrome med: google-chrome --disable-serial-blocklist";
+    return "Serial-porten åpnet ikke. Start Chrome med --disable-serial-blocklist og velg den i serial-listen (ikke Settings).";
   }
   if (/already open|invalidstate/i.test(blob)) {
     return msg || "Serial-porten er allerede åpen.";
   }
-  return `Klarte ikke åpne Bluetooth-serial${name ? ` (${name})` : ""}: ${msg || "ukjent feil"}`;
+  return `Klarte ikke åpne serial${name ? ` (${name})` : ""}: ${msg || "ukjent feil"}`;
 }
 
 async function openSerialPort(port: SerialPort, baudRate: number) {
@@ -178,13 +178,21 @@ async function openSerialPort(port: SerialPort, baudRate: number) {
   throw new Error(serialFailMessage(lastErr));
 }
 
+function isBluetoothSerial(port: SerialPort) {
+  try {
+    return Boolean(port.getInfo?.().bluetoothServiceClassId);
+  } catch {
+    return false;
+  }
+}
+
 async function armSerial(port: SerialPort, baudRate: number): Promise<SerialHandle> {
   await openSerialPort(port, baudRate);
   const next: SerialHandle = {
     kind: "serial",
     port,
     baudRate,
-    bluetooth: true,
+    bluetooth: isBluetoothSerial(port),
   };
   handle = next;
   lastSerialBaud = baudRate;
@@ -244,8 +252,9 @@ const CUSTOM_RFCOMM = [
 
 async function pickSerialPort() {
   const api = serialApi();
-  if (!api) throw new Error("Denne nettleseren støtter ikke Bluetooth-serial.");
+  if (!api) throw new Error("Denne nettleseren støtter ikke serial.");
   return api.requestPort({
+    filters: [],
     allowedBluetoothServiceClassIds: CUSTOM_RFCOMM,
   });
 }
