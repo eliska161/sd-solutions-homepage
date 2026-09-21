@@ -10,7 +10,7 @@ const GS = 0x1d;
 
 /** Standard 80 mm printable width at 203 DPI. */
 export const LABEL_WIDTH_DOTS = 576;
-export const LABEL_HEIGHT_DOTS = 360;
+export const LABEL_HEIGHT_DOTS = 280;
 
 function concat(...parts: Uint8Array[]) {
   const size = parts.reduce((n, p) => n + p.length, 0);
@@ -232,7 +232,7 @@ function canvasToBitmap(canvas: HTMLCanvasElement, rotate180: boolean) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       const lum = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
-      if (pixels[i + 3] < 40 || lum >= 150) continue;
+      if (pixels[i + 3] < 40 || lum >= 230) continue;
       if (rotate180) map.set(w - 1 - x, h - 1 - y);
       else map.set(x, y);
     }
@@ -268,7 +268,7 @@ function paintLogo(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.translate(ox, oy);
   ctx.scale(scale, scale);
   ctx.strokeStyle = "#000000";
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 8;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.beginPath();
@@ -374,31 +374,32 @@ export async function buildLockerSticker(input: StickerInput) {
   ctx.textAlign = "left";
 
   const pad = 16;
-  const gap = 16;
-  const logo = { x: pad, y: pad, w: 140, h: 112 };
-  const bar = { x: logo.x + logo.w + gap, y: pad, w: w - pad - (logo.x + logo.w + gap), h: 80 };
-  const ticketBox = { x: bar.x, y: pad + 84, w: bar.w, h: 28 };
-  const modelBox = { x: pad, y: 148, w: 250, h: 44 };
-  const specBox = { x: 278, y: 148, w: 130, h: 72 };
-  const phoneBox = { x: 420, y: 148, w: w - pad - 420, h: 44 };
-  const lineY = 236;
-  const footY = 252;
-  const gradeBox = { x: pad, y: footY, w: 320, h: 32 };
-  const verBox = { x: 352, y: footY, w: w - pad - 352, h: 32 };
+  const left = { x: pad, y: pad, w: 280 };
+  const right = { x: 312, y: pad, w: w - pad - 312 };
+  const logo = { x: left.x, y: 12, w: 128, h: 92 };
+  const bar = { x: right.x, y: 12, w: right.w, h: 72 };
+  const ticketBox = { x: right.x, y: 90, w: right.w, h: 28 };
+  const modelBox = { x: left.x, y: 118, w: left.w, h: 40 };
+  const specBox = { x: left.x, y: 162, w: left.w, h: 56 };
+  const phoneBox = { x: right.x, y: 132, w: right.w, h: 40 };
+  const lineY = 228;
+  const footY = 242;
+  const gradeBox = { x: left.x, y: footY, w: 300, h: 28 };
+  const verBox = { x: 328, y: footY, w: w - pad - 328, h: 28 };
 
   paintLogo(ctx, logo.x, logo.y, logo.w, logo.h);
   paintBarcode(ctx, ticket, bar.x, bar.y, bar.w, bar.h);
-  ctx.font = "700 24px sans-serif";
+  ctx.font = "700 22px sans-serif";
   fitText(ctx, ticket, ticketBox.x, ticketBox.y, ticketBox.w, "right");
 
-  ctx.font = "700 36px sans-serif";
+  ctx.font = "700 34px sans-serif";
   fitText(ctx, model, modelBox.x, modelBox.y, modelBox.w);
 
   ctx.font = "600 26px sans-serif";
   if (storage) fitText(ctx, storage, specBox.x, specBox.y, specBox.w);
-  if (color) fitText(ctx, color, specBox.x, specBox.y + 34, specBox.w);
+  if (color) fitText(ctx, color, specBox.x, specBox.y + 30, specBox.w);
 
-  ctx.font = "700 32px sans-serif";
+  ctx.font = "700 30px sans-serif";
   if (phone) fitText(ctx, phone, phoneBox.x, phoneBox.y, phoneBox.w, "right");
 
   ctx.fillRect(pad, lineY, w - pad * 2, 3);

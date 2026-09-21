@@ -128,11 +128,7 @@ async function writeSerial(port: SerialPort, bytes: Uint8Array) {
   if (!writable) throw new Error("Serieporten kan ikke skrive");
   const writer = writable.getWriter();
   try {
-    const packet = 32;
-    for (let i = 0; i < bytes.length; i += packet) {
-      await writer.write(copyBytes(bytes.subarray(i, i + packet)));
-      if (i + packet < bytes.length) await wait(12);
-    }
+    await writer.write(copyBytes(bytes));
   } finally {
     writer.releaseLock();
   }
@@ -158,7 +154,7 @@ async function armSerial(port: SerialPort, baudRate: number): Promise<SerialHand
     dataBits: 8,
     stopBits: 1,
     parity: "none",
-    bufferSize: 8192,
+    bufferSize: 65536,
     flowControl: "none",
   });
   try {
