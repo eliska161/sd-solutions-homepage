@@ -11,10 +11,6 @@ export const SERIAL_BAUDS = [9600, 19200, 38400, 115200] as const;
 let handle: Handle | null = null;
 let lastSerialBaud = 115200;
 
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function usbApi(): USB | null {
   if (typeof navigator === "undefined") return null;
   return navigator.usb ?? null;
@@ -93,18 +89,6 @@ async function claimUsb(device: USBDevice): Promise<UsbHandle> {
   );
 }
 
-async function release() {
-  const current = handle;
-  handle = null;
-  if (!current) return;
-  try {
-    if (current.kind === "usb" && current.device.opened) await current.device.close();
-    if (current.kind === "serial") await current.port.close();
-  } catch {
-    /* already gone */
-  }
-}
-
 function copyBytes(bytes: Uint8Array) {
   const out = new Uint8Array(bytes.byteLength);
   out.set(bytes);
@@ -123,14 +107,22 @@ async function writeUsb(device: USBDevice, endpoint: number, bytes: Uint8Array) 
   }
 }
 
+function serialIsOpen(port: SerialPort) {
+  return Boolean(port.readable && port.writable);
+}
+
 async function writeSerial(port: SerialPort, bytes: Uint8Array) {
   const writable = port.writable;
-  if (!writable) throw new Error("Serieporten kan ikke skrive");
+  if (!writable) throw new Error("Bluetooth-serial er lukket. Koble til Bluetooth på nytt.");
   const writer = writable.getWriter();
   try {
     await writer.write(copyBytes(bytes));
   } finally {
-    writer.releaseLock();
+    try {
+      writer.releaseLock();
+    } catch {
+      /* already released */
+    }
   }
 }
 
@@ -143,40 +135,21 @@ async function writeAll(bytes: Uint8Array) {
   await writeSerial(handle.port, bytes);
 }
 
-function isBluetoothSerial(port: SerialPort) {
-  try {
-    const info = port.getInfo?.() ?? {};
-    return Boolean(info.bluetoothServiceClassId);
-  } catch {
-    return false;
-  }
+async function openSerialPort(port: SerialPort, baudRate: number) {
+  if (serialIsOpen(port)) return;
+  await port.open({ baudRate });
 }
 
 async function armSerial(port: SerialPort, baudRate: number): Promise<SerialHandle> {
-  try {
-    await port.close();
-  } catch {
-    /* was not open */
-  }
-  await port.open({
+  await openSerialPort(port, baudRate);
+  const next: SerialHandle = {
+    kind: "serial",
+    port,
     baudRate,
-    dataBits: 8,
-    stopBits: 1,
-    parity: "none",
-    bufferSize: 65536,
-    flowControl: "none",
-  });
-  try {
-    await port.setSignals({ dataTerminalReady: true, requestToSend: true });
-  } catch {
-    /* some adapters have no control lines */
-  }
-  await wait(120);
-  const next: SerialHandle = { kind: "serial", port, baudRate, bluetooth: isBluetoothSerial(port) };
+    bluetooth: true,
+  };
   handle = next;
   lastSerialBaud = baudRate;
-  await writeSerial(port, Uint8Array.from([0x1b, 0x40]));
-  await wait(80);
   return next;
 }
 
@@ -200,23 +173,12 @@ async function pickGrantedUsb() {
   return null;
 }
 
-async function pickGrantedSerial(baudRate = lastSerialBaud, bluetoothFirst = true) {
+async function pickOpenSerial() {
   const api = serialApi();
   if (!api) return null;
-  const ports = await api.getPorts();
-  const ranked = bluetoothFirst
-    ? [...ports.filter(isBluetoothSerial), ...ports.filter((port) => !isBluetoothSerial(port))]
-    : ports;
-  for (const port of ranked) {
-    try {
-      return await armSerial(port, baudRate);
-    } catch {
-      try {
-        await port.close();
-      } catch {
-        /* ignore */
-      }
-    }
+  for (const port of await api.getPorts()) {
+    if (!serialIsOpen(port)) continue;
+    return armSerial(port, lastSerialBaud);
   }
   return null;
 }
@@ -229,11 +191,23 @@ export function printerLinkLabel() {
 }
 
 export async function connectSerialPrinter(baudRate = lastSerialBaud) {
-  await release();
+  if (handle?.kind === "serial" && serialIsOpen(handle.port)) return handle;
+  const already = await pickOpenSerial();
+  if (already) return already;
   const api = serialApi();
   if (!api) throw new Error("Denne nettleseren støtter ikke Bluetooth-serial.");
   const port = await api.requestPort({ filters: [] });
-  return armSerial(port, baudRate);
+  try {
+    return await armSerial(port, baudRate);
+  } catch (err) {
+    const blob = err instanceof Error ? err.message : "";
+    if (/already open|invalidstate/i.test(blob) && serialIsOpen(port)) {
+      return armSerial(port, baudRate);
+    }
+    throw new Error(
+      "Chrome fikk ikke åpne serial. Velg samme Bluetooth-enhet som virket (den du trodde var USB). Ikke koble fra. Hvis den feiler: slå BT av/på på skriveren og velg den én gang.",
+    );
+  }
 }
 
 export async function connectBluetoothPrinter(baudRate = lastSerialBaud) {
@@ -241,7 +215,9 @@ export async function connectBluetoothPrinter(baudRate = lastSerialBaud) {
 }
 
 export async function connectUsbPrinter() {
-  await release();
+  if (handle?.kind === "serial" && serialIsOpen(handle.port)) {
+    throw new Error("Bluetooth-serial er allerede åpen. Bruk den, ikke USB.");
+  }
   const granted = await pickGrantedUsb();
   if (granted) {
     handle = granted;
@@ -257,8 +233,8 @@ export async function connectUsbPrinter() {
 
 export async function setSerialBaud(baudRate: number) {
   lastSerialBaud = baudRate;
-  if (handle?.kind === "serial") {
-    await armSerial(handle.port, baudRate);
+  if (handle?.kind === "serial" && serialIsOpen(handle.port)) {
+    handle = { ...handle, baudRate };
     return;
   }
   await connectSerialPrinter(baudRate);
@@ -270,30 +246,27 @@ export async function printUsbSticker(input: StickerInput) {
   }
   const payload = await buildLockerSticker(input);
   try {
-    if (!handle) {
-      const granted = await pickGrantedSerial();
-      if (granted) handle = granted;
+    if (!(handle?.kind === "serial" && serialIsOpen(handle.port))) {
+      const open = await pickOpenSerial();
+      if (open) handle = open;
       else await connectBluetoothPrinter();
     }
     await writeAll(payload);
     return { ok: true as const };
   } catch {
     try {
-      if (handle?.kind === "serial") {
-        await armSerial(handle.port, lastSerialBaud);
+      if (handle?.kind === "serial" && serialIsOpen(handle.port)) {
         await writeAll(payload);
         return { ok: true as const };
       }
     } catch {
-      /* reopen below */
+      /* picker below */
     }
-    await release();
     try {
       await connectBluetoothPrinter();
       await writeAll(payload);
       return { ok: true as const };
     } catch {
-      await release();
       return { ok: false as const, reason: "printer" as const };
     }
   }
