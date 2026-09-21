@@ -525,7 +525,7 @@ export function KioskApp() {
     try {
       const { connectBluetoothPrinter, printerLinkLabel } = await import("@/lib/kiosk/usb-printer");
       await connectBluetoothPrinter();
-      dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}. Velg OTID i Bluetooth-serial.` });
+      dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}. La porten stå åpen.` });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Bluetooth-skriveren svarte ikke";
       dispatch({ type: "LOG", message });
@@ -598,7 +598,7 @@ export function KioskApp() {
     },
     printer: {
       title: "Skriveren svarer ikke",
-      body: "Koble til Bluetooth og velg OTID TM#3 i Chrome sin serial-liste. USB trenger ikke vises der.",
+      body: "Velg samme Bluetooth-serial som virket. Hvis open feiler: slå Bluetooth av og på på skriveren, så velg den én gang og la porten stå åpen.",
     },
   };
 
@@ -1435,7 +1435,7 @@ function AdminScreen({
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
           <p className="mt-2 text-[13px] font-semibold leading-snug text-[#3d4454]">
-            Pair OTID over Bluetooth. Trykk «Koble til Bluetooth» og velg skriveren i Chrome sin serial-liste.
+            Velg samme serial-enhet som virket (Bluetooth, selv om den så ut som USB). La Chrome holde porten åpen — ikke koble fra mellom utskrifter.
           </p>
         </div>
         <div className="min-h-0 overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
