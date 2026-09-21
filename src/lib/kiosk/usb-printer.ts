@@ -88,9 +88,29 @@ async function claimUsb(device: USBDevice): Promise<UsbHandle> {
       }
     }
   }
-  throw new Error(
-    "USB-skriveren er opptatt. Lukk kiosk-OS-skriveren, eller bruk TTY/OTID.",
-  );
+  throw new Error(USB_BUSY);
+}
+
+const USB_BUSY =
+  "USB-skriveren er opptatt. På Linux: sudo rmmod usblp, stopp CUPS/kiosk-OS-skriveren, deretter Koble til USB.";
+
+const USB_LINUX =
+  "OTID vises ikke i Chrome sin TTY-liste. Det er USB-skriver, ikke serieport. Trykk «Koble til USB». På Linux: sudo bash scripts/kiosk-usb-linux.sh, logg ut og inn, bruk Google Chrome .deb (ikke Snap).";
+
+export function explainPrinterError(err: unknown) {
+  if (!(err instanceof Error)) return USB_LINUX;
+  const name = "name" in err ? String((err as DOMException).name) : "";
+  const blob = `${name} ${err.message}`.toLowerCase();
+  if (blob.includes("notfound") || blob.includes("no device selected")) {
+    return USB_LINUX;
+  }
+  if (blob.includes("security") || blob.includes("access")) {
+    return "Chrome fikk ikke USB-tilgang. På Linux: bruker i plugdev, udev-regel, ikke Snap-Chrome. Kjør sudo bash scripts/kiosk-usb-linux.sh.";
+  }
+  if (blob.includes("busy") || blob.includes("opptatt") || blob.includes("claim")) {
+    return USB_BUSY;
+  }
+  return err.message || USB_LINUX;
 }
 
 async function release() {
@@ -225,6 +245,16 @@ export async function connectSerialPrinter(baudRate = lastSerialBaud) {
   return armSerial(port, baudRate);
 }
 
+async function requestUsbDevice() {
+  const api = usbApi();
+  if (!api) throw new Error("Denne nettleseren støtter ikke WebUSB. Bruk Google Chrome, ikke Snap.");
+  try {
+    return await api.requestDevice({ filters: [{ classCode: 7 }] });
+  } catch {
+    return api.requestDevice({ filters: [] });
+  }
+}
+
 export async function connectUsbPrinter() {
   await release();
   const granted = await pickGrantedUsb();
@@ -232,9 +262,7 @@ export async function connectUsbPrinter() {
     handle = granted;
     return granted;
   }
-  const api = usbApi();
-  if (!api) throw new Error("Denne nettleseren støtter ikke WebUSB.");
-  const device = await api.requestDevice({ filters: [] });
+  const device = await requestUsbDevice();
   const claimed = await claimUsb(device);
   handle = claimed;
   return claimed;
@@ -256,9 +284,9 @@ export async function printUsbSticker(input: StickerInput) {
   const payload = await buildLockerSticker(input);
   try {
     if (!handle) {
-      const granted = (await pickGrantedSerial()) ?? (await pickGrantedUsb());
+      const granted = (await pickGrantedUsb()) ?? (await pickGrantedSerial());
       if (granted) handle = granted;
-      else await connectSerialPrinter();
+      else await connectUsbPrinter();
     }
     await writeAll(payload);
     return { ok: true as const };
@@ -274,7 +302,7 @@ export async function printUsbSticker(input: StickerInput) {
     }
     await release();
     try {
-      await connectSerialPrinter();
+      await connectUsbPrinter();
       await writeAll(payload);
       return { ok: true as const };
     } catch {

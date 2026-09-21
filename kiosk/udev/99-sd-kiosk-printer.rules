@@ -1,0 +1,14 @@
+# SD Solutions locker kiosk: let Chrome WebUSB claim ESC/POS printers.
+# OTID TM#3 is USB printer class 07. It will not appear in Chrome's serial/TTY list.
+
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{bDeviceClass}=="07", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Composite devices expose printer class on an interface.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTR{bInterfaceClass}=="07", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# If the printer also has a CDC serial interface, Chrome serial can see these.
+KERNEL=="ttyUSB*", MODE="0660", GROUP="dialout", TAG+="uaccess"
+KERNEL=="ttyACM*", MODE="0660", GROUP="dialout", TAG+="uaccess"
+
+# Do not let the kernel printer driver steal the device from Chrome.
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTR{bInterfaceClass}=="07", RUN+="/bin/sh -c 'echo -n %k > /sys/bus/usb/drivers/usblp/unbind 2>/dev/null || true'"
