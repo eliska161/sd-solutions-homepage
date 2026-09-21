@@ -572,7 +572,7 @@ export function KioskApp() {
       dispatch({ type: "LOG", message: "Testetikett sendt til skriveren" });
       return;
     }
-    dispatch({ type: "LOG", message: "Utskrift feilet. Prøv TTY 9600 på OTID TM#3." });
+    dispatch({ type: "LOG", message: "Utskrift feilet. Prøv TTY 115200 på OTID TM#3." });
   }
 
   const errorCopy: Record<ErrorKind, { title: string; body: string }> = {
@@ -598,7 +598,7 @@ export function KioskApp() {
     },
     printer: {
       title: "Skriveren svarer ikke",
-      body: "Velg TTY-enheten OTID TM#3, ikke POS-skriveren kiosk-OS allerede bruker. Baud 9600 først, deretter 19200.",
+      body: "Velg TTY-enheten OTID TM#3, ikke POS-skriveren kiosk-OS allerede bruker. Bruk 115200 baud.",
     },
   };
 
@@ -1430,6 +1430,7 @@ function AdminScreen({
             <MiniAction onClick={onConnectUsb}>Koble til USB</MiniAction>
             <MiniAction onClick={() => onSetBaud(9600)}>Baud 9600</MiniAction>
             <MiniAction onClick={() => onSetBaud(19200)}>Baud 19200</MiniAction>
+            <MiniAction onClick={() => onSetBaud(115200)}>Baud 115200</MiniAction>
             <MiniAction onClick={onPrint}>Test etikettprinter</MiniAction>
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
