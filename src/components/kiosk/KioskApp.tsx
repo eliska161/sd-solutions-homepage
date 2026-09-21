@@ -518,33 +518,55 @@ export function KioskApp() {
     dispatch({ type: "LOG", message: `Locker ${id} opened` });
   }
 
-  async function adminConnectPrinter() {
+  async function adminConnectSerial() {
     try {
-      const { connectUsbPrinter } = await import("@/lib/kiosk/usb-printer");
+      const { connectSerialPrinter, printerLinkLabel } = await import("@/lib/kiosk/usb-printer");
+      await connectSerialPrinter();
+      dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}. Velg OTID TM#3.` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "TTY-skriveren svarte ikke";
+      dispatch({ type: "LOG", message });
+    }
+  }
+
+  async function adminConnectUsb() {
+    try {
+      const { connectUsbPrinter, printerLinkLabel } = await import("@/lib/kiosk/usb-printer");
       await connectUsbPrinter();
-      dispatch({ type: "LOG", message: "Skriver koblet til" });
-    } catch {
-      dispatch({ type: "ERROR", kind: "printer", retry: "ADMIN" });
+      dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "USB-skriveren er opptatt";
+      dispatch({ type: "LOG", message });
+    }
+  }
+
+  async function adminSetBaud(baud: number) {
+    try {
+      const { setSerialBaud, printerLinkLabel } = await import("@/lib/kiosk/usb-printer");
+      await setSerialBaud(baud);
+      dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Kunne ikke sette baud";
+      dispatch({ type: "LOG", message });
     }
   }
 
   async function adminPrint() {
-    const ok = await hardware(
-      (fail) =>
-        printLabel(
-          {
-            ticket: MOCK_TICKET,
-            device: MOCK_DEVICE,
-            phone: MOCK_PHONE,
-            issue: "Skjerm",
-            parts: ["Skjerm (Aftermarket)", "Batteri (OEM Pull)"],
-            locker: MOCK_LOCKER,
-          },
-          fail,
-        ),
-      "ADMIN",
-    );
-    if (ok) dispatch({ type: "LOG", message: "Testetikett skrevet ut" });
+    setBusy(true);
+    const result = await printLabel({
+      ticket: MOCK_TICKET,
+      device: MOCK_DEVICE,
+      phone: MOCK_PHONE,
+      issue: "Skjerm",
+      parts: ["Skjerm (Aftermarket)", "Batteri (OEM Pull)"],
+      locker: MOCK_LOCKER,
+    });
+    setBusy(false);
+    if (result.ok) {
+      dispatch({ type: "LOG", message: "Testetikett sendt til skriveren" });
+      return;
+    }
+    dispatch({ type: "LOG", message: "Utskrift feilet. Prøv TTY 9600 på OTID TM#3." });
   }
 
   const errorCopy: Record<ErrorKind, { title: string; body: string }> = {
@@ -570,7 +592,7 @@ export function KioskApp() {
     },
     printer: {
       title: "Skriveren svarer ikke",
-      body: "Bruk Chrome. Trykk «Koble til skriver» i admin og velg USB-skriveren. På Linux må kernel-driveren usblp ikke eie enheten.",
+      body: "Velg TTY-enheten OTID TM#3, ikke POS-skriveren kiosk-OS allerede bruker. Baud 9600 først, deretter 19200.",
     },
   };
 
@@ -1237,7 +1259,9 @@ export function KioskApp() {
                 demoFailNext={model.demoFailNext}
                 liveTickets={liveTickets}
                 onOpen={adminOpen}
-                onConnectPrinter={adminConnectPrinter}
+                onConnectSerial={adminConnectSerial}
+                onConnectUsb={adminConnectUsb}
+                onSetBaud={adminSetBaud}
                 onPrint={adminPrint}
                 onDemoFail={(kind) => dispatch({ type: "DEMO_FAIL", kind })}
                 onTestPin={() => {
@@ -1335,7 +1359,9 @@ function AdminScreen({
   lockerOpen,
   demoFailNext,
   onOpen,
-  onConnectPrinter,
+  onConnectSerial,
+  onConnectUsb,
+  onSetBaud,
   onPrint,
   onDemoFail,
   onTestPin,
@@ -1349,7 +1375,9 @@ function AdminScreen({
   lockerOpen: number | null;
   demoFailNext: ErrorKind | null;
   onOpen: (id: 1 | 2 | 3 | 4) => void;
-  onConnectPrinter: () => void;
+  onConnectSerial: () => void;
+  onConnectUsb: () => void;
+  onSetBaud: (baud: number) => void;
   onPrint: () => void;
   onDemoFail: (kind: ErrorKind | null) => void;
   onTestPin: () => void;
@@ -1392,10 +1420,16 @@ function AdminScreen({
             ))}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <MiniAction onClick={onConnectPrinter}>Koble til skriver</MiniAction>
+            <MiniAction onClick={onConnectSerial}>Koble til TTY / OTID</MiniAction>
+            <MiniAction onClick={onConnectUsb}>Koble til USB</MiniAction>
+            <MiniAction onClick={() => onSetBaud(9600)}>Baud 9600</MiniAction>
+            <MiniAction onClick={() => onSetBaud(19200)}>Baud 19200</MiniAction>
             <MiniAction onClick={onPrint}>Test etikettprinter</MiniAction>
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
+          <p className="mt-2 text-[13px] font-semibold leading-snug text-[#3d4454]">
+            OTID vises som TTY. Ikke velg POS-skriveren hvis kiosk-OS allerede bruker den.
+          </p>
         </div>
         <div className="min-h-0 overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
           <p className="mb-2 text-[13px] font-bold tracking-[0.1em] text-[#3d4454]">
