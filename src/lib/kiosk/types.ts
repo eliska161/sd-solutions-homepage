@@ -5,8 +5,11 @@ export type KioskState =
   | "DELIVERY_PHONE"
   | "DELIVERY_SELECT"
   | "DELIVERY_EMPTY"
+  | "DELIVERY_NEW_ID"
   | "DELIVERY_NEW_DEVICE"
   | "DELIVERY_NEW_ISSUE"
+  | "DELIVERY_NEW_COMMENT"
+  | "DELIVERY_NEW_PHONE"
   | "DELIVERY_ENVELOPE"
   | "DELIVERY_LABEL"
   | "DELIVERY_OPEN_LOCKER"
@@ -37,6 +40,9 @@ export type RepairRow = {
   device: string;
   status: string;
   phone?: string;
+  issue?: string;
+  parts?: string[];
+  serial?: string;
   kind?: "dropoff" | "pickup" | "other";
 };
 

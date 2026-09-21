@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import {
   createKioskLockerOrder,
   kioskBoard,
+  lookupKioskDevice,
   lookupKioskDropoffs,
+  lookupKioskPickup,
   readKioskAuth,
   receiveKioskTicket,
 } from "@/server/kiosk";
@@ -18,9 +20,14 @@ export async function GET(request: Request) {
     const auth = readKioskAuth(request);
     if (!auth.ok) return jsonError(auth.error, auth.status);
     const url = new URL(request.url);
-    const phone = url.searchParams.get("phone") || "";
-    if (phone) {
-      const repairs = await lookupKioskDropoffs(phone);
+    const query =
+      url.searchParams.get("q") ||
+      url.searchParams.get("serial") ||
+      url.searchParams.get("imei") ||
+      url.searchParams.get("phone") ||
+      "";
+    if (query) {
+      const repairs = await lookupKioskDropoffs(query);
       return NextResponse.json({ ok: true, repairs });
     }
     const board = await kioskBoard();
@@ -43,17 +50,30 @@ export async function POST(request: Request) {
     }
     const action = body.action || "lookup";
     if (action === "lookup") {
-      const repairs = await lookupKioskDropoffs(String(body.phone || ""));
+      const query = String(body.q || body.serial || body.imei || body.phone || "");
+      const repairs = await lookupKioskDropoffs(query);
       return NextResponse.json({ ok: true, repairs });
+    }
+    if (action === "device") {
+      const result = await lookupKioskDevice(String(body.q || body.query || ""));
+      return NextResponse.json({ ok: true, ...result });
     }
     if (action === "create") {
       const result = await createKioskLockerOrder({
         phone: String(body.phone || ""),
         device: String(body.device || ""),
         issue: String(body.issue || ""),
+        comment: String(body.comment || ""),
+        imei: String(body.imei || ""),
+        serialNumber: String(body.serialNumber || ""),
       });
       if (!result.ok) return jsonError(result.error);
       return NextResponse.json(result);
+    }
+    if (action === "pickup") {
+      const repair = await lookupKioskPickup(String(body.pin || ""));
+      if (!repair) return jsonError("Ugyldig PIN", 404);
+      return NextResponse.json({ ok: true, repair });
     }
     if (action === "receive") {
       const result = await receiveKioskTicket(String(body.ticketNumber || ""));

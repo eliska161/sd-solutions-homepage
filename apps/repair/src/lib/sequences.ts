@@ -28,6 +28,38 @@ export async function nextRepairTicketNumber(): Promise<string> {
   throw new Error("Klarte ikke å lage unikt saksnummer");
 }
 
+const RESERVED_PINS = new Set(["000000", "999999"]);
+
+/** Unique 6-digit locker PIN. Reuses an existing pin on the ticket. */
+export async function ensurePickupPin(ticketId: string): Promise<string> {
+  const db = getDb();
+  const [existing] = await db
+    .select({ pickupPin: repairTickets.pickupPin })
+    .from(repairTickets)
+    .where(eq(repairTickets.id, ticketId))
+    .limit(1);
+  if (existing?.pickupPin && /^\d{6}$/.test(existing.pickupPin)) {
+    return existing.pickupPin;
+  }
+
+  for (let attempt = 0; attempt < 32; attempt++) {
+    const pin = String(randomInt(0, 1_000_000)).padStart(6, "0");
+    if (RESERVED_PINS.has(pin)) continue;
+    const [hit] = await db
+      .select({ id: repairTickets.id })
+      .from(repairTickets)
+      .where(eq(repairTickets.pickupPin, pin))
+      .limit(1);
+    if (hit) continue;
+    await db
+      .update(repairTickets)
+      .set({ pickupPin: pin, updatedAt: new Date() })
+      .where(eq(repairTickets.id, ticketId));
+    return pin;
+  }
+  throw new Error("Klarte ikke å lage hentepin");
+}
+
 /**
  * Atomically allocate the next public ID for FLIP/PO within the current UTC year.
  * Format: KIND-YEAR-000001
