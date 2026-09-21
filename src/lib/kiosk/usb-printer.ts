@@ -144,10 +144,10 @@ function serialFailMessage(err: unknown) {
   const msg = err instanceof Error ? err.message : String(err ?? "");
   const blob = `${name} ${msg}`.toLowerCase();
   if (/security|not allowed|blocklist|permission/i.test(blob)) {
-    return "Chrome stoppet open() med serial-blocklist, også på Bluetooth. Åpne chrome://flags/#disable-serial-blocklist, sett Enabled, Relaunch, velg BT på nytt.";
+    return "Chrome serial-blocklist stopper open(). Flagget er borte fra chrome://flags. Start Chrome med: google-chrome --disable-serial-blocklist";
   }
   if (/network|failed to open|open serial/i.test(blob)) {
-    return "Bluetooth er valgt, men SPP er ikke åpen. Koble til OTID i systemets Bluetooth (må stå Connected). Sett også chrome://flags/#disable-serial-blocklist til Enabled og start Chrome på nytt.";
+    return "Bluetooth er valgt, men SPP åpnet ikke. OTID må være Connected i Linux-Bluetooth. Start Chrome med: google-chrome --disable-serial-blocklist";
   }
   if (/already open|invalidstate/i.test(blob)) {
     return msg || "Serial-porten er allerede åpen.";
@@ -230,19 +230,24 @@ export function printerLinkLabel() {
 
 const SPP = 0x1101;
 const SPP_UUID = "00001101-0000-1000-8000-00805f9b34fb";
+const CUSTOM_RFCOMM = [
+  SPP,
+  SPP_UUID,
+  "49535343-fe7d-4ae5-8fa9-9fafd205e455",
+  "e7810a71-73ae-43b1-a8be-d42ae65acc3b",
+  "0000ae30-0000-1000-8000-00805f9b34fb",
+  "0000ff00-0000-1000-8000-00805f9b34fb",
+  "0000fff0-0000-1000-8000-00805f9b34fb",
+  "0000ffe0-0000-1000-8000-00805f9b34fb",
+  "000018f0-0000-1000-8000-00805f9b34fb",
+];
 
 async function pickSerialPort() {
   const api = serialApi();
   if (!api) throw new Error("Denne nettleseren støtter ikke Bluetooth-serial.");
-  try {
-    return await api.requestPort({
-      filters: [{ bluetoothServiceClassId: SPP }, { bluetoothServiceClassId: SPP_UUID }],
-    });
-  } catch (err) {
-    const name = err instanceof DOMException ? err.name : "";
-    if (name !== "NotFoundError") throw err;
-    return api.requestPort({ filters: [] });
-  }
+  return api.requestPort({
+    allowedBluetoothServiceClassIds: CUSTOM_RFCOMM,
+  });
 }
 
 export async function connectSerialPrinter(baudRate = lastSerialBaud) {

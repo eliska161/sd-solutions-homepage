@@ -82,6 +82,7 @@ interface Serial {
       usbProductId?: number;
       bluetoothServiceClassId?: number | string;
     }>;
+    allowedBluetoothServiceClassIds?: Array<number | string>;
   }): Promise<SerialPort>;
 }
 
