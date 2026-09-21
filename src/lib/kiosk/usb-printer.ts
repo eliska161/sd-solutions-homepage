@@ -135,9 +135,47 @@ async function writeAll(bytes: Uint8Array) {
   await writeSerial(handle.port, bytes);
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function serialFailMessage(err: unknown) {
+  const name = err instanceof DOMException ? err.name : "";
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  const blob = `${name} ${msg}`.toLowerCase();
+  if (/security|not allowed|blocklist|permission/i.test(blob)) {
+    return "Chrome stoppet open() med serial-blocklist, også på Bluetooth. Åpne chrome://flags/#disable-serial-blocklist, sett Enabled, Relaunch, velg BT på nytt.";
+  }
+  if (/network|failed to open|open serial/i.test(blob)) {
+    return "Bluetooth er valgt, men SPP er ikke åpen. Koble til OTID i systemets Bluetooth (må stå Connected). Sett også chrome://flags/#disable-serial-blocklist til Enabled og start Chrome på nytt.";
+  }
+  if (/already open|invalidstate/i.test(blob)) {
+    return msg || "Serial-porten er allerede åpen.";
+  }
+  return `Klarte ikke åpne Bluetooth-serial${name ? ` (${name})` : ""}: ${msg || "ukjent feil"}`;
+}
+
 async function openSerialPort(port: SerialPort, baudRate: number) {
   if (serialIsOpen(port)) return;
-  await port.open({ baudRate });
+  await wait(300);
+  if (serialIsOpen(port)) return;
+  const bauds = [baudRate, 9600, 115200, 19200].filter((value, i, all) => all.indexOf(value) === i);
+  let lastErr: unknown;
+  for (const baud of bauds) {
+    try {
+      await port.open({ baudRate: baud });
+      lastSerialBaud = baud;
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (serialIsOpen(port)) return;
+      const blob = `${err instanceof DOMException ? err.name : ""} ${err instanceof Error ? err.message : ""}`;
+      if (/already open|invalidstate/i.test(blob)) return;
+      await wait(500);
+      if (serialIsOpen(port)) return;
+    }
+  }
+  throw new Error(serialFailMessage(lastErr));
 }
 
 async function armSerial(port: SerialPort, baudRate: number): Promise<SerialHandle> {
@@ -215,13 +253,8 @@ export async function connectSerialPrinter(baudRate = lastSerialBaud) {
   try {
     return await armSerial(port, baudRate);
   } catch (err) {
-    const blob = err instanceof Error ? err.message : "";
-    if (/already open|invalidstate/i.test(blob) && serialIsOpen(port)) {
-      return armSerial(port, baudRate);
-    }
-    throw new Error(
-      "Chrome blokkerte USB-serial (blocklist). Velg Bluetooth-linjen, ikke den grå USB-porten. chrome://flags → Disable serial blocklist hvis BT ikke vises.",
-    );
+    if (serialIsOpen(port)) return armSerial(port, baudRate);
+    throw err instanceof Error ? err : new Error(serialFailMessage(err));
   }
 }
 

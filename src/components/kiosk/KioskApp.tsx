@@ -598,7 +598,7 @@ export function KioskApp() {
     },
     printer: {
       title: "Skriveren svarer ikke",
-      body: "Ikke velg den grå USB-porten Chrome har på blocklist. Velg Bluetooth. Eventuelt chrome://flags → Disable serial blocklist.",
+      body: "Bluetooth er valgt, men Chrome fikk ikke åpne SPP. chrome://flags/#disable-serial-blocklist → Enabled → Relaunch. OTID må stå Connected i systemets Bluetooth.",
     },
   };
 
@@ -1435,7 +1435,7 @@ function AdminScreen({
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
           <p className="mt-2 text-[13px] font-semibold leading-snug text-[#3d4454]">
-            Ikke velg den grå linjen («blocked by the serial blocklist») — det er USB. Velg Bluetooth. Hvis BT mangler: chrome://flags → Disable serial blocklist, restart Chrome.
+            BT vises, men open() kan fortsatt stoppes av serial-blocklist. chrome://flags/#disable-serial-blocklist → Enabled → Relaunch. OTID må være Connected i Linux-Bluetooth.
           </p>
         </div>
         <div className="min-h-0 overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
