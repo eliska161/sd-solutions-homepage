@@ -30,6 +30,9 @@ const CLOSED = ["CANCELLED", "COMPLETED", "RETURNED"] as const;
 export type KioskRepair = {
   id: string;
   device: string;
+  model?: string;
+  storage?: string;
+  color?: string;
   status: string;
   phone?: string;
   issue?: string;
@@ -71,7 +74,7 @@ function deviceLine(row: { model: string; storage: string | null; color: string 
 function partGrade(partType: string, brand: string | null) {
   const type = partType.toUpperCase();
   const b = (brand || "").toLowerCase();
-  if (type === "OEM" || b.includes("service pack")) return "Original service pack";
+  if (type === "OEM" || b.includes("service pack")) return "Apple Service Pack";
   if (
     type === "ORIGINAL_PULL" ||
     b.includes("oem-pull") ||
@@ -164,6 +167,9 @@ function mapRow(row: TicketLookupRow, partsOnTicket: string[]): KioskRepair {
   return {
     id: row.ticketNumber,
     device: deviceLine(row),
+    model: row.model,
+    storage: row.storage ?? undefined,
+    color: row.color ?? undefined,
     issue: row.customerProblem,
     parts: partsOnTicket,
     status: dropoff
@@ -562,6 +568,7 @@ export async function createKioskLockerOrder(input: {
     repair: {
       id: ticketNumber,
       device: model,
+      model,
       issue: problem,
       parts: [],
       status: "Klar for innlevering",

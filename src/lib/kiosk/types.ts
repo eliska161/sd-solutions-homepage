@@ -41,6 +41,9 @@ export type LockerBay = {
 export type RepairRow = {
   id: string;
   device: string;
+  model?: string;
+  storage?: string;
+  color?: string;
   status: string;
   phone?: string;
   issue?: string;

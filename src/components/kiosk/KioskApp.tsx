@@ -245,6 +245,9 @@ export function KioskApp() {
           {
             ticket,
             device,
+            model: selected?.model,
+            storage: selected?.storage,
+            color: selected?.color,
             phone: stickerPhone,
             issue,
             parts: stickerParts,
@@ -556,9 +559,12 @@ export function KioskApp() {
     const result = await printLabel({
       ticket: MOCK_TICKET,
       device: MOCK_DEVICE,
+      model: "iPhone 13",
+      storage: "128GB",
+      color: "Svart",
       phone: MOCK_PHONE,
       issue: "Skjerm",
-      parts: ["Skjerm (Aftermarket)", "Batteri (OEM Pull)"],
+      parts: ["Skjerm (Aftermarket)"],
       locker: MOCK_LOCKER,
     });
     setBusy(false);

@@ -257,7 +257,7 @@ export async function printUsbSticker(input: StickerInput) {
   if (!usbApi() && !serialApi()) {
     return { ok: false as const, reason: "printer" as const };
   }
-  const payload = buildLockerSticker(input);
+  const payload = await buildLockerSticker(input);
   try {
     if (!handle) {
       const granted = (await pickGrantedSerial()) ?? (await pickGrantedUsb());
