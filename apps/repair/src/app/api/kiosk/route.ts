@@ -7,6 +7,7 @@ import {
   lookupKioskPickup,
   readKioskAuth,
   receiveKioskTicket,
+  completeKioskTicket,
 } from "@/server/kiosk";
 
 export const dynamic = "force-dynamic";
@@ -81,6 +82,11 @@ export async function POST(request: Request) {
     }
     if (action === "receive") {
       const result = await receiveKioskTicket(String(body.ticketNumber || ""));
+      if (!result.ok) return jsonError(result.error);
+      return NextResponse.json(result);
+    }
+    if (action === "complete") {
+      const result = await completeKioskTicket(String(body.ticketNumber || ""));
       if (!result.ok) return jsonError(result.error);
       return NextResponse.json(result);
     }

@@ -46,9 +46,11 @@ export function KioskButton({
 export function ChoiceGrid({
   options,
   onPick,
+  captions,
 }: {
   options: readonly string[];
   onPick: (value: string) => void;
+  captions?: Record<string, string>;
 }) {
   return (
     <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-auto">
@@ -57,9 +59,14 @@ export function ChoiceGrid({
           key={option}
           type="button"
           onClick={() => onPick(option)}
-          className="min-h-[72px] border-[3px] border-[#1f2430] bg-white px-3 text-[22px] font-bold active:bg-[#d5d8de] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
+          className="min-h-[72px] border-[3px] border-[#1f2430] bg-white px-3 py-2 text-[22px] font-bold active:bg-[#d5d8de] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
         >
           {option}
+          {captions?.[option] ? (
+            <span className="mt-1 block text-[16px] font-semibold text-[#2b6cb0]">
+              {captions[option]}
+            </span>
+          ) : null}
         </button>
       ))}
     </div>
