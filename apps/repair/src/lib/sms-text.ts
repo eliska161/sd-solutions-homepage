@@ -42,3 +42,16 @@ export function customerSmsRepairDone(opts: {
     `Hei ${first}. ${ticket} ${opts.verb} ${opts.url} ${ask} ${GOOGLE_REVIEW_URL}`,
   );
 }
+
+/** Ready for locker pickup: PIN + status URL, keep under 160 GSM-7 chars. */
+export function customerSmsPickupPin(opts: {
+  name: string;
+  ticketNumber: string;
+  pin: string;
+  url: string;
+}) {
+  const first = (opts.name.trim().split(/\s+/)[0] || "hei").slice(0, 16);
+  return toGsmSafeSms(
+    `Hei ${first}. ${opts.ticketNumber} klar for henting. PIN ${opts.pin} ${opts.url}`,
+  );
+}

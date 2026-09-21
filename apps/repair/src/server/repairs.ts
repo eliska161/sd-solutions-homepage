@@ -26,7 +26,7 @@ import { getDb } from "@/lib/db";
 import { assertCanWrite } from "@/lib/permissions";
 import { allocatePublicShortCode } from "@/lib/public-link";
 import { createPublicAccessToken } from "@/lib/public-token";
-import { nextRepairTicketNumber } from "@/lib/sequences";
+import { nextRepairTicketNumber, ensurePickupPin } from "@/lib/sequences";
 import { requireSession } from "@/lib/session";
 import { resolveUploadAbsolutePath } from "@/lib/uploads";
 import { notifyDeviceReceived, notifyReadyForPickup, notifyRepairCompleted, notifyStaffUpdate, notifyWaitingForCustomer } from "@/server/customer-mail";
@@ -473,6 +473,9 @@ export async function updateRepairStatus(
     if (nextStatus === "WAITING_FOR_CUSTOMER") {
       await notifyWaitingForCustomer(ticketId);
     } else if (nextStatus === "READY_FOR_PICKUP") {
+      if (row.outboundMethod !== "POST") {
+        await ensurePickupPin(ticketId);
+      }
       await notifyReadyForPickup(ticketId);
     } else if (nextStatus === "COMPLETED") {
       await notifyRepairCompleted(ticketId);

@@ -49,6 +49,7 @@ export async function getPublicRepairByToken(token: string) {
       inboundPostageOre: repairTickets.inboundPostageOre,
       outboundPostageOre: repairTickets.outboundPostageOre,
       returnTrackingNumber: repairTickets.returnTrackingNumber,
+      pickupPin: repairTickets.pickupPin,
       deviceBrand: devices.brand,
       deviceModel: devices.model,
       deviceVariant: devices.variant,
@@ -191,6 +192,13 @@ export async function getPublicRepairByToken(token: string) {
         ? formatNokFromOre(row.outboundPostageOre)
         : null,
     returnTrackingNumber: row.returnTrackingNumber?.trim() || null,
+    pickupPin:
+      row.status === "READY_FOR_PICKUP" &&
+      row.outboundMethod !== "POST" &&
+      row.pickupPin &&
+      /^\d{6}$/.test(row.pickupPin)
+        ? row.pickupPin
+        : null,
   };
 }
 

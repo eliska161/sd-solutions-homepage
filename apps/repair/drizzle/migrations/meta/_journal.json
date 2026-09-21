@@ -92,6 +92,13 @@
       "when": 1789560000000,
       "tag": "0012_repair_terms_signature",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789570000000,
+      "tag": "0013_pickup_pin",
+      "breakpoints": true
     }
   ]
 }

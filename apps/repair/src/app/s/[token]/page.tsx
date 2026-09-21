@@ -67,6 +67,18 @@ export default async function CustomerStatusPage({
         </p>
       ) : null}
 
+      {data.pickupPin ? (
+        <div className="mb-4 rounded border border-border bg-white px-4 py-4">
+          <p className="text-[13px] text-muted">Hentepin til locker</p>
+          <p className="mt-1 font-mono text-[40px] font-semibold tracking-[0.28em] tabular-nums">
+            {data.pickupPin}
+          </p>
+          <p className="mt-1 text-sm">
+            Skriv denne koden på kiosken når du henter enheten.
+          </p>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader title="Saken" />

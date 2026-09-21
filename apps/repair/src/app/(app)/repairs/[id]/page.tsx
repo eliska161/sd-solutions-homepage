@@ -282,6 +282,11 @@ export default async function RepairDetailPage({
         <p className="text-[13px] text-muted">
           Opprettet {formatDate(ticket.createdAt)}
         </p>
+        {ticket.pickupPin && ticket.status === "READY_FOR_PICKUP" ? (
+          <p className="text-[13px] font-medium">
+            Hentepin {ticket.pickupPin}
+          </p>
+        ) : null}
         <p className="text-[13px] text-muted">
           {ticket.source === "CUSTOMER_PORTAL" ? "Nettside" : "Verksted"}
           {ticket.receivedAt

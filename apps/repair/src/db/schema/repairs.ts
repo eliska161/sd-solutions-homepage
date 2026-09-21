@@ -216,6 +216,8 @@ export const repairTickets = pgTable(
     termsVersion: text("terms_version"),
     termsSignedAt: timestamp("terms_signed_at", { withTimezone: true }),
     termsSignerName: text("terms_signer_name"),
+    /** Six-digit locker PIN, set when the ticket is ready for pickup. */
+    pickupPin: text("pickup_pin").unique(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

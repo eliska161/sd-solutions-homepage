@@ -14,10 +14,11 @@ import {
 import { isSendablePhone } from "@/lib/phone";
 import { allocatePublicShortCode } from "@/lib/public-link";
 import { sendCustomerSms } from "@/lib/sms";
-import { customerSmsPing, customerSmsRepairDone } from "@/lib/sms-text";
+import { customerSmsPing, customerSmsPickupPin, customerSmsRepairDone } from "@/lib/sms-text";
 import { GOOGLE_REVIEW_URL } from "@/lib/google-review";
 import { loadCustomerPdfFiles } from "@/lib/store-customer-pdf";
 import { createAndStoreReceiptPdf } from "@/server/customer-receipt";
+import { ensurePickupPin } from "@/lib/sequences";
 
 type MailContext = {
   ticketNumber: string;
@@ -30,6 +31,7 @@ type MailContext = {
   customerPhone: string;
   deviceLabel: string;
   returnTrackingNumber: string | null;
+  pickupPin: string | null;
 };
 
 async function enqueue(task: () => Promise<void>) {
@@ -50,6 +52,7 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
       inboundMethod: repairTickets.inboundMethod,
       outboundMethod: repairTickets.outboundMethod,
       returnTrackingNumber: repairTickets.returnTrackingNumber,
+      pickupPin: repairTickets.pickupPin,
       customerName: customers.name,
       customerEmail: customers.email,
       customerPhone: customers.phone,
@@ -92,6 +95,7 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
     customerPhone: row.customerPhone,
     deviceLabel,
     returnTrackingNumber: row.returnTrackingNumber?.trim() || null,
+    pickupPin: row.pickupPin && /^\d{6}$/.test(row.pickupPin) ? row.pickupPin : null,
   };
 }
 
@@ -292,6 +296,10 @@ export async function notifyReadyForPickup(ticketId: string) {
         ? [`Sporingsnummer: ${tracking}.`]
         : [];
       const receipt = await createAndStoreReceiptPdf(ticketId);
+      const pin = byPost ? null : await ensurePickupPin(ticketId);
+      const pinLine = pin
+        ? `Hentepin til locker: ${pin}. Skriv den på kiosken når du henter.`
+        : null;
       return {
         mail: buildMail(ctx, {
           subject: byPost
@@ -300,7 +308,9 @@ export async function notifyReadyForPickup(ticketId: string) {
           heading: byPost ? "Sendes i retur med post" : "Klar for henting",
           preheader: byPost
             ? "Jobben er ferdig. Vi sender telefonen tilbake til deg."
-            : "Jobben er ferdig. Du kan hente telefonen hos oss.",
+            : pin
+              ? `Jobben er ferdig. Hentepin ${pin}.`
+              : "Jobben er ferdig. Du kan hente telefonen hos oss.",
           paragraphs: byPost
             ? [
                 `Jobben på ${ctx.ticketNumber}${deviceBit(ctx)} er ferdig.`,
@@ -312,17 +322,24 @@ export async function notifyReadyForPickup(ticketId: string) {
             : [
                 `Jobben på ${ctx.ticketNumber}${deviceBit(ctx)} er ferdig.`,
                 `Du valgte henting i butikk. Hent telefonen hos oss: ${workshopAddressOneLine()}. Åpent ${WORKSHOP.hoursLabel}.`,
-                "Ta med legitimasjon. Si fra om saksnummeret i skranken.",
+                pinLine ?? "Ta med legitimasjon. Si fra om saksnummeret i skranken.",
                 "Kvittering ligger vedlagt som PDF.",
                 googleReviewParagraph,
               ],
           extraCtas: [googleReviewCta],
           files: receipt ? [receipt] : [],
         }),
-        sms: smsDone(
-          ctx,
-          byPost ? "er ferdig. Vi sender den tilbake." : "er klar for henting.",
-        ),
+        sms: pin
+          ? customerSmsPickupPin({
+              name: ctx.customerName,
+              ticketNumber: ctx.ticketNumber,
+              pin,
+              url: publicStatusUrl(ctx.shortCode),
+            })
+          : smsDone(
+              ctx,
+              byPost ? "er ferdig. Vi sender den tilbake." : "er klar for henting.",
+            ),
       };
     }),
   );

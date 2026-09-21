@@ -10,7 +10,9 @@ import {
 } from "@/db/schema";
 import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
+import { matchIphoneModel } from "@/lib/apple-models";
 import { getDb } from "@/lib/db";
+import { lookupImeiCatalog, normalizeImei } from "@/lib/imei-lookup";
 import { REPAIR_STATUS_LABELS } from "@/lib/labels";
 import { WORKSHOP } from "@/lib/workshop";
 import { isSendablePhone, toE164Phone } from "@/lib/phone";
@@ -90,6 +92,47 @@ function partGrade(partType: string, brand: string | null) {
 function partLine(name: string, partType: string, brand: string | null) {
   const grade = partGrade(partType, brand);
   return grade ? `${name} (${grade})` : name;
+}
+
+function compactId(raw: string) {
+  return raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+}
+
+function classifyQuery(raw: string): "empty" | "phone" | "imei" | "serial" {
+  const compact = compactId(raw);
+  const digits = raw.replace(/\D/g, "");
+  if (!compact && !digits) return "empty";
+  if (/^\d{8}$/.test(compact)) return "phone";
+  if (digits.length === 10 && digits.startsWith("47")) return "phone";
+  if (digits.length === 11 && digits.startsWith("47")) return "phone";
+  if (digits.length === 14 || digits.length === 15) return "imei";
+  if (compact.length >= 8) return "serial";
+  return "empty";
+}
+
+function imeiWhere(raw: string) {
+  const digits = normalizeImei(raw);
+  return or(
+    eq(devices.imei, digits),
+    eq(devices.imei, raw.trim()),
+    sql`regexp_replace(coalesce(${devices.imei}, ''), '[^0-9]', '', 'g') = ${digits}`,
+  );
+}
+
+function serialWhere(raw: string) {
+  const compact = compactId(raw);
+  return or(
+    sql`upper(regexp_replace(coalesce(${devices.serialNumber}, ''), '[^A-Za-z0-9]', '', 'g')) = ${compact}`,
+    sql`upper(${repairTickets.ticketNumber}) = ${compact}`,
+  );
+}
+
+function identifierWhere(raw: string) {
+  const kind = classifyQuery(raw);
+  if (kind === "phone") return phoneWhere(raw);
+  if (kind === "imei") return imeiWhere(raw);
+  if (kind === "serial") return serialWhere(raw);
+  return sql`false`;
 }
 
 function lastEight(raw: string) {
@@ -172,8 +215,8 @@ export function readKioskAuth(request: Request) {
   }
 }
 
-export async function lookupKioskDropoffs(phoneRaw: string): Promise<KioskRepair[]> {
-  if (lastEight(phoneRaw).length !== 8) return [];
+export async function lookupKioskDropoffs(queryRaw: string): Promise<KioskRepair[]> {
+  if (classifyQuery(queryRaw) === "empty") return [];
   const db = getDb();
   const rows = await db
     .select(ticketSelect)
@@ -182,13 +225,97 @@ export async function lookupKioskDropoffs(phoneRaw: string): Promise<KioskRepair
     .innerJoin(devices, eq(devices.id, repairTickets.deviceId))
     .where(
       and(
-        phoneWhere(phoneRaw),
+        identifierWhere(queryRaw),
         sql`${repairTickets.status} not in ('CANCELLED', 'COMPLETED', 'RETURNED')`,
       ),
     )
     .orderBy(desc(repairTickets.updatedAt))
     .limit(20);
   return withParts(rows);
+}
+
+export async function lookupKioskPickup(pinRaw: string): Promise<KioskRepair | null> {
+  const pin = pinRaw.replace(/\D/g, "");
+  if (pin.length !== 6 || pin === "999999") return null;
+  const db = getDb();
+  const rows = await db
+    .select(ticketSelect)
+    .from(repairTickets)
+    .innerJoin(customers, eq(customers.id, repairTickets.customerId))
+    .innerJoin(devices, eq(devices.id, repairTickets.deviceId))
+    .where(and(eq(repairTickets.pickupPin, pin), eq(repairTickets.status, "READY_FOR_PICKUP")))
+    .orderBy(desc(repairTickets.updatedAt))
+    .limit(1);
+  const mapped = await withParts(rows);
+  return mapped[0] ?? null;
+}
+
+export type KioskDeviceLookup = {
+  model: string | null;
+  imei: string | null;
+  serialNumber: string | null;
+  note: string;
+};
+
+export async function lookupKioskDevice(queryRaw: string): Promise<KioskDeviceLookup> {
+  const empty: KioskDeviceLookup = {
+    model: null,
+    imei: null,
+    serialNumber: null,
+    note: "Skriv IMEI eller serienummer.",
+  };
+  const q = queryRaw.trim();
+  if (classifyQuery(q) === "empty") return empty;
+
+  const digits = normalizeImei(q);
+  const compact = compactId(q);
+  const db = getDb();
+  const [existing] = await db
+    .select({
+      model: devices.model,
+      storage: devices.storage,
+      color: devices.color,
+      imei: devices.imei,
+      serialNumber: devices.serialNumber,
+    })
+    .from(devices)
+    .where(
+      or(
+        digits.length >= 14 ? imeiWhere(q) : sql`false`,
+        compact.length >= 8
+          ? sql`upper(regexp_replace(coalesce(${devices.serialNumber}, ''), '[^A-Za-z0-9]', '', 'g')) = ${compact}`
+          : sql`false`,
+      ),
+    )
+    .limit(1);
+
+  if (existing?.model) {
+    return {
+      model: deviceLine(existing),
+      imei: existing.imei,
+      serialNumber: existing.serialNumber,
+      note: `Fant ${deviceLine(existing)} i registeret.`,
+    };
+  }
+
+  const catalog = digits.length >= 8 ? lookupImeiCatalog(digits) : null;
+  if (catalog?.model) {
+    const matched = matchIphoneModel(catalog.model);
+    const model = matched?.name ?? catalog.model;
+    return {
+      model,
+      imei: catalog.imei.length >= 14 ? catalog.imei : digits.length >= 14 ? digits : null,
+      serialNumber: digits.length >= 14 ? null : compact,
+      note: `Fant ${model}.`,
+    };
+  }
+
+  return {
+    model: null,
+    imei: digits.length >= 14 ? digits : null,
+    serialNumber: digits.length >= 14 ? null : compact,
+    note: "Fant ikke modell. Fyll inn manuelt.",
+  };
 }
 
 export async function kioskBoard() {
@@ -221,6 +348,9 @@ export async function createKioskLockerOrder(input: {
   phone: string;
   device: string;
   issue: string;
+  comment?: string;
+  imei?: string;
+  serialNumber?: string;
 }): Promise<{ ok: true; repair: KioskRepair } | { ok: false; error: string }> {
   const phone = toE164Phone(input.phone);
   if (!phone || !isSendablePhone(phone)) {
@@ -228,9 +358,17 @@ export async function createKioskLockerOrder(input: {
   }
   const model = input.device.trim();
   const issue = input.issue.trim();
+  const comment = (input.comment ?? "").trim();
   if (model.length < 2 || issue.length < 2) {
     return { ok: false, error: "Velg modell og feil." };
   }
+  const imeiDigits = input.imei ? normalizeImei(input.imei) : "";
+  const imei = imeiDigits.length >= 14 ? imeiDigits : null;
+  const serialNumber = input.serialNumber?.replace(/[^A-Za-z0-9]/g, "").toUpperCase() || null;
+  if (!imei && !serialNumber) {
+    return { ok: false, error: "Oppgi IMEI eller serienummer." };
+  }
+  const problem = comment ? `${issue}. ${comment}` : issue;
 
   const db = getDb();
   const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -274,15 +412,45 @@ export async function createKioskLockerOrder(input: {
       .where(eq(customers.id, customerId));
   }
 
-  const [device] = await db
-    .insert(devices)
-    .values({
-      brand: "Apple",
-      model,
-      ownershipType: "CUSTOMER",
-      customerId,
-    })
-    .returning({ id: devices.id });
+  const [knownDevice] = await db
+    .select({ id: devices.id })
+    .from(devices)
+    .where(
+      or(
+        imei ? imeiWhere(imei) : sql`false`,
+        serialNumber
+          ? sql`upper(regexp_replace(coalesce(${devices.serialNumber}, ''), '[^A-Za-z0-9]', '', 'g')) = ${serialNumber}`
+          : sql`false`,
+      ),
+    )
+    .limit(1);
+
+  let deviceId = knownDevice?.id;
+  if (!deviceId) {
+    const [createdDevice] = await db
+      .insert(devices)
+      .values({
+        brand: "Apple",
+        model,
+        imei,
+        serialNumber,
+        ownershipType: "CUSTOMER",
+        customerId,
+      })
+      .returning({ id: devices.id });
+    deviceId = createdDevice.id;
+  } else {
+    await db
+      .update(devices)
+      .set({
+        model,
+        imei: imei || undefined,
+        serialNumber: serialNumber || undefined,
+        customerId,
+        updatedAt: new Date(),
+      })
+      .where(eq(devices.id, deviceId));
+  }
 
   const ticketNumber = await nextRepairTicketNumber();
   const publicAccessToken = createPublicAccessToken();
@@ -293,8 +461,8 @@ export async function createKioskLockerOrder(input: {
     .values({
       ticketNumber,
       customerId,
-      deviceId: device.id,
-      customerProblem: issue,
+      deviceId,
+      customerProblem: problem,
       status: "NEW",
       publicAccessToken,
       publicShortCode,
@@ -314,7 +482,7 @@ export async function createKioskLockerOrder(input: {
   });
   await db.insert(repairNotes).values({
     ticketId: ticket.id,
-    content: `Opprettet i locker. Feil: ${issue}. Vilkår signeres når saken tas inn i verkstedet.`,
+    content: `Opprettet i locker. Feil: ${issue}.${comment ? ` Kommentar: ${comment}` : ""} ${imei ? `IMEI: ${imei}.` : ""} ${serialNumber ? `SN: ${serialNumber}.` : ""} Vilkår signeres når saken tas inn i verkstedet.`,
     visibility: "INTERNAL",
   });
   await writeAuditLog({
@@ -338,7 +506,7 @@ export async function createKioskLockerOrder(input: {
     repair: {
       id: ticketNumber,
       device: model,
-      issue,
+      issue: problem,
       parts: [],
       status: "Klar for innlevering",
       phone: lastEight(input.phone),

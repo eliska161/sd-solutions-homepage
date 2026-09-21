@@ -41,6 +41,7 @@ export const dropoffRepairs: RepairRow[] = [
     phone: MOCK_PHONE,
     issue: "Skjerm",
     parts: ["Skjerm (Aftermarket)"],
+    serial: "F2LX1234Q6L7",
   },
   {
     id: "REP10504",
@@ -121,12 +122,18 @@ export async function printLabel(
   return { ok: true as const };
 }
 
-export async function findDropoffsByPhone(phone: string, fail?: boolean) {
+export async function findDropoffsByPhone(query: string, fail?: boolean) {
   await wait(450);
   if (fail) return { ok: false as const, reason: "network" as const, repairs: [] };
-  const digits = phone.replace(/\D/g, "");
-  const normalized = digits.startsWith("47") && digits.length > 8 ? digits.slice(-8) : digits;
-  const repairs = dropoffRepairs.filter((row) => row.phone === normalized);
+  const compact = query.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  const digits = query.replace(/\D/g, "");
+  const phone =
+    digits.startsWith("47") && digits.length > 8 ? digits.slice(-8) : digits.slice(-8);
+  const repairs = dropoffRepairs.filter((row) => {
+    if (phone.length === 8 && row.phone === phone) return true;
+    const serial = row.serial?.toUpperCase();
+    return Boolean(serial && serial === compact);
+  });
   return { ok: true as const, repairs };
 }
 
@@ -154,18 +161,24 @@ export async function createKioskServiceOrder(input: {
   phone: string;
   device: string;
   issue: string;
+  comment?: string;
+  imei?: string | null;
+  serialNumber?: string | null;
   fail?: boolean;
 }) {
   await wait(500);
   if (input.fail) return { ok: false as const, reason: "network" as const };
   const n = Math.floor(Math.random() * 100000);
   const id = `REP${String(n).padStart(5, "0")}`;
+  const issue = input.comment?.trim()
+    ? `${input.issue}. ${input.comment.trim()}`
+    : input.issue;
   const repair: RepairRow = {
     id,
     device: input.device,
     status: "Klar for innlevering",
     phone: input.phone.replace(/\D/g, "").slice(-8),
-    issue: input.issue,
+    issue,
     parts: [],
   };
   return { ok: true as const, repair };
