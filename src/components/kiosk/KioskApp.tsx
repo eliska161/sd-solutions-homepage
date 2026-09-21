@@ -4,7 +4,8 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PinPad } from "@/components/kiosk/PinPad";
 import { IdentifierPad } from "@/components/kiosk/IdentifierPad";
-import { ChoiceGrid, KioskButton, KioskLogo, ScreenFrame } from "@/components/kiosk/ui";
+import { KioskSignaturePad } from "@/components/kiosk/KioskSignaturePad";
+import { ChoiceGrid, CommentList, KioskButton, KioskLogo, ScreenFrame } from "@/components/kiosk/ui";
 import {
   CheckVisual,
   EnvelopeVisual,
@@ -26,6 +27,7 @@ import {
   initialActivity,
   initialLockers,
   initialRepairs,
+  KIOSK_COMMENTS,
   KIOSK_DEVICES,
   KIOSK_ISSUES,
   MOCK_DEVICE,
@@ -47,6 +49,7 @@ import type {
   RepairRow,
 } from "@/lib/kiosk/types";
 import { classifyKioskQuery, compactKioskId, splitImeiAndSerial } from "@/lib/kiosk/query";
+import { LEGAL_VERSION, fysiskReparasjonsvilkar } from "@/lib/legal";
 
 type Model = {
   screen: KioskState;
@@ -143,9 +146,11 @@ export function KioskApp() {
   const [draftComment, setDraftComment] = useState("");
   const [deviceCode, setDeviceCode] = useState("");
   const [deviceNote, setDeviceNote] = useState("");
-  const [lookupKind, setLookupKind] = useState<"phone" | "code">("phone");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [signaturePng, setSignaturePng] = useState<string | null>(null);
   const [liveTickets, setLiveTickets] = useState<RepairRow[]>([]);
   const lookupGen = useRef(0);
+  const lastLookup = useRef("");
 
   const ticket = selected?.id ?? MOCK_TICKET;
   const device = selected?.device ?? MOCK_DEVICE;
@@ -163,9 +168,11 @@ export function KioskApp() {
   useEffect(() => {
     if (model.screen === "ADMIN" || model.screen === "ADMIN_PIN") return;
     if (model.screen === "HOME") return;
-    const id = setTimeout(() => dispatch({ type: "HOME" }), 90_000);
+    const reading =
+      model.screen === "DELIVERY_NEW_TERMS" || model.screen === "DELIVERY_NEW_SIGN";
+    const id = setTimeout(() => dispatch({ type: "HOME" }), reading ? 180_000 : 90_000);
     return () => clearTimeout(id);
-  }, [model.screen, pin, phone, deviceCode, draftComment]);
+  }, [model.screen, pin, phone, deviceCode, draftComment, termsAccepted, signaturePng]);
 
   useEffect(() => {
     if (model.screen !== "DELIVERY_SUCCESS" && model.screen !== "RATING_THANKS") {
@@ -188,7 +195,9 @@ export function KioskApp() {
       setDraftComment("");
       setDeviceCode("");
       setDeviceNote("");
-      setLookupKind("phone");
+      setTermsAccepted(false);
+      setSignaturePng(null);
+      lastLookup.current = "";
       setBusy(false);
     }
   }, [model.screen]);
@@ -319,25 +328,33 @@ export function KioskApp() {
     dispatch({ type: "GO", screen: "ADMIN" });
   }
 
-  async function lookupQuery(opts?: { silent?: boolean }) {
-    const q = lookupKind === "phone" ? phone : deviceCode;
+  async function lookupQuery(opts?: { silent?: boolean; query?: string }) {
+    const q = (opts?.query ?? lastLookup.current).trim();
     const kind = classifyKioskQuery(q);
     if (kind === "empty") return;
-    if (lookupKind === "phone" && kind !== "phone") return;
     if (model.demoFailNext === "network") {
       if (!opts?.silent) {
-        dispatch({ type: "ERROR", kind: "network", retry: "DELIVERY_PHONE" });
+        dispatch({
+          type: "ERROR",
+          kind: "network",
+          retry: model.screen === "DELIVERY_CODE" ? "DELIVERY_CODE" : "DELIVERY_PHONE",
+        });
       }
       return;
     }
     const gen = ++lookupGen.current;
     if (!opts?.silent) setBusy(true);
+    lastLookup.current = q;
     const result = await lookupLiveDropoffs(q);
     if (!result.ok) {
       if (!opts?.silent) setBusy(false);
       if (gen !== lookupGen.current) return;
       if (!opts?.silent) {
-        dispatch({ type: "ERROR", kind: "network", retry: "DELIVERY_PHONE" });
+        dispatch({
+          type: "ERROR",
+          kind: "network",
+          retry: model.screen === "DELIVERY_CODE" ? "DELIVERY_CODE" : "DELIVERY_PHONE",
+        });
       }
       return;
     }
@@ -350,7 +367,11 @@ export function KioskApp() {
     const next: KioskState = result.repairs.length
       ? "DELIVERY_SELECT"
       : "DELIVERY_EMPTY";
-    if (model.screen === "DELIVERY_PHONE" || model.screen !== next) {
+    if (
+      model.screen === "DELIVERY_PHONE" ||
+      model.screen === "DELIVERY_CODE" ||
+      model.screen !== next
+    ) {
       dispatch({ type: "GO", screen: next });
     }
   }
@@ -361,6 +382,8 @@ export function KioskApp() {
     setDraftIssue("");
     setDraftComment("");
     setDeviceNote("");
+    setTermsAccepted(false);
+    setSignaturePng(null);
     dispatch({ type: "GO", screen: "DELIVERY_NEW_ID" });
   }
 
@@ -404,6 +427,14 @@ export function KioskApp() {
       dispatch({ type: "GO", screen: "DELIVERY_NEW_PHONE" });
       return;
     }
+    if (!termsAccepted) {
+      dispatch({ type: "GO", screen: "DELIVERY_NEW_TERMS" });
+      return;
+    }
+    if (!signaturePng) {
+      dispatch({ type: "GO", screen: "DELIVERY_NEW_SIGN" });
+      return;
+    }
     setBusy(true);
     const payload = {
       phone,
@@ -412,12 +443,16 @@ export function KioskApp() {
       comment,
       imei: ids.imei || "",
       serialNumber: ids.serialNumber || "",
+      termsAccepted: true,
+      termsVersion: LEGAL_VERSION,
+      signaturePng,
+      termsSignerName: "Kunde",
     };
     const live = await createLiveLockerOrder(payload);
     const result = live.ok ? live : await createKioskServiceOrder(payload);
     setBusy(false);
     if (!result.ok) {
-      dispatch({ type: "ERROR", kind: "generic", retry: "DELIVERY_NEW_COMMENT" });
+      dispatch({ type: "ERROR", kind: "generic", retry: "DELIVERY_NEW_SIGN" });
       return;
     }
     setSelected(result.repair);
@@ -425,13 +460,14 @@ export function KioskApp() {
   }
 
   useEffect(() => {
-    if (model.screen !== "DELIVERY_PHONE") return;
-    if (lookupKind === "phone" && phone.length === 8) void lookupQuery();
-    if (lookupKind === "code" && classifyKioskQuery(deviceCode) === "imei") {
-      void lookupQuery();
+    if (model.screen === "DELIVERY_PHONE" && phone.length === 8) {
+      void lookupQuery({ query: phone });
+    }
+    if (model.screen === "DELIVERY_CODE" && classifyKioskQuery(deviceCode) === "imei") {
+      void lookupQuery({ query: deviceCode });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phone, deviceCode, model.screen, lookupKind]);
+  }, [phone, deviceCode, model.screen]);
 
   useEffect(() => {
     if (model.screen !== "DELIVERY_NEW_ID") return;
@@ -459,16 +495,13 @@ export function KioskApp() {
         );
         return;
       }
-      if (lookupKind === "phone" && phone.length === 8) void lookupQuery({ silent: true });
-      if (lookupKind === "code" && classifyKioskQuery(deviceCode) !== "empty") {
-        void lookupQuery({ silent: true });
-      }
+      if (lastLookup.current) void lookupQuery({ silent: true, query: lastLookup.current });
     };
     tick();
     const id = setInterval(tick, 5000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model.screen, phone, lookupKind, deviceCode]);
+  }, [model.screen, phone, deviceCode]);
 
   useEffect(() => {
     if (pin.length !== 6) return;
@@ -485,8 +518,18 @@ export function KioskApp() {
     dispatch({ type: "LOG", message: `Locker ${id} opened` });
   }
 
+  async function adminConnectPrinter() {
+    try {
+      const { connectUsbPrinter } = await import("@/lib/kiosk/usb-printer");
+      await connectUsbPrinter();
+      dispatch({ type: "LOG", message: "Skriver koblet til" });
+    } catch {
+      dispatch({ type: "ERROR", kind: "printer", retry: "ADMIN" });
+    }
+  }
+
   async function adminPrint() {
-    await hardware(
+    const ok = await hardware(
       (fail) =>
         printLabel(
           {
@@ -501,7 +544,7 @@ export function KioskApp() {
         ),
       "ADMIN",
     );
-    dispatch({ type: "LOG", message: "Testetikett skrevet ut" });
+    if (ok) dispatch({ type: "LOG", message: "Testetikett skrevet ut" });
   }
 
   const errorCopy: Record<ErrorKind, { title: string; body: string }> = {
@@ -524,6 +567,10 @@ export function KioskApp() {
     notfound: {
       title: "Ingen treff",
       body: "Vi fant ingen innleveringer på dette nummeret.",
+    },
+    printer: {
+      title: "Skriveren svarer ikke",
+      body: "Bruk Chrome. Trykk «Koble til skriver» i admin og velg USB-skriveren. På Linux må kernel-driveren usblp ikke eie enheten.",
     },
   };
 
@@ -571,69 +618,64 @@ export function KioskApp() {
 
             {model.screen === "DELIVERY_PHONE" ? (
               <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
-                <div className="flex h-full flex-col items-center">
-                  <h1 className="text-[32px] font-bold tracking-tight">
-                    Lever inn enhet
+                <div className="flex h-full flex-col items-center justify-center">
+                  <h1 className="text-[34px] font-bold tracking-tight">
+                    Finn saken
                   </h1>
-                  <p className="mt-1 mb-3 text-center text-[22px] font-semibold text-[#3d4454]">
-                    Finn saken med telefon, IMEI eller serienummer.
+                  <p className="mt-2 mb-5 text-center text-[22px] font-semibold text-[#3d4454]">
+                    Skriv telefonnummeret saken er registrert på.
                   </p>
-                  <div className="mb-3 grid w-full max-w-[640px] grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setLookupKind("phone")}
-                      className={[
-                        "h-14 border-[3px] text-[18px] font-bold",
-                        lookupKind === "phone"
-                          ? "border-[#1e4e82] bg-[#2b6cb0] text-white"
-                          : "border-[#1f2430] bg-white",
-                      ].join(" ")}
-                    >
-                      Telefon
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLookupKind("code")}
-                      className={[
-                        "h-14 border-[3px] text-[18px] font-bold",
-                        lookupKind === "code"
-                          ? "border-[#1e4e82] bg-[#2b6cb0] text-white"
-                          : "border-[#1f2430] bg-white",
-                      ].join(" ")}
+                  <PinPad
+                    mode="phone"
+                    length={8}
+                    value={phone}
+                    onChange={setPhone}
+                    disabled={busy}
+                  />
+                  <div className="mt-5 grid w-full max-w-[340px] gap-2">
+                    <KioskButton
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => dispatch({ type: "GO", screen: "DELIVERY_CODE" })}
                     >
                       IMEI / serienummer
-                    </button>
-                  </div>
-                  {lookupKind === "phone" ? (
-                    <PinPad
-                      mode="phone"
-                      length={8}
-                      value={phone}
-                      onChange={setPhone}
-                      disabled={busy}
-                    />
-                  ) : (
-                    <>
-                      <IdentifierPad
-                        value={deviceCode}
-                        onChange={setDeviceCode}
-                        disabled={busy}
-                      />
-                      <div className="mt-3 w-full max-w-[640px]">
-                        <KioskButton
-                          disabled={compactKioskId(deviceCode).length < 8 || busy}
-                          onClick={() => void lookupQuery()}
-                        >
-                          Søk
-                        </KioskButton>
-                      </div>
-                    </>
-                  )}
-                  <div className="mt-3 w-full max-w-[640px]">
+                    </KioskButton>
                     <KioskButton variant="ghost" disabled={busy} onClick={startNewOrder}>
-                      Opprett serviceordre
+                      Ny serviceordre
                     </KioskButton>
                   </div>
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_CODE" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="mt-1 text-[30px] font-bold tracking-tight">
+                  IMEI eller serienummer
+                </h1>
+                <p className="mt-1 mb-2 text-center text-[20px] font-semibold text-[#3d4454]">
+                  Brukes hvis du ikke har telefonnummeret.
+                </p>
+                <div className="flex min-h-0 flex-1 flex-col items-center overflow-auto">
+                  <IdentifierPad
+                    value={deviceCode}
+                    onChange={setDeviceCode}
+                    disabled={busy}
+                  />
+                </div>
+                <div className="mt-2 grid gap-2">
+                  <KioskButton
+                    disabled={compactKioskId(deviceCode).length < 8 || busy}
+                    onClick={() => void lookupQuery({ query: deviceCode })}
+                  >
+                    Søk
+                  </KioskButton>
+                  <KioskButton
+                    variant="ghost"
+                    onClick={() => dispatch({ type: "GO", screen: "DELIVERY_PHONE" })}
+                  >
+                    Bruk telefonnummer
+                  </KioskButton>
                 </div>
               </ScreenFrame>
             ) : null}
@@ -783,32 +825,93 @@ export function KioskApp() {
 
             {model.screen === "DELIVERY_NEW_COMMENT" ? (
               <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
-                <h1 className="mt-1 text-[30px] font-bold tracking-tight">
-                  Kommentar
+                <h1 className="mt-2 text-[32px] font-bold tracking-tight">
+                  Merknad
                 </h1>
-                <p className="mt-1 mb-2 text-[20px] font-semibold text-[#3d4454]">
-                  Valgfritt. {draftDevice}
-                  {draftIssue ? ` · ${draftIssue}` : ""}
+                <p className="mt-1 mb-4 text-[22px] font-semibold text-[#3d4454]">
+                  Valgfritt. Trykk én, eller hopp over.
                 </p>
-                <div className="flex min-h-0 flex-1 flex-col items-center overflow-auto">
-                  <IdentifierPad
-                    value={draftComment}
-                    onChange={setDraftComment}
-                    disabled={busy}
-                    maxLength={80}
-                    withSpace
-                  />
-                </div>
-                <div className="mt-2 grid gap-2">
-                  <KioskButton disabled={busy} onClick={() => void finishNewOrder()}>
-                    Fortsett
-                  </KioskButton>
+                <CommentList
+                  options={KIOSK_COMMENTS}
+                  onPick={(value) => {
+                    setDraftComment(value);
+                    dispatch({ type: "GO", screen: "DELIVERY_NEW_TERMS" });
+                  }}
+                />
+                <div className="mt-3">
                   <KioskButton
                     variant="ghost"
-                    disabled={busy}
-                    onClick={() => void finishNewOrder("")}
+                    onClick={() => {
+                      setDraftComment("");
+                      dispatch({ type: "GO", screen: "DELIVERY_NEW_TERMS" });
+                    }}
                   >
                     Hopp over
+                  </KioskButton>
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_NEW_TERMS" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="text-[30px] font-bold tracking-tight">
+                  Les og godta vilkår
+                </h1>
+                <p className="mt-1 mb-2 text-[18px] font-semibold text-[#3d4454]">
+                  Scroll gjennom, og bekreft nederst.
+                </p>
+                <div className="min-h-0 flex-1 overflow-auto border-[3px] border-[#1f2430] bg-white p-4 text-[18px] leading-snug">
+                  {fysiskReparasjonsvilkar.sections.map((section) => (
+                    <p key={section.title} className="mb-3">
+                      <span className="font-bold">{section.title}. </span>
+                      {section.paragraphs.join(" ")}
+                    </p>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTermsAccepted((value) => !value)}
+                  className="mt-3 flex w-full items-center gap-3 border-[3px] border-[#1f2430] bg-white px-4 py-4 text-left text-[20px] font-bold"
+                >
+                  <span
+                    className={[
+                      "flex h-10 w-10 shrink-0 items-center justify-center border-[3px] border-[#1f2430]",
+                      termsAccepted ? "bg-[#2f855a] text-white" : "bg-white",
+                    ].join(" ")}
+                    aria-hidden
+                  >
+                    {termsAccepted ? "✓" : ""}
+                  </span>
+                  Jeg har lest vilkårene og godtar dem.
+                </button>
+                <div className="mt-3">
+                  <KioskButton
+                    disabled={!termsAccepted}
+                    onClick={() => dispatch({ type: "GO", screen: "DELIVERY_NEW_SIGN" })}
+                  >
+                    Fortsett til signering
+                  </KioskButton>
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_NEW_SIGN" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="text-[30px] font-bold tracking-tight">
+                  Signer på skjermen
+                </h1>
+                <p className="mt-1 mb-3 text-[20px] font-semibold text-[#3d4454]">
+                  Skriv med fingeren. Uten signatur opprettes ikke ordren.
+                </p>
+                <div className="min-h-0 flex-1">
+                  <KioskSignaturePad onChange={setSignaturePng} />
+                </div>
+                <div className="mt-3">
+                  <KioskButton
+                    disabled={!signaturePng || busy}
+                    onClick={() => void finishNewOrder()}
+                  >
+                    Signer og opprett
                   </KioskButton>
                 </div>
               </ScreenFrame>
@@ -1134,6 +1237,7 @@ export function KioskApp() {
                 demoFailNext={model.demoFailNext}
                 liveTickets={liveTickets}
                 onOpen={adminOpen}
+                onConnectPrinter={adminConnectPrinter}
                 onPrint={adminPrint}
                 onDemoFail={(kind) => dispatch({ type: "DEMO_FAIL", kind })}
                 onTestPin={() => {
@@ -1231,6 +1335,7 @@ function AdminScreen({
   lockerOpen,
   demoFailNext,
   onOpen,
+  onConnectPrinter,
   onPrint,
   onDemoFail,
   onTestPin,
@@ -1244,6 +1349,7 @@ function AdminScreen({
   lockerOpen: number | null;
   demoFailNext: ErrorKind | null;
   onOpen: (id: 1 | 2 | 3 | 4) => void;
+  onConnectPrinter: () => void;
   onPrint: () => void;
   onDemoFail: (kind: ErrorKind | null) => void;
   onTestPin: () => void;
@@ -1286,6 +1392,7 @@ function AdminScreen({
             ))}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
+            <MiniAction onClick={onConnectPrinter}>Koble til skriver</MiniAction>
             <MiniAction onClick={onPrint}>Test etikettprinter</MiniAction>
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
