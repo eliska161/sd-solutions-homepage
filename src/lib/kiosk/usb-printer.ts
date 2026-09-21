@@ -2,11 +2,18 @@
 
 import { buildLockerSticker, type StickerInput } from "@/lib/kiosk/escpos";
 
-type UsbHandle = { kind: "usb"; device: USBDevice; endpoint: number; packetSize: number };
-type SerialHandle = { kind: "serial"; port: SerialPort };
+type UsbHandle = { kind: "usb"; device: USBDevice; endpoint: number };
+type SerialHandle = { kind: "serial"; port: SerialPort; baudRate: number };
 type Handle = UsbHandle | SerialHandle;
 
+export const SERIAL_BAUDS = [9600, 19200, 38400, 115200] as const;
+
 let handle: Handle | null = null;
+let lastSerialBaud = 9600;
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function usbApi(): USB | null {
   if (typeof navigator === "undefined") return null;
@@ -28,6 +35,7 @@ function scoreInterface(iface: USBInterface) {
   for (const alt of alts) {
     if (!bulkOut(alt)) continue;
     if (alt.interfaceClass === 7) best = Math.max(best, 3);
+    else if (alt.interfaceClass === 10) best = Math.max(best, 2);
     else best = Math.max(best, 1);
   }
   return best;
@@ -50,20 +58,13 @@ function printerScore(device: USBDevice) {
 
 async function claimUsb(device: USBDevice): Promise<UsbHandle> {
   if (!device.opened) await device.open();
-  try {
-    await device.reset();
-  } catch {
-    /* not all devices allow reset */
-  }
-  if (!device.opened) await device.open();
   const configs = device.configurations?.length
     ? device.configurations
     : device.configuration
       ? [device.configuration]
       : [];
-  if (!device.configuration) {
-    const value = configs[0]?.configurationValue ?? 1;
-    await device.selectConfiguration(value);
+  if (!device.configuration && configs[0]) {
+    await device.selectConfiguration(configs[0].configurationValue ?? 1);
   }
   const config = device.configuration;
   if (!config) throw new Error("Ingen USB-konfigurasjon");
@@ -75,11 +76,6 @@ async function claimUsb(device: USBDevice): Promise<UsbHandle> {
   for (const iface of ranked) {
     if (scoreInterface(iface) === 0) continue;
     try {
-      await device.selectAlternateInterface(iface.interfaceNumber, 0);
-    } catch {
-      /* some devices have only the default alternate */
-    }
-    try {
       if (!iface.claimed) await device.claimInterface(iface.interfaceNumber);
     } catch {
       continue;
@@ -88,16 +84,13 @@ async function claimUsb(device: USBDevice): Promise<UsbHandle> {
     for (const alt of alts) {
       const endpoint = bulkOut(alt);
       if (endpoint) {
-        return {
-          kind: "usb",
-          device,
-          endpoint: endpoint.endpointNumber,
-          packetSize: endpoint.packetSize || 64,
-        };
+        return { kind: "usb", device, endpoint: endpoint.endpointNumber };
       }
     }
   }
-  throw new Error("Fant ingen USB-utgang til skriveren");
+  throw new Error(
+    "USB-skriveren er opptatt. Lukk kiosk-OS-skriveren, eller bruk TTY/OTID.",
+  );
 }
 
 async function release() {
@@ -109,102 +102,6 @@ async function release() {
     if (current.kind === "serial") await current.port.close();
   } catch {
     /* already gone */
-  }
-}
-
-async function pickGrantedUsb() {
-  const api = usbApi();
-  if (!api) return null;
-  const devices = [...(await api.getDevices())].sort(
-    (a, b) => printerScore(b) - printerScore(a),
-  );
-  const preferPrinter = devices.some((device) => printerScore(device) >= 3);
-  for (const device of devices) {
-    if (preferPrinter && printerScore(device) < 3) continue;
-    try {
-      return await claimUsb(device);
-    } catch {
-      try {
-        if (device.opened) await device.close();
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-  return null;
-}
-
-async function requestUsb() {
-  const api = usbApi();
-  if (!api) return null;
-  const device = await api.requestDevice({ filters: [] });
-  return claimUsb(device);
-}
-
-async function openSerial(port: SerialPort, baudRate: number): Promise<SerialHandle> {
-  await port.open({ baudRate, dataBits: 8, stopBits: 1, parity: "none", bufferSize: 4096 });
-  return { kind: "serial", port };
-}
-
-async function pickGrantedSerial() {
-  const api = serialApi();
-  if (!api) return null;
-  const ports = await api.getPorts();
-  for (const port of ports) {
-    for (const baud of [115200, 9600, 19200]) {
-      try {
-        return await openSerial(port, baud);
-      } catch {
-        try {
-          await port.close();
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-  }
-  return null;
-}
-
-async function requestSerial() {
-  const api = serialApi();
-  if (!api) return null;
-  const port = await api.requestPort({ filters: [] });
-  for (const baud of [115200, 9600, 19200]) {
-    try {
-      return await openSerial(port, baud);
-    } catch {
-      try {
-        await port.close();
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-  return null;
-}
-
-export async function connectUsbPrinter() {
-  await release();
-  const grantedUsb = await pickGrantedUsb();
-  if (grantedUsb) {
-    handle = grantedUsb;
-    return;
-  }
-  const grantedSerial = await pickGrantedSerial();
-  if (grantedSerial) {
-    handle = grantedSerial;
-    return;
-  }
-  try {
-    handle = await requestUsb();
-    if (handle) return;
-  } catch {
-    /* user cancelled USB picker or device is not USB-class */
-  }
-  handle = await requestSerial();
-  if (!handle) {
-    throw new Error("Fant ingen skriver. Bruk Chrome og velg USB-skriveren.");
   }
 }
 
@@ -231,7 +128,11 @@ async function writeSerial(port: SerialPort, bytes: Uint8Array) {
   if (!writable) throw new Error("Serieporten kan ikke skrive");
   const writer = writable.getWriter();
   try {
-    await writer.write(copyBytes(bytes));
+    const packet = 32;
+    for (let i = 0; i < bytes.length; i += packet) {
+      await writer.write(copyBytes(bytes.subarray(i, i + packet)));
+      if (i + packet < bytes.length) await wait(12);
+    }
   } finally {
     writer.releaseLock();
   }
@@ -246,6 +147,112 @@ async function writeAll(bytes: Uint8Array) {
   await writeSerial(handle.port, bytes);
 }
 
+async function armSerial(port: SerialPort, baudRate: number): Promise<SerialHandle> {
+  try {
+    await port.close();
+  } catch {
+    /* was not open */
+  }
+  await port.open({
+    baudRate,
+    dataBits: 8,
+    stopBits: 1,
+    parity: "none",
+    bufferSize: 8192,
+    flowControl: "none",
+  });
+  try {
+    await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+  } catch {
+    /* some adapters have no control lines */
+  }
+  await wait(120);
+  const next: SerialHandle = { kind: "serial", port, baudRate };
+  handle = next;
+  lastSerialBaud = baudRate;
+  await writeSerial(port, Uint8Array.from([0x1b, 0x40]));
+  await wait(80);
+  return next;
+}
+
+async function pickGrantedUsb() {
+  const api = usbApi();
+  if (!api) return null;
+  const devices = [...(await api.getDevices())].sort(
+    (a, b) => printerScore(b) - printerScore(a),
+  );
+  for (const device of devices) {
+    try {
+      return await claimUsb(device);
+    } catch {
+      try {
+        if (device.opened) await device.close();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return null;
+}
+
+async function pickGrantedSerial(baudRate = lastSerialBaud) {
+  const api = serialApi();
+  if (!api) return null;
+  const ports = await api.getPorts();
+  for (const port of ports) {
+    try {
+      return await armSerial(port, baudRate);
+    } catch {
+      try {
+        await port.close();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return null;
+}
+
+export function printerLinkLabel() {
+  if (!handle) return "Ingen skriver";
+  if (handle.kind === "usb") return "USB-skriver";
+  return `TTY ${handle.baudRate}`;
+}
+
+export async function connectSerialPrinter(baudRate = lastSerialBaud) {
+  await release();
+  const granted = await pickGrantedSerial(baudRate);
+  if (granted) return granted;
+  const api = serialApi();
+  if (!api) throw new Error("Denne nettleseren støtter ikke serieport.");
+  const port = await api.requestPort({ filters: [] });
+  return armSerial(port, baudRate);
+}
+
+export async function connectUsbPrinter() {
+  await release();
+  const granted = await pickGrantedUsb();
+  if (granted) {
+    handle = granted;
+    return granted;
+  }
+  const api = usbApi();
+  if (!api) throw new Error("Denne nettleseren støtter ikke WebUSB.");
+  const device = await api.requestDevice({ filters: [] });
+  const claimed = await claimUsb(device);
+  handle = claimed;
+  return claimed;
+}
+
+export async function setSerialBaud(baudRate: number) {
+  lastSerialBaud = baudRate;
+  if (handle?.kind === "serial") {
+    await armSerial(handle.port, baudRate);
+    return;
+  }
+  await connectSerialPrinter(baudRate);
+}
+
 export async function printUsbSticker(input: StickerInput) {
   if (!usbApi() && !serialApi()) {
     return { ok: false as const, reason: "printer" as const };
@@ -253,16 +260,25 @@ export async function printUsbSticker(input: StickerInput) {
   const payload = buildLockerSticker(input);
   try {
     if (!handle) {
-      const granted = (await pickGrantedUsb()) ?? (await pickGrantedSerial());
+      const granted = (await pickGrantedSerial()) ?? (await pickGrantedUsb());
       if (granted) handle = granted;
-      else await connectUsbPrinter();
+      else await connectSerialPrinter();
     }
     await writeAll(payload);
     return { ok: true as const };
   } catch {
+    try {
+      if (handle?.kind === "serial") {
+        await armSerial(handle.port, lastSerialBaud);
+        await writeAll(payload);
+        return { ok: true as const };
+      }
+    } catch {
+      /* reopen below */
+    }
     await release();
     try {
-      await connectUsbPrinter();
+      await connectSerialPrinter();
       await writeAll(payload);
       return { ok: true as const };
     } catch {

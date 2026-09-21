@@ -61,8 +61,10 @@ interface SerialPort {
     stopBits?: number;
     parity?: "none" | "even" | "odd";
     bufferSize?: number;
+    flowControl?: "none" | "hardware";
   }): Promise<void>;
   close(): Promise<void>;
+  setSignals(signals: { dataTerminalReady?: boolean; requestToSend?: boolean }): Promise<void>;
 }
 
 interface Serial {
