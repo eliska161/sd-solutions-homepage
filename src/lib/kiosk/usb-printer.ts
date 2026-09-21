@@ -9,7 +9,7 @@ type Handle = UsbHandle | SerialHandle;
 export const SERIAL_BAUDS = [9600, 19200, 38400, 115200] as const;
 
 let handle: Handle | null = null;
-let lastSerialBaud = 9600;
+let lastSerialBaud = 115200;
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
