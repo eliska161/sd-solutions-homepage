@@ -523,11 +523,11 @@ export function KioskApp() {
 
   async function adminConnectSerial() {
     try {
-      const { connectSerialPrinter, printerLinkLabel } = await import("@/lib/kiosk/usb-printer");
-      await connectSerialPrinter();
-      dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}. Velg OTID TM#3.` });
+      const { connectBluetoothPrinter, printerLinkLabel } = await import("@/lib/kiosk/usb-printer");
+      await connectBluetoothPrinter();
+      dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}. Velg OTID i Bluetooth-serial.` });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "TTY-skriveren svarte ikke";
+      const message = err instanceof Error ? err.message : "Bluetooth-skriveren svarte ikke";
       dispatch({ type: "LOG", message });
     }
   }
@@ -572,7 +572,7 @@ export function KioskApp() {
       dispatch({ type: "LOG", message: "Testetikett sendt til skriveren" });
       return;
     }
-    dispatch({ type: "LOG", message: "Utskrift feilet. Prøv TTY 115200 på OTID TM#3." });
+    dispatch({ type: "LOG", message: "Utskrift feilet. Koble til Bluetooth og velg OTID i Chrome sin serial-liste." });
   }
 
   const errorCopy: Record<ErrorKind, { title: string; body: string }> = {
@@ -598,7 +598,7 @@ export function KioskApp() {
     },
     printer: {
       title: "Skriveren svarer ikke",
-      body: "Velg TTY-enheten OTID TM#3, ikke POS-skriveren kiosk-OS allerede bruker. Bruk 115200 baud.",
+      body: "Koble til Bluetooth og velg OTID TM#3 i Chrome sin serial-liste. USB trenger ikke vises der.",
     },
   };
 
@@ -1426,7 +1426,7 @@ function AdminScreen({
             ))}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <MiniAction onClick={onConnectSerial}>Koble til TTY / OTID</MiniAction>
+            <MiniAction onClick={onConnectSerial}>Koble til Bluetooth</MiniAction>
             <MiniAction onClick={onConnectUsb}>Koble til USB</MiniAction>
             <MiniAction onClick={() => onSetBaud(9600)}>Baud 9600</MiniAction>
             <MiniAction onClick={() => onSetBaud(19200)}>Baud 19200</MiniAction>
@@ -1435,7 +1435,7 @@ function AdminScreen({
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
           <p className="mt-2 text-[13px] font-semibold leading-snug text-[#3d4454]">
-            OTID vises som TTY. Ikke velg POS-skriveren hvis kiosk-OS allerede bruker den.
+            Pair OTID over Bluetooth. Trykk «Koble til Bluetooth» og velg skriveren i Chrome sin serial-liste.
           </p>
         </div>
         <div className="min-h-0 overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
