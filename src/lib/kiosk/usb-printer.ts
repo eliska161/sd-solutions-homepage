@@ -190,13 +190,28 @@ export function printerLinkLabel() {
   return `TTY ${handle.baudRate}`;
 }
 
+const SPP = 0x1101;
+const SPP_UUID = "00001101-0000-1000-8000-00805f9b34fb";
+
+async function pickSerialPort() {
+  const api = serialApi();
+  if (!api) throw new Error("Denne nettleseren støtter ikke Bluetooth-serial.");
+  try {
+    return await api.requestPort({
+      filters: [{ bluetoothServiceClassId: SPP }, { bluetoothServiceClassId: SPP_UUID }],
+    });
+  } catch (err) {
+    const name = err instanceof DOMException ? err.name : "";
+    if (name !== "NotFoundError") throw err;
+    return api.requestPort({ filters: [] });
+  }
+}
+
 export async function connectSerialPrinter(baudRate = lastSerialBaud) {
   if (handle?.kind === "serial" && serialIsOpen(handle.port)) return handle;
   const already = await pickOpenSerial();
   if (already) return already;
-  const api = serialApi();
-  if (!api) throw new Error("Denne nettleseren støtter ikke Bluetooth-serial.");
-  const port = await api.requestPort({ filters: [] });
+  const port = await pickSerialPort();
   try {
     return await armSerial(port, baudRate);
   } catch (err) {
@@ -205,7 +220,7 @@ export async function connectSerialPrinter(baudRate = lastSerialBaud) {
       return armSerial(port, baudRate);
     }
     throw new Error(
-      "Chrome fikk ikke åpne serial. Velg samme Bluetooth-enhet som virket (den du trodde var USB). Ikke koble fra. Hvis den feiler: slå BT av/på på skriveren og velg den én gang.",
+      "Chrome blokkerte USB-serial (blocklist). Velg Bluetooth-linjen, ikke den grå USB-porten. chrome://flags → Disable serial blocklist hvis BT ikke vises.",
     );
   }
 }

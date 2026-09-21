@@ -598,7 +598,7 @@ export function KioskApp() {
     },
     printer: {
       title: "Skriveren svarer ikke",
-      body: "Velg samme Bluetooth-serial som virket. Hvis open feiler: slå Bluetooth av og på på skriveren, så velg den én gang og la porten stå åpen.",
+      body: "Ikke velg den grå USB-porten Chrome har på blocklist. Velg Bluetooth. Eventuelt chrome://flags → Disable serial blocklist.",
     },
   };
 
@@ -1435,7 +1435,7 @@ function AdminScreen({
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
           <p className="mt-2 text-[13px] font-semibold leading-snug text-[#3d4454]">
-            Velg samme serial-enhet som virket (Bluetooth, selv om den så ut som USB). La Chrome holde porten åpen — ikke koble fra mellom utskrifter.
+            Ikke velg den grå linjen («blocked by the serial blocklist») — det er USB. Velg Bluetooth. Hvis BT mangler: chrome://flags → Disable serial blocklist, restart Chrome.
           </p>
         </div>
         <div className="min-h-0 overflow-auto border-[3px] border-[#1f2430] bg-white p-3">

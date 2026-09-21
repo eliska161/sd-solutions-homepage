@@ -76,7 +76,13 @@ interface SerialPort {
 
 interface Serial {
   getPorts(): Promise<SerialPort[]>;
-  requestPort(options?: { filters?: Array<{ usbVendorId?: number }> }): Promise<SerialPort>;
+  requestPort(options?: {
+    filters?: Array<{
+      usbVendorId?: number;
+      usbProductId?: number;
+      bluetoothServiceClassId?: number | string;
+    }>;
+  }): Promise<SerialPort>;
 }
 
 interface Navigator {
