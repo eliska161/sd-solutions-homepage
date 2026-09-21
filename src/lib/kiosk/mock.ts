@@ -18,6 +18,9 @@ export const initialRepairs: RepairRow[] = [
   {
     id: "REP10471",
     device: "iPhone 13 128GB",
+    model: "iPhone 13",
+    storage: "128GB",
+    color: "Svart",
     status: "Klar for henting",
     phone: MOCK_PHONE,
     issue: "Skjerm",
@@ -37,6 +40,9 @@ export const dropoffRepairs: RepairRow[] = [
   {
     id: "REP10493",
     device: "iPhone 14",
+    model: "iPhone 14",
+    storage: "128GB",
+    color: "Bla",
     status: "Klar for innlevering",
     phone: MOCK_PHONE,
     issue: "Skjerm",
@@ -49,7 +55,7 @@ export const dropoffRepairs: RepairRow[] = [
     status: "Klar for innlevering",
     phone: MOCK_PHONE,
     issue: "Ladeport",
-    parts: ["Ladeport (Original service pack)"],
+    parts: ["Ladeport (Apple Service Pack)"],
   },
 ];
 
@@ -78,9 +84,12 @@ export async function closeLocker(_id: number, fail?: boolean) {
 export const SAMPLE_STICKER = {
   ticket: MOCK_TICKET,
   device: MOCK_DEVICE,
+  model: "iPhone 13",
+  storage: "128GB",
+  color: "Svart",
   phone: MOCK_PHONE,
   issue: "Skjerm",
-  parts: ["Skjerm (Aftermarket)", "Batteri (OEM Pull)"],
+  parts: ["Skjerm (Aftermarket)"],
   locker: MOCK_LOCKER,
 };
 
@@ -89,10 +98,14 @@ export async function printLabel(
     | {
         ticket: string;
         device: string;
+        model?: string;
+        storage?: string;
+        color?: string;
         phone?: string;
         issue?: string;
         parts?: string[];
         locker?: number;
+        version?: string;
       }
     | boolean = SAMPLE_STICKER,
   fail?: boolean,
@@ -108,10 +121,14 @@ export async function printLabel(
       : {
           ticket: input.ticket,
           device: input.device,
+          model: input.model,
+          storage: input.storage,
+          color: input.color,
           phone: input.phone ?? MOCK_PHONE,
           issue: input.issue ?? "",
           parts: input.parts ?? [],
           locker: input.locker ?? MOCK_LOCKER,
+          version: input.version,
         };
 
   if (typeof window !== "undefined") {
