@@ -598,7 +598,7 @@ export function KioskApp() {
     },
     printer: {
       title: "Skriveren svarer ikke",
-      body: "Bluetooth er valgt, men Chrome fikk ikke åpne SPP. chrome://flags/#disable-serial-blocklist → Enabled → Relaunch. OTID må stå Connected i systemets Bluetooth.",
+      body: "Flagget finnes ikke i chrome://flags. Lukk Chrome og start med: google-chrome --disable-serial-blocklist",
     },
   };
 
@@ -1435,7 +1435,7 @@ function AdminScreen({
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
           <p className="mt-2 text-[13px] font-semibold leading-snug text-[#3d4454]">
-            BT vises, men open() kan fortsatt stoppes av serial-blocklist. chrome://flags/#disable-serial-blocklist → Enabled → Relaunch. OTID må være Connected i Linux-Bluetooth.
+            Blocklist-flagget er ikke i chrome://flags. Lukk Chrome helt og start: google-chrome --disable-serial-blocklist
           </p>
         </div>
         <div className="min-h-0 overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
