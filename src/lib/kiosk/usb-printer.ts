@@ -3,7 +3,7 @@
 import { buildLockerSticker, type StickerInput } from "@/lib/kiosk/escpos";
 
 type UsbHandle = { kind: "usb"; device: USBDevice; endpoint: number };
-type SerialHandle = { kind: "serial"; port: SerialPort; baudRate: number };
+type SerialHandle = { kind: "serial"; port: SerialPort; baudRate: number; bluetooth: boolean };
 type Handle = UsbHandle | SerialHandle;
 
 export const SERIAL_BAUDS = [9600, 19200, 38400, 115200] as const;
@@ -143,6 +143,15 @@ async function writeAll(bytes: Uint8Array) {
   await writeSerial(handle.port, bytes);
 }
 
+function isBluetoothSerial(port: SerialPort) {
+  try {
+    const info = port.getInfo?.() ?? {};
+    return Boolean(info.bluetoothServiceClassId);
+  } catch {
+    return false;
+  }
+}
+
 async function armSerial(port: SerialPort, baudRate: number): Promise<SerialHandle> {
   try {
     await port.close();
@@ -163,7 +172,7 @@ async function armSerial(port: SerialPort, baudRate: number): Promise<SerialHand
     /* some adapters have no control lines */
   }
   await wait(120);
-  const next: SerialHandle = { kind: "serial", port, baudRate };
+  const next: SerialHandle = { kind: "serial", port, baudRate, bluetooth: isBluetoothSerial(port) };
   handle = next;
   lastSerialBaud = baudRate;
   await writeSerial(port, Uint8Array.from([0x1b, 0x40]));
@@ -191,11 +200,14 @@ async function pickGrantedUsb() {
   return null;
 }
 
-async function pickGrantedSerial(baudRate = lastSerialBaud) {
+async function pickGrantedSerial(baudRate = lastSerialBaud, bluetoothFirst = true) {
   const api = serialApi();
   if (!api) return null;
   const ports = await api.getPorts();
-  for (const port of ports) {
+  const ranked = bluetoothFirst
+    ? [...ports.filter(isBluetoothSerial), ...ports.filter((port) => !isBluetoothSerial(port))]
+    : ports;
+  for (const port of ranked) {
     try {
       return await armSerial(port, baudRate);
     } catch {
@@ -212,17 +224,20 @@ async function pickGrantedSerial(baudRate = lastSerialBaud) {
 export function printerLinkLabel() {
   if (!handle) return "Ingen skriver";
   if (handle.kind === "usb") return "USB-skriver";
+  if (handle.bluetooth) return `Bluetooth ${handle.baudRate}`;
   return `TTY ${handle.baudRate}`;
 }
 
 export async function connectSerialPrinter(baudRate = lastSerialBaud) {
   await release();
-  const granted = await pickGrantedSerial(baudRate);
-  if (granted) return granted;
   const api = serialApi();
-  if (!api) throw new Error("Denne nettleseren støtter ikke serieport.");
+  if (!api) throw new Error("Denne nettleseren støtter ikke Bluetooth-serial.");
   const port = await api.requestPort({ filters: [] });
   return armSerial(port, baudRate);
+}
+
+export async function connectBluetoothPrinter(baudRate = lastSerialBaud) {
+  return connectSerialPrinter(baudRate);
 }
 
 export async function connectUsbPrinter() {
@@ -256,9 +271,9 @@ export async function printUsbSticker(input: StickerInput) {
   const payload = await buildLockerSticker(input);
   try {
     if (!handle) {
-      const granted = (await pickGrantedSerial()) ?? (await pickGrantedUsb());
+      const granted = await pickGrantedSerial();
       if (granted) handle = granted;
-      else await connectSerialPrinter();
+      else await connectBluetoothPrinter();
     }
     await writeAll(payload);
     return { ok: true as const };
@@ -274,7 +289,7 @@ export async function printUsbSticker(input: StickerInput) {
     }
     await release();
     try {
-      await connectSerialPrinter();
+      await connectBluetoothPrinter();
       await writeAll(payload);
       return { ok: true as const };
     } catch {

@@ -52,6 +52,12 @@ interface USB {
   }): Promise<USBDevice>;
 }
 
+interface SerialPortInfo {
+  usbVendorId?: number;
+  usbProductId?: number;
+  bluetoothServiceClassId?: string | number;
+}
+
 interface SerialPort {
   readonly readable: ReadableStream<Uint8Array> | null;
   readonly writable: WritableStream<Uint8Array> | null;
@@ -64,6 +70,7 @@ interface SerialPort {
     flowControl?: "none" | "hardware";
   }): Promise<void>;
   close(): Promise<void>;
+  getInfo(): SerialPortInfo;
   setSignals(signals: { dataTerminalReady?: boolean; requestToSend?: boolean }): Promise<void>;
 }
 
