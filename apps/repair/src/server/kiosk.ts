@@ -65,10 +65,14 @@ const ticketSelect = {
 };
 
 function deviceLine(row: { model: string; storage: string | null; color: string | null }) {
-  return [row.model, row.storage, row.color]
-    .map((value) => value?.trim())
-    .filter(Boolean)
-    .join(" ");
+  let name = (row.model || "").replace(/\s+/g, " ").trim();
+  for (const extra of [row.storage, row.color]) {
+    const bit = extra?.replace(/\s+/g, " ").trim();
+    if (bit && !name.toLowerCase().includes(bit.toLowerCase())) {
+      name = `${name} ${bit}`;
+    }
+  }
+  return name;
 }
 
 function partGrade(partType: string, brand: string | null) {
