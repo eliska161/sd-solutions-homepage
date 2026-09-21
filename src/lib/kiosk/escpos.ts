@@ -10,7 +10,7 @@ const GS = 0x1d;
 
 /** Standard 80 mm printable width at 203 DPI. */
 export const LABEL_WIDTH_DOTS = 576;
-export const LABEL_HEIGHT_DOTS = 200;
+export const LABEL_HEIGHT_DOTS = 280;
 
 function concat(...parts: Uint8Array[]) {
   const size = parts.reduce((n, p) => n + p.length, 0);
@@ -203,91 +203,6 @@ function barcodePixelWidth(data: string, maxWidth: number) {
   return { modules, quiet, moduleW, width: total * moduleW };
 }
 
-function drawBarcode(map: Bitmap, data: string, x: number, y: number, maxWidth: number, height: number) {
-  const { modules, quiet, moduleW } = barcodePixelWidth(data, maxWidth);
-  let cx = x + quiet * moduleW;
-  for (const bit of modules) {
-    if (bit === "1") map.fillRect(cx, y, moduleW, height);
-    cx += moduleW;
-  }
-}
-
-function drawSdMark(map: Bitmap, x: number, y: number, w: number, h: number) {
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(8, Math.round(w));
-  canvas.height = Math.max(8, Math.round(h));
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const sx = canvas.width / 56;
-  const sy = canvas.height / 40;
-  ctx.scale(sx, sy);
-  ctx.strokeStyle = "#000000";
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.beginPath();
-  ctx.moveTo(8.2, 15.1);
-  ctx.bezierCurveTo(8.2, 11.2, 11.6, 8.6, 16, 8.6);
-  ctx.bezierCurveTo(20.3, 8.6, 23.5, 10.8, 23.5, 14.1);
-  ctx.bezierCurveTo(23.5, 21.1, 8.1, 19.1, 8.1, 28.6);
-  ctx.bezierCurveTo(8.1, 32.9, 11.8, 35.6, 16.5, 35.6);
-  ctx.bezierCurveTo(21.3, 35.6, 24.7, 33, 25, 29);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(33.2, 8.6);
-  ctx.lineTo(33.2, 31.4);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(33.2, 8.6);
-  ctx.lineTo(36.8, 8.6);
-  ctx.bezierCurveTo(43.8, 8.6, 48.3, 13.7, 48.3, 20);
-  ctx.bezierCurveTo(48.3, 26.3, 43.8, 31.4, 36.8, 31.4);
-  ctx.lineTo(33.2, 31.4);
-  ctx.stroke();
-
-  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  for (let py = 0; py < canvas.height; py++) {
-    for (let px = 0; px < canvas.width; px++) {
-      const i = (py * canvas.width + px) * 4;
-      if (pixels[i] < 140) map.set(x + px, y + py);
-    }
-  }
-}
-
-async function stampPngLogo(map: Bitmap, x: number, y: number, size: number) {
-  if (typeof document === "undefined") {
-    drawSdMark(map, x, y, size, Math.round(size * 0.72));
-    return;
-  }
-  try {
-    const img = new Image();
-    img.decoding = "sync";
-    img.src = "/sd-solutions-mark.png";
-    await img.decode();
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("canvas");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, size, size);
-    ctx.drawImage(img, 0, 0, size, size);
-    const pixels = ctx.getImageData(0, 0, size, size).data;
-    for (let py = 0; py < size; py++) {
-      for (let px = 0; px < size; px++) {
-        const i = (py * size + px) * 4;
-        const a = pixels[i + 3];
-        const lum = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
-        if (a > 40 && lum < 200) map.set(x + px, y + py);
-      }
-    }
-  } catch {
-    drawSdMark(map, x, y, size, Math.round(size * 0.72));
-  }
-}
-
 function gsRaster(map: Bitmap) {
   const data = map.toRaster();
   const byteWidth = Math.ceil(map.width / 8);
@@ -304,6 +219,84 @@ function gsRaster(map: Bitmap) {
     ),
     data,
   );
+}
+
+function canvasToBitmap(canvas: HTMLCanvasElement, rotate180: boolean) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return new Bitmap(w, h);
+  const pixels = ctx.getImageData(0, 0, w, h).data;
+  const map = new Bitmap(w, h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const lum = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+      if (pixels[i + 3] < 40 || lum >= 150) continue;
+      if (rotate180) map.set(w - 1 - x, h - 1 - y);
+      else map.set(x, y);
+    }
+  }
+  return map;
+}
+
+function paintBarcode(
+  ctx: CanvasRenderingContext2D,
+  data: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  height: number,
+) {
+  const { modules, quiet, moduleW } = barcodePixelWidth(data, maxWidth);
+  let cx = x + quiet * moduleW;
+  ctx.fillStyle = "#000000";
+  for (const bit of modules) {
+    if (bit === "1") ctx.fillRect(cx, y, moduleW, height);
+    cx += moduleW;
+  }
+}
+
+async function paintLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  try {
+    const img = new Image();
+    img.decoding = "sync";
+    img.src = "/sd-solutions-mark.png";
+    await img.decode();
+    ctx.drawImage(img, x, y, size, size);
+  } catch {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(size / 56, size / 40);
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(8.2, 15.1);
+    ctx.bezierCurveTo(8.2, 11.2, 11.6, 8.6, 16, 8.6);
+    ctx.bezierCurveTo(20.3, 8.6, 23.5, 10.8, 23.5, 14.1);
+    ctx.bezierCurveTo(23.5, 21.1, 8.1, 19.1, 8.1, 28.6);
+    ctx.bezierCurveTo(8.1, 32.9, 11.8, 35.6, 16.5, 35.6);
+    ctx.bezierCurveTo(21.3, 35.6, 24.7, 33, 25, 29);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(33.2, 8.6);
+    ctx.lineTo(33.2, 31.4);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(33.2, 8.6);
+    ctx.lineTo(36.8, 8.6);
+    ctx.bezierCurveTo(43.8, 8.6, 48.3, 13.7, 48.3, 20);
+    ctx.bezierCurveTo(48.3, 26.3, 43.8, 31.4, 36.8, 31.4);
+    ctx.lineTo(33.2, 31.4);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function partialCut() {
+  return concat(cmd(ESC, 0x4a, 40), cmd(GS, 0x56, 0x41, 0x10));
 }
 
 function labelGrade(parts?: string[]) {
@@ -353,37 +346,57 @@ export async function buildLockerSticker(input: StickerInput) {
   const grade = labelGrade(input.parts);
   const version = (input.version || LEGAL_VERSION).trim();
   const w = LABEL_WIDTH_DOTS;
-  const map = new Bitmap(w, LABEL_HEIGHT_DOTS);
-  const pad = 12;
-  const logo = 88;
-  const top = 8;
+  const h = LABEL_HEIGHT_DOTS;
+  const pad = 16;
 
-  await stampPngLogo(map, pad, top, logo);
-  const barcodeMax = 340;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Kunne ikke tegne etikett");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "#000000";
+  ctx.textBaseline = "top";
+
+  await paintLogo(ctx, pad, 12, 110);
+  const barcodeMax = 380;
   const barW = barcodePixelWidth(ticket, barcodeMax).width;
-  drawBarcode(map, ticket, w - pad - barW, top + 8, barcodeMax, 72);
+  paintBarcode(ctx, ticket, w - pad - barW, 28, barcodeMax, 90);
+  ctx.font = "600 28px sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(ticket, w - pad, 122);
+  ctx.textAlign = "left";
 
-  const mid = 108;
-  map.text(model.slice(0, 18), pad, mid, 2);
-  const specX = Math.min(280, pad + map.textWidth(model.slice(0, 18), 2) + 16);
-  if (storage) map.text(storage.slice(0, 10), specX, mid, 2);
-  if (color) map.text(color.slice(0, 12), specX, mid + 20, 2);
-  if (phone) map.textRight(phone, w - pad, mid, 2);
+  const mid = 150;
+  ctx.font = "700 42px sans-serif";
+  ctx.fillText(model.slice(0, 22), pad, mid);
+  const specX = Math.min(300, pad + ctx.measureText(model.slice(0, 22)).width + 20);
+  ctx.font = "600 28px sans-serif";
+  if (storage) ctx.fillText(storage.slice(0, 12), specX, mid);
+  if (color) ctx.fillText(color.slice(0, 16), specX, mid + 34);
+  ctx.font = "700 36px sans-serif";
+  ctx.textAlign = "right";
+  if (phone) ctx.fillText(phone, w - pad, mid);
+  ctx.textAlign = "left";
 
-  const lineY = 156;
-  for (let x = pad; x < w - pad; x++) map.set(x, lineY);
-  for (let x = pad; x < w - pad; x++) map.set(x, lineY + 1);
+  ctx.fillRect(pad, 228, w - pad * 2, 3);
 
-  if (grade) map.text(grade, pad, 168, 2);
-  if (version) map.textRight(version, w - pad, 168, 2);
+  ctx.font = "600 26px sans-serif";
+  if (grade) ctx.fillText(grade, pad, 240);
+  ctx.textAlign = "right";
+  if (version) ctx.fillText(version, w - pad, 240);
+
+  const map = canvasToBitmap(canvas, true);
 
   return concat(
     cmd(ESC, 0x40),
+    cmd(ESC, 0x7b, 0),
     cmd(ESC, 0x61, 0),
     cmd(GS, 0x4c, 0, 0),
     cmd(GS, 0x57, w & 0xff, (w >> 8) & 0xff),
     cmd(ESC, 0x33, 0),
     gsRaster(map),
-    cmd(ESC, 0x4a, 24),
+    partialCut(),
   );
 }
