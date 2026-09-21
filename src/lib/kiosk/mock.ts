@@ -148,6 +148,13 @@ export const KIOSK_DEVICES = [
   "Annet",
 ] as const;
 
+export const KIOSK_COMMENTS = [
+  "Skjermen er knust",
+  "Har vært i væske",
+  "Virker ikke i det hele tatt",
+  "Har passord på enheten",
+] as const;
+
 export const KIOSK_ISSUES = [
   "Skjerm",
   "Batteri",
@@ -164,10 +171,15 @@ export async function createKioskServiceOrder(input: {
   comment?: string;
   imei?: string | null;
   serialNumber?: string | null;
+  termsAccepted?: boolean;
+  signaturePng?: string | null;
   fail?: boolean;
 }) {
   await wait(500);
   if (input.fail) return { ok: false as const, reason: "network" as const };
+  if (!input.termsAccepted || !input.signaturePng) {
+    return { ok: false as const, reason: "generic" as const };
+  }
   const n = Math.floor(Math.random() * 100000);
   const id = `REP${String(n).padStart(5, "0")}`;
   const issue = input.comment?.trim()

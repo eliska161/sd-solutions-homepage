@@ -57,6 +57,10 @@ export async function createLiveLockerOrder(input: {
   comment?: string;
   imei?: string | null;
   serialNumber?: string | null;
+  termsAccepted?: boolean;
+  termsVersion?: string;
+  signaturePng?: string | null;
+  termsSignerName?: string;
 }): Promise<{ ok: true; repair: RepairRow } | { ok: false; error: string }> {
   try {
     const res = await fetch("/api/kiosk", {

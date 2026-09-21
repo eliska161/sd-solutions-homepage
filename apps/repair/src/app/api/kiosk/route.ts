@@ -42,9 +42,9 @@ export async function POST(request: Request) {
   try {
     const auth = readKioskAuth(request);
     if (!auth.ok) return jsonError(auth.error, auth.status);
-    let body: Record<string, string> = {};
+    let body: Record<string, unknown> = {};
     try {
-      body = (await request.json()) as Record<string, string>;
+      body = (await request.json()) as Record<string, unknown>;
     } catch {
       return jsonError("Ugyldig data");
     }
@@ -66,6 +66,10 @@ export async function POST(request: Request) {
         comment: String(body.comment || ""),
         imei: String(body.imei || ""),
         serialNumber: String(body.serialNumber || ""),
+        termsAccepted: body.termsAccepted === "true" || (body as { termsAccepted?: boolean }).termsAccepted === true,
+        termsVersion: String(body.termsVersion || ""),
+        signaturePng: String(body.signaturePng || ""),
+        termsSignerName: String(body.termsSignerName || "Kunde"),
       });
       if (!result.ok) return jsonError(result.error);
       return NextResponse.json(result);

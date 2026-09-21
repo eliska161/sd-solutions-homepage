@@ -19,6 +19,10 @@ import { isSendablePhone, toE164Phone } from "@/lib/phone";
 import { allocatePublicShortCode } from "@/lib/public-link";
 import { createPublicAccessToken } from "@/lib/public-token";
 import { nextRepairTicketNumber } from "@/lib/sequences";
+import { publicStatusUrl } from "@/lib/mail";
+import { parsePngDataUrl, renderSignedTermsPdf } from "@/lib/pdf/customer-document";
+import { REPAIR_TERMS_VERSION } from "@/lib/repair-terms";
+import { storeCustomerPdf } from "@/lib/store-customer-pdf";
 import { notifyDeviceReceived, notifyServiceOrderCreated } from "@/server/customer-mail";
 
 const CLOSED = ["CANCELLED", "COMPLETED", "RETURNED"] as const;
@@ -351,6 +355,10 @@ export async function createKioskLockerOrder(input: {
   comment?: string;
   imei?: string;
   serialNumber?: string;
+  termsAccepted?: boolean;
+  termsVersion?: string;
+  signaturePng?: string;
+  termsSignerName?: string;
 }): Promise<{ ok: true; repair: KioskRepair } | { ok: false; error: string }> {
   const phone = toE164Phone(input.phone);
   if (!phone || !isSendablePhone(phone)) {
@@ -369,6 +377,18 @@ export async function createKioskLockerOrder(input: {
     return { ok: false, error: "Oppgi IMEI eller serienummer." };
   }
   const problem = comment ? `${issue}. ${comment}` : issue;
+  if (input.termsAccepted !== true) {
+    return { ok: false, error: "Du må godta vilkårene." };
+  }
+  if (input.termsVersion && input.termsVersion !== REPAIR_TERMS_VERSION) {
+    return { ok: false, error: "Vilkårene er oppdatert. Les og signer på nytt." };
+  }
+  const signaturePng = parsePngDataUrl(input.signaturePng || "");
+  if (!signaturePng) {
+    return { ok: false, error: "Signer på skjermen før ordren opprettes." };
+  }
+  const signerName = (input.termsSignerName || "Kunde").trim() || "Kunde";
+  const signedAt = new Date();
 
   const db = getDb();
   const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -470,6 +490,9 @@ export async function createKioskLockerOrder(input: {
       inboundMethod: "IN_PERSON",
       outboundMethod: "IN_PERSON",
       receivedAt: null,
+      termsVersion: REPAIR_TERMS_VERSION,
+      termsSignedAt: signedAt,
+      termsSignerName: signerName,
     })
     .returning({ id: repairTickets.id });
 
@@ -482,7 +505,7 @@ export async function createKioskLockerOrder(input: {
   });
   await db.insert(repairNotes).values({
     ticketId: ticket.id,
-    content: `Opprettet i locker. Feil: ${issue}.${comment ? ` Kommentar: ${comment}` : ""} ${imei ? `IMEI: ${imei}.` : ""} ${serialNumber ? `SN: ${serialNumber}.` : ""} Vilkår signeres når saken tas inn i verkstedet.`,
+    content: `Opprettet i locker og signert. Feil: ${issue}.${comment ? ` Kommentar: ${comment}` : ""} ${imei ? `IMEI: ${imei}.` : ""} ${serialNumber ? `SN: ${serialNumber}.` : ""}`,
     visibility: "INTERNAL",
   });
   await writeAuditLog({
@@ -500,6 +523,39 @@ export async function createKioskLockerOrder(input: {
     actorId: null,
   });
   await notifyServiceOrderCreated(ticket.id);
+
+  try {
+    const pdf = await renderSignedTermsPdf({
+      order: {
+        ticketNumber,
+        customerName: signerName,
+        customerEmail: "",
+        customerPhone: phone,
+        customerAddress: `${WORKSHOP.streetAddress}, ${WORKSHOP.postalCode} ${WORKSHOP.city}`,
+        deviceLabel: model,
+        serialNumber,
+        imei,
+        problem,
+        inboundLabel: "Leveres i locker",
+        outboundLabel: "Hentes i butikk",
+        statusUrl: publicStatusUrl(publicShortCode),
+      },
+      signature: {
+        signerName,
+        signedAt,
+        png: signaturePng,
+      },
+    });
+    await storeCustomerPdf({
+      ticketId: ticket.id,
+      category: "TERMS",
+      fileName: `ordrebekreftelse-${ticketNumber}.pdf`,
+      description: "Ordrebekreftelse og signerte vilkår (locker)",
+      buffer: pdf,
+    });
+  } catch (err) {
+    console.error("==> Locker signert PDF feilet", err);
+  }
 
   return {
     ok: true,

@@ -1,4 +1,4 @@
-/** ESC/POS bytes for an 80 mm / 203 DPI locker sticker (Font A 12×24, WPC1252). */
+/** ESC/POS bytes for an 80 mm / 203 DPI locker sticker (Font A 12×24, PC437). */
 
 const ESC = 0x1b;
 const GS = 0x1d;
@@ -16,27 +16,28 @@ function concat(...parts: Uint8Array[]) {
   return out;
 }
 
-/** Map Unicode to WPC1252 (ESC t 16) for Nordic letters. */
-function wpc1252(text: string) {
+/** Map Unicode to PC437 (ESC t 0). Nordic letters exist here; WPC1252 often does not. */
+function pc437(text: string) {
+  const nordic: Record<number, number> = {
+    0xc6: 0x92,
+    0xd8: 0x9d,
+    0xc5: 0x8f,
+    0xe6: 0x91,
+    0xf8: 0x9b,
+    0xe5: 0x86,
+    0xc4: 0x8e,
+    0xd6: 0x99,
+    0xdc: 0x9a,
+    0xe4: 0x84,
+    0xf6: 0x94,
+    0xfc: 0x81,
+  };
   const bytes: number[] = [];
   for (const ch of text) {
     const c = ch.codePointAt(0) ?? 32;
     if (c >= 0x20 && c <= 0x7e) bytes.push(c);
-    else if (c === 0x20ac) bytes.push(0x80);
-    else if (c === 0x201a) bytes.push(0x82);
-    else if (c === 0x201e) bytes.push(0x84);
-    else if (c === 0x2026) bytes.push(0x85);
-    else if (c === 0x2018) bytes.push(0x91);
-    else if (c === 0x2019) bytes.push(0x92);
-    else if (c === 0x201c) bytes.push(0x93);
-    else if (c === 0x201d) bytes.push(0x94);
-    else if (c === 0x2013) bytes.push(0x96);
-    else if (c === 0x2014) bytes.push(0x97);
-    else if (c === 0xc6 || c === 0xd8 || c === 0xc5 || c === 0xe6 || c === 0xf8 || c === 0xe5) {
-      bytes.push(c);
-    } else if (c === 0xc4 || c === 0xd6 || c === 0xdc || c === 0xe4 || c === 0xf6 || c === 0xfc) {
-      bytes.push(c);
-    } else if (c === 0xa0) bytes.push(0x20);
+    else if (nordic[c]) bytes.push(nordic[c]);
+    else if (c === 0xa0) bytes.push(0x20);
     else bytes.push(0x3f);
   }
   return Uint8Array.from(bytes);
@@ -47,7 +48,7 @@ function cmd(...bytes: number[]) {
 }
 
 function line(text = "") {
-  return concat(wpc1252(text), cmd(LF));
+  return concat(pc437(text), cmd(LF));
 }
 
 function align(n: 0 | 1 | 2) {
@@ -108,13 +109,13 @@ function code128(data: string) {
     cmd(GS, 0x48, 2),
     cmd(GS, 0x66, 0),
     cmd(GS, 0x6b, 73, n),
-    wpc1252(payload),
+    pc437(payload),
     cmd(LF),
   );
 }
 
 function partialCut() {
-  return concat(cmd(LF, LF, LF), cmd(GS, 0x56, 66, 3));
+  return concat(cmd(LF, LF, LF, LF), cmd(GS, 0x56, 0x41, 0x10));
 }
 
 export type StickerInput = {
@@ -144,7 +145,7 @@ export function buildLockerSticker(input: StickerInput) {
 
   return concat(
     cmd(ESC, 0x40),
-    cmd(ESC, 0x74, 16),
+    cmd(ESC, 0x74, 0),
     cmd(ESC, 0x33, 28),
     align(1),
     size(2, 2),
@@ -175,7 +176,7 @@ export function buildLockerSticker(input: StickerInput) {
       : [line("Ikke valgt ennå")]),
     rule(),
     align(1),
-    line("Fest på konvolutten"),
+    line("Fest pa konvolutten"),
     partialCut(),
   );
 }
