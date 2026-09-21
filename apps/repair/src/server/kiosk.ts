@@ -1,5 +1,13 @@
-import { and, desc, eq, gte, or, sql } from "drizzle-orm";
-import { customers, devices, repairNotes, repairTickets, repairTicketStatusHistory } from "@/db/schema";
+import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
+import {
+  customers,
+  devices,
+  parts,
+  repairNotes,
+  repairParts,
+  repairTickets,
+  repairTicketStatusHistory,
+} from "@/db/schema";
 import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
@@ -18,8 +26,71 @@ export type KioskRepair = {
   device: string;
   status: string;
   phone?: string;
+  issue?: string;
+  parts?: string[];
   kind: "dropoff" | "pickup" | "other";
 };
+
+type TicketLookupRow = {
+  ticketId: string;
+  ticketNumber: string;
+  model: string;
+  storage: string | null;
+  color: string | null;
+  customerProblem: string;
+  status: string;
+  receivedAt: Date | null;
+  phone: string;
+};
+
+const ticketSelect = {
+  ticketId: repairTickets.id,
+  ticketNumber: repairTickets.ticketNumber,
+  model: devices.model,
+  storage: devices.storage,
+  color: devices.color,
+  customerProblem: repairTickets.customerProblem,
+  status: repairTickets.status,
+  receivedAt: repairTickets.receivedAt,
+  phone: customers.phone,
+};
+
+function deviceLine(row: { model: string; storage: string | null; color: string | null }) {
+  return [row.model, row.storage, row.color]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+function partGrade(partType: string, brand: string | null) {
+  const type = partType.toUpperCase();
+  const b = (brand || "").toLowerCase();
+  if (type === "OEM" || b.includes("service pack")) return "Original service pack";
+  if (
+    type === "ORIGINAL_PULL" ||
+    b.includes("oem-pull") ||
+    b.includes("oem pull") ||
+    /\bpull\b/.test(b)
+  ) {
+    return "OEM Pull";
+  }
+  if (
+    type === "SOFT_OLED" ||
+    type === "HARD_OLED" ||
+    type === "LCD" ||
+    type === "INCELL" ||
+    b.includes("aftermarket") ||
+    b.includes("kompatibel")
+  ) {
+    return "Aftermarket";
+  }
+  return "";
+}
+
+function partLine(name: string, partType: string, brand: string | null) {
+  const grade = partGrade(partType, brand);
+  return grade ? `${name} (${grade})` : name;
+}
 
 function lastEight(raw: string) {
   const digits = raw.replace(/\D/g, "");
@@ -39,19 +110,15 @@ function phoneWhere(raw: string) {
   );
 }
 
-function mapRow(row: {
-  ticketNumber: string;
-  model: string;
-  status: string;
-  receivedAt: Date | null;
-  phone: string;
-}): KioskRepair {
+function mapRow(row: TicketLookupRow, partsOnTicket: string[]): KioskRepair {
   const pickup = row.status === "READY_FOR_PICKUP";
   const closed = CLOSED.includes(row.status as (typeof CLOSED)[number]);
   const dropoff = !pickup && !closed;
   return {
     id: row.ticketNumber,
-    device: row.model,
+    device: deviceLine(row),
+    issue: row.customerProblem,
+    parts: partsOnTicket,
     status: dropoff
       ? "Klar for innlevering"
       : pickup
@@ -60,6 +127,31 @@ function mapRow(row: {
     phone: lastEight(row.phone),
     kind: dropoff ? "dropoff" : pickup ? "pickup" : "other",
   };
+}
+
+async function withParts(rows: TicketLookupRow[]): Promise<KioskRepair[]> {
+  const ids = rows.map((row) => row.ticketId);
+  const partMap = new Map<string, string[]>();
+  if (ids.length) {
+    const db = getDb();
+    const listed = await db
+      .select({
+        ticketId: repairParts.ticketId,
+        name: parts.name,
+        partType: parts.partType,
+        brand: parts.brand,
+      })
+      .from(repairParts)
+      .innerJoin(parts, eq(parts.id, repairParts.partId))
+      .where(inArray(repairParts.ticketId, ids));
+    for (const row of listed) {
+      if (!row.ticketId) continue;
+      const lines = partMap.get(row.ticketId) ?? [];
+      lines.push(partLine(row.name, row.partType, row.brand));
+      partMap.set(row.ticketId, lines);
+    }
+  }
+  return rows.map((row) => mapRow(row, partMap.get(row.ticketId) ?? []));
 }
 
 function assertKioskSecret(request: Request) {
@@ -84,13 +176,7 @@ export async function lookupKioskDropoffs(phoneRaw: string): Promise<KioskRepair
   if (lastEight(phoneRaw).length !== 8) return [];
   const db = getDb();
   const rows = await db
-    .select({
-      ticketNumber: repairTickets.ticketNumber,
-      model: devices.model,
-      status: repairTickets.status,
-      receivedAt: repairTickets.receivedAt,
-      phone: customers.phone,
-    })
+    .select(ticketSelect)
     .from(repairTickets)
     .innerJoin(customers, eq(customers.id, repairTickets.customerId))
     .innerJoin(devices, eq(devices.id, repairTickets.deviceId))
@@ -102,19 +188,13 @@ export async function lookupKioskDropoffs(phoneRaw: string): Promise<KioskRepair
     )
     .orderBy(desc(repairTickets.updatedAt))
     .limit(20);
-  return rows.map(mapRow);
+  return withParts(rows);
 }
 
 export async function kioskBoard() {
   const db = getDb();
   const dropoffRows = await db
-    .select({
-      ticketNumber: repairTickets.ticketNumber,
-      model: devices.model,
-      status: repairTickets.status,
-      receivedAt: repairTickets.receivedAt,
-      phone: customers.phone,
-    })
+    .select(ticketSelect)
     .from(repairTickets)
     .innerJoin(customers, eq(customers.id, repairTickets.customerId))
     .innerJoin(devices, eq(devices.id, repairTickets.deviceId))
@@ -123,13 +203,7 @@ export async function kioskBoard() {
     .limit(12);
 
   const pickupRows = await db
-    .select({
-      ticketNumber: repairTickets.ticketNumber,
-      model: devices.model,
-      status: repairTickets.status,
-      receivedAt: repairTickets.receivedAt,
-      phone: customers.phone,
-    })
+    .select(ticketSelect)
     .from(repairTickets)
     .innerJoin(customers, eq(customers.id, repairTickets.customerId))
     .innerJoin(devices, eq(devices.id, repairTickets.deviceId))
@@ -138,8 +212,8 @@ export async function kioskBoard() {
     .limit(12);
 
   return {
-    dropoffs: dropoffRows.map(mapRow),
-    pickups: pickupRows.map(mapRow),
+    dropoffs: await withParts(dropoffRows),
+    pickups: await withParts(pickupRows),
   };
 }
 
@@ -263,7 +337,9 @@ export async function createKioskLockerOrder(input: {
     ok: true,
     repair: {
       id: ticketNumber,
-      device: `${model} · ${issue}`,
+      device: model,
+      issue,
+      parts: [],
       status: "Klar for innlevering",
       phone: lastEight(input.phone),
       kind: "dropoff",

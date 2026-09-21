@@ -68,48 +68,68 @@ export function LabelVisual({
   printed,
   ticket,
   device,
+  phone,
+  issue,
+  parts = [],
 }: {
   printed: boolean;
   ticket: string;
   device: string;
+  phone?: string;
+  issue?: string;
+  parts?: string[];
 }) {
+  const partLine = parts[0] ?? "Ikke valgt ennå";
   return (
-    <div className="mx-auto flex w-[340px] items-end gap-4" aria-hidden>
-      <div className="flex w-[150px] flex-col items-center">
-        <div className="h-4 w-[118px] rounded-t bg-[#1b1e24]" />
+    <div className="mx-auto flex w-[380px] items-end gap-4" aria-hidden>
+      <div className="flex w-[186px] flex-col items-center">
+        <div className="h-4 w-[148px] rounded-t bg-[#1b1e24]" />
         <motion.div
-          className="h-3 w-[132px] bg-[#2b6cb0]"
+          className="h-3 w-[164px] bg-[#2b6cb0]"
           animate={printed ? { opacity: [1, 0.45, 1] } : { opacity: 1 }}
           transition={{ duration: 0.7, repeat: Infinity }}
         />
-        <div className="relative h-[128px] w-full overflow-hidden border-x-[3px] border-b-[3px] border-[#1f2430] bg-[#e8eaee]">
+        <div className="relative h-[188px] w-full overflow-hidden border-x-[3px] border-b-[3px] border-[#1f2430] bg-[#e8eaee]">
           <motion.div
-            className="absolute left-1/2 w-[124px] -translate-x-1/2 border-[3px] border-[#1f2430] bg-white p-2 text-[#1f2430]"
+            className="absolute left-1/2 w-[164px] -translate-x-1/2 border-[3px] border-[#1f2430] bg-white p-2 text-[#1f2430]"
             initial={false}
-            animate={printed ? { y: 10 } : { y: -130 }}
+            animate={printed ? { y: 8 } : { y: -190 }}
             transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
           >
-            <p className="text-[10px] font-bold tracking-[0.12em]">SD SOLUTIONS</p>
-            <p className="text-[13px] font-bold">#{ticket}</p>
-            <p className="text-[12px] font-semibold">{device}</p>
-            <div className="mt-1 h-4 w-full bg-[repeating-linear-gradient(90deg,#1f2430_0_2px,transparent_2px_4px)]" />
+            <p className="text-center text-[9px] font-bold tracking-[0.14em]">
+              SD SOLUTIONS
+            </p>
+            <div className="mt-1 h-7 w-full bg-[repeating-linear-gradient(90deg,#1f2430_0_2px,transparent_2px_3px)]" />
+            <p className="text-center text-[12px] font-bold tracking-wide">{ticket}</p>
+            <p className="mt-0.5 text-[9px] font-semibold leading-tight">
+              {phone ? `${phone}` : ""}
+            </p>
+            <p className="text-[10px] font-bold leading-tight">{device}</p>
+            {issue ? (
+              <p className="text-[9px] font-semibold leading-tight">Feil: {issue}</p>
+            ) : null}
+            <p className="mt-0.5 border-t border-[#1f2430] pt-0.5 text-[8px] font-bold leading-tight">
+              {partLine}
+            </p>
           </motion.div>
         </div>
       </div>
 
-      <div className="relative h-[168px] w-[170px]">
-        <svg viewBox="0 0 170 168" className="h-full w-full">
-          <rect x="8" y="58" width="154" height="96" rx="4" fill="#fff" stroke="#1f2430" strokeWidth="3" />
-          <path d="M8 70 L85 118 L162 70" fill="none" stroke="#2b6cb0" strokeWidth="3" />
+      <div className="relative h-[210px] w-[170px]">
+        <svg viewBox="0 0 170 210" className="h-full w-full">
+          <rect x="8" y="82" width="154" height="118" rx="4" fill="#fff" stroke="#1f2430" strokeWidth="3" />
+          <path d="M8 94 L85 148 L162 94" fill="none" stroke="#2b6cb0" strokeWidth="3" />
         </svg>
         {printed ? (
           <motion.div
-            className="absolute left-[28px] w-[114px] border-[3px] border-[#1f2430] bg-white px-1.5 py-1 text-[#1f2430]"
-            animate={{ y: [8, 78, 78], rotate: [-8, 0, 0], opacity: [0, 1, 1] }}
+            className="absolute left-[22px] w-[126px] border-[3px] border-[#1f2430] bg-white px-1.5 py-1 text-[#1f2430]"
+            animate={{ y: [8, 98, 98], rotate: [-6, 0, 0], opacity: [0, 1, 1] }}
             transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 0.5, times: [0, 0.45, 1] }}
           >
-            <p className="text-[9px] font-bold">#{ticket}</p>
-            <p className="text-[11px] font-bold leading-tight">{device}</p>
+            <div className="h-4 w-full bg-[repeating-linear-gradient(90deg,#1f2430_0_2px,transparent_2px_3px)]" />
+            <p className="text-[9px] font-bold">{ticket}</p>
+            <p className="text-[10px] font-bold leading-tight">{device}</p>
+            <p className="text-[8px] font-semibold leading-tight">{partLine}</p>
           </motion.div>
         ) : null}
       </div>

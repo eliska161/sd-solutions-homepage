@@ -37,6 +37,8 @@ export type RepairRow = {
   device: string;
   status: string;
   phone?: string;
+  issue?: string;
+  parts?: string[];
   kind?: "dropoff" | "pickup" | "other";
 };
 

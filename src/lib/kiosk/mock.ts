@@ -3,7 +3,7 @@ import type { ActivityEvent, LockerBay, RepairRow } from "@/lib/kiosk/types";
 export const CUSTOMER_PIN = "123456";
 export const ADMIN_PIN = "999999";
 export const MOCK_PHONE = "41234567";
-export const MOCK_TICKET = "1047";
+export const MOCK_TICKET = "REP10471";
 export const MOCK_DEVICE = "iPhone 13";
 export const MOCK_LOCKER: 1 | 2 | 3 | 4 = 3;
 
@@ -15,13 +15,41 @@ export const initialLockers: LockerBay[] = [
 ];
 
 export const initialRepairs: RepairRow[] = [
-  { id: "1047", device: "iPhone 13", status: "Klar for henting", phone: MOCK_PHONE },
-  { id: "1048", device: "iPhone 11", status: "Under reparasjon", phone: MOCK_PHONE },
+  {
+    id: "REP10471",
+    device: "iPhone 13 128GB",
+    status: "Klar for henting",
+    phone: MOCK_PHONE,
+    issue: "Skjerm",
+    parts: ["Skjerm (Aftermarket)"],
+  },
+  {
+    id: "REP10482",
+    device: "iPhone 11",
+    status: "Under reparasjon",
+    phone: MOCK_PHONE,
+    issue: "Batteri",
+    parts: ["Batteri (OEM Pull)"],
+  },
 ];
 
 export const dropoffRepairs: RepairRow[] = [
-  { id: "1049", device: "iPhone 14", status: "Klar for innlevering", phone: MOCK_PHONE },
-  { id: "1050", device: "iPad Air", status: "Klar for innlevering", phone: MOCK_PHONE },
+  {
+    id: "REP10493",
+    device: "iPhone 14",
+    status: "Klar for innlevering",
+    phone: MOCK_PHONE,
+    issue: "Skjerm",
+    parts: ["Skjerm (Aftermarket)"],
+  },
+  {
+    id: "REP10504",
+    device: "iPad Air",
+    status: "Klar for innlevering",
+    phone: MOCK_PHONE,
+    issue: "Ladeport",
+    parts: ["Ladeport (Original service pack)"],
+  },
 ];
 
 export const initialActivity: ActivityEvent[] = [
@@ -46,9 +74,50 @@ export async function closeLocker(_id: number, fail?: boolean) {
   return { ok: true as const };
 }
 
-export async function printLabel(fail?: boolean) {
-  await wait(1100);
-  if (fail) return { ok: false as const, reason: "generic" as const };
+export const SAMPLE_STICKER = {
+  ticket: MOCK_TICKET,
+  device: MOCK_DEVICE,
+  phone: MOCK_PHONE,
+  issue: "Skjerm",
+  parts: ["Skjerm (Aftermarket)", "Batteri (OEM Pull)"],
+  locker: MOCK_LOCKER,
+};
+
+export async function printLabel(
+  input:
+    | {
+        ticket: string;
+        device: string;
+        phone?: string;
+        issue?: string;
+        parts?: string[];
+        locker?: number;
+      }
+    | boolean = SAMPLE_STICKER,
+  fail?: boolean,
+) {
+  const demoFail = typeof input === "boolean" ? input : fail;
+  if (demoFail) {
+    await wait(400);
+    return { ok: false as const, reason: "generic" as const };
+  }
+  const payload =
+    typeof input === "boolean"
+      ? SAMPLE_STICKER
+      : {
+          ticket: input.ticket,
+          device: input.device,
+          phone: input.phone ?? MOCK_PHONE,
+          issue: input.issue ?? "",
+          parts: input.parts ?? [],
+          locker: input.locker ?? MOCK_LOCKER,
+        };
+
+  if (typeof window !== "undefined") {
+    const { printUsbSticker } = await import("@/lib/kiosk/usb-printer");
+    return printUsbSticker(payload);
+  }
+  await wait(400);
   return { ok: true as const };
 }
 
@@ -93,9 +162,11 @@ export async function createKioskServiceOrder(input: {
   const id = `REP${String(n).padStart(5, "0")}`;
   const repair: RepairRow = {
     id,
-    device: `${input.device} · ${input.issue}`,
+    device: input.device,
     status: "Klar for innlevering",
     phone: input.phone.replace(/\D/g, "").slice(-8),
+    issue: input.issue,
+    parts: [],
   };
   return { ok: true as const, repair };
 }

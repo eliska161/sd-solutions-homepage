@@ -29,6 +29,7 @@ import {
   MOCK_PHONE,
   MOCK_TICKET,
   nowTime,
+  formatNoMobile,
   openLocker,
   printLabel,
   submitRating,
@@ -138,6 +139,10 @@ export function KioskApp() {
 
   const ticket = selected?.id ?? MOCK_TICKET;
   const device = selected?.device ?? MOCK_DEVICE;
+  const issue = selected?.issue ?? "";
+  const stickerPhone = selected?.phone ?? (phone || MOCK_PHONE);
+  const stickerPhoneLabel = formatNoMobile(stickerPhone);
+  const stickerParts = selected?.parts ?? [];
 
   useEffect(() => {
     setClock(clockLabel());
@@ -210,7 +215,21 @@ export function KioskApp() {
   async function startPrint() {
     dispatch({ type: "GO", screen: "DELIVERY_LABEL" });
     setLabelPrinted(false);
-    const ok = await hardware((fail) => printLabel(fail), "DELIVERY_ENVELOPE");
+    const ok = await hardware(
+      (fail) =>
+        printLabel(
+          {
+            ticket,
+            device,
+            phone: stickerPhone,
+            issue,
+            parts: stickerParts,
+            locker: MOCK_LOCKER,
+          },
+          fail,
+        ),
+      "DELIVERY_ENVELOPE",
+    );
     if (ok) setLabelPrinted(true);
   }
 
@@ -373,7 +392,21 @@ export function KioskApp() {
   }
 
   async function adminPrint() {
-    await hardware((fail) => printLabel(fail), "ADMIN");
+    await hardware(
+      (fail) =>
+        printLabel(
+          {
+            ticket: MOCK_TICKET,
+            device: MOCK_DEVICE,
+            phone: MOCK_PHONE,
+            issue: "Skjerm",
+            parts: ["Skjerm (Aftermarket)", "Batteri (OEM Pull)"],
+            locker: MOCK_LOCKER,
+          },
+          fail,
+        ),
+      "ADMIN",
+    );
     dispatch({ type: "LOG", message: "Testetikett skrevet ut" });
   }
 
@@ -492,6 +525,9 @@ export function KioskApp() {
                     >
                       <p className="text-[26px] font-bold">Reparasjon #{row.id}</p>
                       <p className="mt-1 text-[22px] font-semibold">{row.device}</p>
+                      {row.issue ? (
+                        <p className="text-[18px] font-semibold text-[#3d4454]">{row.issue}</p>
+                      ) : null}
                       <p className="mt-1 text-[18px] font-bold text-[#2b6cb0]">
                         {row.status}
                       </p>
@@ -593,7 +629,14 @@ export function KioskApp() {
                   Fest etiketten
                 </h1>
                 <div className="flex flex-1 items-center">
-                  <LabelVisual printed={labelPrinted} ticket={ticket} device={device} />
+                  <LabelVisual
+                    printed={labelPrinted}
+                    ticket={ticket}
+                    device={device}
+                    phone={stickerPhoneLabel}
+                    issue={issue}
+                    parts={stickerParts}
+                  />
                 </div>
                 <p className="mb-4 text-center text-[32px] font-bold leading-tight">
                   Ta etiketten og fest den på konvolutten
@@ -1024,6 +1067,7 @@ function AdminScreen({
               <li key={row.id} className="flex justify-between gap-3">
                 <span>
                   #{row.id} — {row.device}
+                  {row.issue ? ` · ${row.issue}` : ""}
                 </span>
                 <span className="text-[#3d4454]">{row.status}</span>
               </li>
