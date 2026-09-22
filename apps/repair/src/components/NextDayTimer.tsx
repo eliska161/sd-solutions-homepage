@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Outfit } from "next/font/google";
 import { formatCountdown, nextDayOffer } from "@/lib/next-day";
+
+const clockFont = Outfit({
+  subsets: ["latin"],
+  weight: ["600"],
+});
 
 export function NextDayTimer() {
   const [now, setNow] = useState(() => Date.now());
@@ -23,19 +29,21 @@ export function NextDayTimer() {
         <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-white/70">
           Ferdig neste dag
         </p>
-        <p className="font-mono text-[36px] font-semibold tabular-nums leading-none tracking-tight">
+        <p
+          className={`${clockFont.className} text-[40px] font-semibold tabular-nums leading-none tracking-tight`}
+        >
           {remain}
         </p>
       </div>
       {offer.active ? (
         <p className="mt-2 text-[14px] leading-snug text-white/85">
           Opprett serviceordre og lever enheten i dag, så er den ferdig{" "}
-          {offer.readyLabel}. Kutt kl. 18:30.
+          {offer.readyLabel}.
         </p>
       ) : (
         <p className="mt-2 text-[14px] leading-snug text-white/85">
-          Dagens kutt kl. 18:30 er passert. Neste kutt {offer.cutoffDayLabel} kl.
-          18:30. Lever innen da, så er den ferdig {offer.readyLabel}.
+          Fristen i dag er passert. Lever {offer.cutoffDayLabel}, så er den
+          ferdig {offer.readyLabel}.
         </p>
       )}
     </div>
