@@ -18,6 +18,7 @@ import {
 import { getDb } from "@/lib/db";
 import { formatDropoffAppointment } from "@/lib/dropoff";
 import { formatNokFromOre } from "@/lib/money";
+import { PAYMENT_STATUS_LABELS } from "@/lib/labels";
 import { publicTicketLinkFilter } from "@/lib/public-link";
 
 /**
@@ -50,6 +51,8 @@ export async function getPublicRepairByToken(token: string) {
       outboundPostageOre: repairTickets.outboundPostageOre,
       returnTrackingNumber: repairTickets.returnTrackingNumber,
       pickupPin: repairTickets.pickupPin,
+      paymentStatus: repairTickets.paymentStatus,
+      paidAt: repairTickets.paidAt,
       deviceBrand: devices.brand,
       deviceModel: devices.model,
       deviceVariant: devices.variant,
@@ -199,6 +202,12 @@ export async function getPublicRepairByToken(token: string) {
       /^\d{6}$/.test(row.pickupPin)
         ? row.pickupPin
         : null,
+    paymentStatus: row.paymentStatus,
+    paymentLabel: PAYMENT_STATUS_LABELS[row.paymentStatus] || row.paymentStatus,
+    paid: row.paymentStatus === "PAID",
+    paidAt: row.paidAt,
+    canPay:
+      row.paymentStatus !== "PAID" && row.paymentStatus !== "REFUNDED",
   };
 }
 

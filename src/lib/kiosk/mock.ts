@@ -25,6 +25,10 @@ export const initialRepairs: RepairRow[] = [
     phone: MOCK_PHONE,
     issue: "Skjerm",
     parts: ["Skjerm (Aftermarket)"],
+    paid: true,
+    paymentLabel: "Betalt",
+    totalLabel: "1 699 kr",
+    chargeLines: [{ name: "Skjerm", amountLabel: "1 699 kr" }],
   },
   {
     id: "REP10482",
@@ -136,6 +140,29 @@ export async function printLabel(
     return printUsbSticker(payload);
   }
   await wait(400);
+  return { ok: true as const };
+}
+
+export async function printReceipt(
+  input: {
+    ticket: string;
+    device: string;
+    phone?: string;
+    paymentLabel?: string;
+    totalLabel: string;
+    lines: { name: string; amountLabel: string }[];
+  },
+  fail?: boolean,
+) {
+  if (fail) {
+    await wait(300);
+    return { ok: false as const, reason: "printer" as const };
+  }
+  if (typeof window !== "undefined") {
+    const { printUsbReceipt } = await import("@/lib/kiosk/usb-printer");
+    return printUsbReceipt(input);
+  }
+  await wait(300);
   return { ok: true as const };
 }
 

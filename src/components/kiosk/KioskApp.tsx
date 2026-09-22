@@ -40,6 +40,7 @@ import {
   formatNoMobile,
   openLocker,
   printLabel,
+  printReceipt,
   submitRating,
   verifyPin,
 } from "@/lib/kiosk/mock";
@@ -153,6 +154,7 @@ export function KioskApp() {
   const [liveTickets, setLiveTickets] = useState<RepairRow[]>([]);
   const lookupGen = useRef(0);
   const lastLookup = useRef("");
+  const pickupPinHold = useRef("");
 
   const ticket = selected?.id ?? MOCK_TICKET;
   const device = selected?.device ?? MOCK_DEVICE;
@@ -273,6 +275,28 @@ export function KioskApp() {
     if (ok) setLabelPrinted(true);
   }
 
+  async function printPickupReceipt(row: RepairRow) {
+    try {
+      await printReceipt({
+        ticket: row.id,
+        device: row.device,
+        phone: row.phone,
+        paymentLabel: row.paymentLabel || "Betalt",
+        totalLabel: row.totalLabel || "",
+        lines: row.chargeLines?.length
+          ? row.chargeLines
+          : [{ name: "Reparasjon", amountLabel: row.totalLabel || "" }],
+      });
+    } catch {
+      /* henting skal fortsette selv om kvittering ikke kommer ut */
+    }
+  }
+
+  function needsKioskPay(row: RepairRow) {
+    if (row.paid) return false;
+    return (row.totalOre ?? 0) > 0;
+  }
+
   async function startOpen(next: KioskState, retry: KioskState) {
     dispatch({
       type: "GO",
@@ -321,14 +345,27 @@ export function KioskApp() {
     const live = await lookupLivePickup(pin);
     setBusy(false);
     if (live.ok) {
+      pickupPinHold.current = pin;
       setSelected(live.repair);
       setPin("");
+      if (needsKioskPay(live.repair)) {
+        dispatch({ type: "GO", screen: "PICKUP_PAY" });
+        return;
+      }
+      void printPickupReceipt(live.repair);
       dispatch({ type: "GO", screen: "PICKUP_FOUND" });
       return;
     }
     if (!live.notfound && verifyPin(pin, "customer")) {
+      pickupPinHold.current = pin;
       setSelected(initialRepairs[0] ?? null);
       setPin("");
+      const demo = initialRepairs[0];
+      if (demo && needsKioskPay(demo)) {
+        dispatch({ type: "GO", screen: "PICKUP_PAY" });
+        return;
+      }
+      if (demo) void printPickupReceipt(demo);
       dispatch({ type: "GO", screen: "PICKUP_FOUND" });
       return;
     }
@@ -528,6 +565,29 @@ export function KioskApp() {
     if (model.screen === "ADMIN_PIN") submitAdminPin();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, model.screen]);
+
+  useEffect(() => {
+    if (model.screen !== "PICKUP_PAY") return;
+    const held = pickupPinHold.current;
+    if (held.length !== 6) return;
+    let cancelled = false;
+    const tick = async () => {
+      const live = await lookupLivePickup(held);
+      if (cancelled || !live.ok) return;
+      setSelected(live.repair);
+      if (!needsKioskPay(live.repair)) {
+        void printPickupReceipt(live.repair);
+        dispatch({ type: "GO", screen: "PICKUP_FOUND" });
+      }
+    };
+    void tick();
+    const id = setInterval(() => void tick(), 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model.screen]);
 
   async function adminOpen(id: 1 | 2 | 3 | 4) {
     const ok = await hardware((fail) => openLocker(id, fail), "ADMIN");
@@ -1147,6 +1207,57 @@ export function KioskApp() {
               </ScreenFrame>
             ) : null}
 
+            {model.screen === "PICKUP_PAY" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="text-[30px] font-bold tracking-tight">
+                  Betal før henting
+                </h1>
+                <p className="mt-1 text-center text-[18px] font-semibold text-[#3d4454]">
+                  Skann QR-koden med telefonen. Luken åpner når betalingen er registrert.
+                </p>
+                <div className="mt-3 grid min-h-0 flex-1 grid-cols-2 gap-4 overflow-hidden">
+                  <div className="flex flex-col items-center justify-center">
+                    {selected?.payQr ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={selected.payQr}
+                        alt="Betalings-QR"
+                        className="h-[200px] w-[200px] border-[3px] border-[#1f2430] bg-white p-2"
+                      />
+                    ) : (
+                      <div className="flex h-[200px] w-[200px] items-center justify-center border-[3px] border-[#1f2430] bg-white text-center text-[16px] font-bold">
+                        Lenke under
+                      </div>
+                    )}
+                    <p className="mt-2 max-w-[280px] break-all text-center text-[12px] font-semibold text-[#2b6cb0]">
+                      {selected?.payUrl || "Betaling mangler. Vent, eller betal på statussiden."}
+                    </p>
+                  </div>
+                  <div className="overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
+                    <p className="text-[13px] font-bold tracking-[0.12em] text-[#3d4454]">
+                      REPARASJON #{ticket}
+                    </p>
+                    <p className="mt-1 text-[18px] font-bold">{device}</p>
+                    <ul className="mt-3 space-y-1 text-[16px] font-semibold">
+                      {(selected?.chargeLines ?? []).map((line) => (
+                        <li key={line.name} className="flex justify-between gap-2">
+                          <span>{line.name}</span>
+                          <span className="tabular-nums">{line.amountLabel}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-3 flex justify-between border-t-[3px] border-[#1f2430] pt-2 text-[20px] font-bold">
+                      <span>Total</span>
+                      <span>{selected?.totalLabel || ""}</span>
+                    </p>
+                    <p className="mt-3 text-[16px] font-bold text-[#2b6cb0]">
+                      Sjekker betaling…
+                    </p>
+                  </div>
+                </div>
+              </ScreenFrame>
+            ) : null}
+
             {model.screen === "PICKUP_FOUND" ? (
               <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
                 <h1 className="mt-2 text-[32px] font-bold tracking-tight">
@@ -1161,7 +1272,7 @@ export function KioskApp() {
                   </p>
                   <p className="mt-1 text-[18px] font-semibold">{device}</p>
                   <p className="mt-3 text-[16px] font-bold text-[#2f855a]">
-                    Klar for henting
+                    {selected?.paid ? "Betalt · klar for henting" : "Klar for henting"}
                   </p>
                 </div>
                 <div className="flex-1" />

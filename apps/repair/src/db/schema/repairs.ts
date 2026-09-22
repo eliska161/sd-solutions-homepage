@@ -194,6 +194,10 @@ export const repairTickets = pgTable(
     paymentStatus: paymentStatusEnum("payment_status")
       .notNull()
       .default("UNPAID"),
+    stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
+    stripeCheckoutUrl: text("stripe_checkout_url"),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
     warrantyDays: integer("warranty_days").default(90),
     source: repairSourceEnum("source").notNull().default("STAFF"),
     inboundMethod: repairDeliveryMethodEnum("inbound_method")

@@ -221,6 +221,9 @@ export async function renderSignedTermsPdf(input: {
 export function renderReceiptPdf(input: {
   ticketNumber: string;
   customerName: string;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  customerAddress?: string | null;
   deviceLabel: string;
   issuedAt: Date;
   paymentLabel: string;
@@ -231,8 +234,8 @@ export function renderReceiptPdf(input: {
   warrantyDays: number | null;
 }): Promise<Buffer> {
   const doc = createDoc(
-    `Kvittering ${input.ticketNumber}`,
-    "Kundekvittering",
+    `Faktura ${input.ticketNumber}`,
+    "Faktura og kvittering",
   );
   const chunks: Buffer[] = [];
   const fonts = pdfFontPaths();
@@ -241,9 +244,25 @@ export function renderReceiptPdf(input: {
 
   drawBrandHeader(
     doc,
-    `Kvittering ${input.ticketNumber}`,
-    `${input.customerName} · ${input.deviceLabel} · ${formatDate(input.issuedAt)}`,
+    `Faktura / kvittering ${input.ticketNumber}`,
+    `${formatDate(input.issuedAt)} · ${input.deviceLabel}`,
   );
+
+  doc.font(fonts.bold).fontSize(9).fillColor(PDF_COLORS.accent);
+  doc.text("SELGER", { width: width / 2, continued: false });
+  doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.ink);
+  doc.text(`${LEGAL_PARTY.legalName}`, { width: width / 2 });
+  doc.text(LEGAL_PARTY.address, { width: width / 2 });
+  doc.text(LEGAL_PARTY.email, { width: width / 2 });
+  doc.moveDown(0.5);
+  doc.font(fonts.bold).fontSize(9).fillColor(PDF_COLORS.accent);
+  doc.text("KUNDE");
+  doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.ink);
+  doc.text(input.customerName, { width });
+  if (input.customerAddress) doc.text(input.customerAddress, { width });
+  if (input.customerPhone) doc.text(input.customerPhone, { width });
+  if (input.customerEmail) doc.text(input.customerEmail, { width });
+  doc.moveDown(0.8);
 
   doc.fillColor(PDF_COLORS.accent).font(fonts.bold).fontSize(10);
   doc.text("TJENESTER", { width, characterSpacing: 0.4 });
@@ -300,7 +319,7 @@ export function renderReceiptPdf(input: {
   doc.moveDown(0.4);
   const totalY = doc.y;
   doc.font(fonts.bold).fontSize(11).fillColor(PDF_COLORS.ink);
-  doc.text("Total", left, totalY, { width: width - 90 });
+  doc.text("Total inkl. mva", left, totalY, { width: width - 90 });
   doc.text(formatNokFromOre(input.totalOre), left, totalY, {
     width,
     align: "right",
@@ -316,7 +335,7 @@ export function renderReceiptPdf(input: {
   }
   doc.moveDown(0.5);
   doc.text(
-    "Delpriser vises ikke. Beløpet er tjenester minus rabatt, pluss eventuell returporto.",
+    "Beløpet er tjenester minus rabatt, pluss eventuell returporto. Alle priser inkl. mva.",
     { width },
   );
 

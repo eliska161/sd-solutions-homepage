@@ -6,6 +6,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { customerStatusTone } from "@/lib/customer-progress";
 import { formatDate, formatDateOnly } from "@/lib/labels";
 import { getPublicRepairByToken } from "@/server/public-status";
+import { confirmStripeCheckoutForToken } from "@/server/payments";
 import { CustomerUpdateForm } from "./CustomerUpdateForm";
 import { workshopAddressOneLine } from "@/lib/workshop";
 
@@ -32,12 +33,17 @@ export default async function CustomerStatusPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ ny?: string }>;
+  searchParams: Promise<{ ny?: string; betalt?: string; session_id?: string }>;
 }) {
   const { token } = await params;
-  const { ny } = await searchParams;
+  const query = await searchParams;
+  if (query.session_id) {
+    await confirmStripeCheckoutForToken(token, query.session_id);
+  }
   const data = await getPublicRepairByToken(token);
   if (!data) notFound();
+  const ny = query.ny;
+  const justPaid = query.betalt === "1" || Boolean(query.session_id && data.paid);
 
   const currentStep =
     data.progress.find((s) => s.state === "current") ??
@@ -66,6 +72,32 @@ export default async function CustomerStatusPage({
               : "Serviceordre opprettet. Vi tar den inn når enheten er levert."}
         </p>
       ) : null}
+
+      {justPaid && data.paid ? (
+        <p className="mb-4 rounded border border-border bg-white px-4 py-3 text-sm">
+          Betalingen er registrert. Faktura/kvittering er sendt på e-post.
+        </p>
+      ) : null}
+
+      <div className="mb-4 rounded border border-border bg-white px-4 py-4">
+        <p className="text-[13px] text-muted">Betaling</p>
+        <p className="mt-1 text-[22px] font-semibold">
+          {data.paid ? "Betalt" : data.paymentLabel}
+        </p>
+        {data.customerPriceLabel ? (
+          <p className="mt-1 text-sm">{data.customerPriceLabel} inkl. mva</p>
+        ) : null}
+        {data.canPay && !data.paid ? (
+          <p className="mt-3">
+            <Link
+              href={`/s/${token}/betaling`}
+              className="inline-flex h-10 items-center rounded bg-accent px-4 text-sm font-medium text-white"
+            >
+              Betal med kort
+            </Link>
+          </p>
+        ) : null}
+      </div>
 
       {data.pickupPin ? (
         <div className="mb-4 rounded border border-border bg-white px-4 py-4">

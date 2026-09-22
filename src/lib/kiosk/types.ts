@@ -20,6 +20,7 @@ export type KioskState =
   | "DELIVERY_CLOSE_LOCKER"
   | "DELIVERY_SUCCESS"
   | "PICKUP_PIN"
+  | "PICKUP_PAY"
   | "PICKUP_FOUND"
   | "PICKUP_OPEN_LOCKER"
   | "PICKUP_RETRIEVE"
@@ -50,6 +51,13 @@ export type RepairRow = {
   parts?: string[];
   serial?: string;
   kind?: "dropoff" | "pickup" | "other";
+  paid?: boolean;
+  paymentLabel?: string;
+  totalOre?: number;
+  totalLabel?: string;
+  payUrl?: string | null;
+  payQr?: string | null;
+  chargeLines?: { name: string; amountLabel: string }[];
 };
 
 export type ActivityEvent = {

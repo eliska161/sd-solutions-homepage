@@ -24,6 +24,7 @@ import { parsePngDataUrl, renderSignedTermsPdf } from "@/lib/pdf/customer-docume
 import { REPAIR_TERMS_VERSION } from "@/lib/repair-terms";
 import { storeCustomerPdf } from "@/lib/store-customer-pdf";
 import { notifyDeviceReceived, notifyServiceOrderCreated } from "@/server/customer-mail";
+import { kioskPaymentForTicket } from "@/server/payments";
 
 const CLOSED = ["CANCELLED", "COMPLETED", "RETURNED"] as const;
 
@@ -38,6 +39,13 @@ export type KioskRepair = {
   issue?: string;
   parts?: string[];
   kind: "dropoff" | "pickup" | "other";
+  paid?: boolean;
+  paymentLabel?: string;
+  totalOre?: number;
+  totalLabel?: string;
+  payUrl?: string | null;
+  payQr?: string | null;
+  chargeLines?: { name: string; amountLabel: string }[];
 };
 
 type TicketLookupRow = {
@@ -257,7 +265,10 @@ export async function lookupKioskPickup(pinRaw: string): Promise<KioskRepair | n
     .orderBy(desc(repairTickets.updatedAt))
     .limit(1);
   const mapped = await withParts(rows);
-  return mapped[0] ?? null;
+  const row = mapped[0];
+  if (!row) return null;
+  const pay = await kioskPaymentForTicket(rows[0].ticketId);
+  return { ...row, ...pay };
 }
 
 export type KioskDeviceLookup = {
@@ -620,6 +631,7 @@ export async function completeKioskTicket(ticketNumber: string) {
     .select({
       id: repairTickets.id,
       status: repairTickets.status,
+      paymentStatus: repairTickets.paymentStatus,
       completedAt: repairTickets.completedAt,
       publicAccessToken: repairTickets.publicAccessToken,
       publicShortCode: repairTickets.publicShortCode,
@@ -633,6 +645,10 @@ export async function completeKioskTicket(ticketNumber: string) {
   }
   if (ticket.status !== "READY_FOR_PICKUP") {
     return { ok: false as const, error: "Saken er ikke klar for henting" };
+  }
+  const pay = await kioskPaymentForTicket(ticket.id);
+  if (!pay.paid) {
+    return { ok: false as const, error: "Ikke betalt" };
   }
 
   const completedAt = new Date();
