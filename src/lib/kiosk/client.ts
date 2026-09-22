@@ -57,6 +57,12 @@ export async function createLiveLockerOrder(input: {
   comment?: string;
   imei?: string | null;
   serialNumber?: string | null;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  streetAddress?: string;
+  postalCode?: string;
+  city?: string;
   termsAccepted?: boolean;
   termsVersion?: string;
   signaturePng?: string | null;
@@ -72,6 +78,31 @@ export async function createLiveLockerOrder(input: {
     const data = await res.json();
     if (!data?.ok) return { ok: false, error: data?.error || "Kunne ikke opprette" };
     return { ok: true, repair: data.repair };
+  } catch {
+    return { ok: false, error: "Ingen nettverk" };
+  }
+}
+
+export async function lookupLivePlace(postal: string): Promise<
+  | { ok: true; postalCode: string; city: string }
+  | { ok: false; error: string }
+> {
+  try {
+    const res = await fetch("/api/kiosk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "place", postal }),
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    if (data?.ok && data.city) {
+      return {
+        ok: true,
+        postalCode: String(data.postalCode || postal),
+        city: String(data.city),
+      };
+    }
+    return { ok: false, error: data?.error || "Fant ikke stedet" };
   } catch {
     return { ok: false, error: "Ingen nettverk" };
   }

@@ -1,4 +1,5 @@
 import type { ActivityEvent, LockerBay, RepairRow } from "@/lib/kiosk/types";
+import { REPAIR_MODELS } from "@/lib/repair-prices";
 
 export const CUSTOMER_PIN = "123456";
 export const ADMIN_PIN = "999999";
@@ -25,6 +26,10 @@ export const initialRepairs: RepairRow[] = [
     phone: MOCK_PHONE,
     issue: "Skjerm",
     parts: ["Skjerm (Aftermarket)"],
+    paid: true,
+    paymentLabel: "Betalt",
+    totalLabel: "1 699 kr",
+    chargeLines: [{ name: "Skjerm", amountLabel: "1 699 kr" }],
   },
   {
     id: "REP10482",
@@ -139,6 +144,29 @@ export async function printLabel(
   return { ok: true as const };
 }
 
+export async function printReceipt(
+  input: {
+    ticket: string;
+    device: string;
+    phone?: string;
+    paymentLabel?: string;
+    totalLabel: string;
+    lines: { name: string; amountLabel: string }[];
+  },
+  fail?: boolean,
+) {
+  if (fail) {
+    await wait(300);
+    return { ok: false as const, reason: "printer" as const };
+  }
+  if (typeof window !== "undefined") {
+    const { printUsbReceipt } = await import("@/lib/kiosk/usb-printer");
+    return printUsbReceipt(input);
+  }
+  await wait(300);
+  return { ok: true as const };
+}
+
 export async function findDropoffsByPhone(query: string, fail?: boolean) {
   await wait(450);
   if (fail) return { ok: false as const, reason: "network" as const, repairs: [] };
@@ -154,16 +182,7 @@ export async function findDropoffsByPhone(query: string, fail?: boolean) {
   return { ok: true as const, repairs };
 }
 
-export const KIOSK_DEVICES = [
-  "iPhone 16 Pro",
-  "iPhone 16",
-  "iPhone 15",
-  "iPhone 14",
-  "iPhone 13",
-  "iPhone 12",
-  "iPhone SE",
-  "Annet",
-] as const;
+export const KIOSK_DEVICES = [...REPAIR_MODELS.map((model) => model.label), "Annet"];
 
 export const KIOSK_COMMENTS = [
   "Skjermen er knust",
@@ -188,6 +207,12 @@ export async function createKioskServiceOrder(input: {
   comment?: string;
   imei?: string | null;
   serialNumber?: string | null;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  streetAddress?: string;
+  postalCode?: string;
+  city?: string;
   termsAccepted?: boolean;
   signaturePng?: string | null;
   fail?: boolean;

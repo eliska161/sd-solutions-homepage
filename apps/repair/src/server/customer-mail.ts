@@ -18,6 +18,7 @@ import { customerSmsPing, customerSmsPickupPin, customerSmsRepairDone } from "@/
 import { GOOGLE_REVIEW_URL } from "@/lib/google-review";
 import { loadCustomerPdfFiles } from "@/lib/store-customer-pdf";
 import { createAndStoreReceiptPdf } from "@/server/customer-receipt";
+import { ensurePickupCheckout } from "@/server/payments";
 import { ensurePickupPin } from "@/lib/sequences";
 
 type MailContext = {
@@ -295,11 +296,16 @@ export async function notifyReadyForPickup(ticketId: string) {
       const trackingMail = tracking
         ? [`Sporingsnummer: ${tracking}.`]
         : [];
-      const receipt = await createAndStoreReceiptPdf(ticketId);
       const pin = byPost ? null : await ensurePickupPin(ticketId);
       const pinLine = pin
-        ? `Hentepin til locker: ${pin}. Skriv den på kiosken når du henter.`
+        ? `Hentepin til locker: ${pin}. Skriv den på kiosken når du henter — etter at du har betalt.`
         : null;
+      const checkout = await ensurePickupCheckout(ticketId);
+      const payUrl = checkout.ok && checkout.url ? checkout.url : publicStatusUrl(ctx.shortCode);
+      const payCta =
+        checkout.ok && !checkout.paid
+          ? [{ label: "Betal nå", url: payUrl }]
+          : [];
       return {
         mail: buildMail(ctx, {
           subject: byPost
@@ -307,27 +313,29 @@ export async function notifyReadyForPickup(ticketId: string) {
             : `Klar for henting — ${ctx.ticketNumber}`,
           heading: byPost ? "Sendes i retur med post" : "Klar for henting",
           preheader: byPost
-            ? "Jobben er ferdig. Vi sender telefonen tilbake til deg."
+            ? "Jobben er ferdig. Betal, så sender vi telefonen tilbake."
             : pin
-              ? `Jobben er ferdig. Hentepin ${pin}.`
-              : "Jobben er ferdig. Du kan hente telefonen hos oss.",
+              ? `Jobben er ferdig. Betal først. Hentepin ${pin}.`
+              : "Jobben er ferdig. Betal, så kan du hente.",
           paragraphs: byPost
             ? [
                 `Jobben på ${ctx.ticketNumber}${deviceBit(ctx)} er ferdig.`,
-                "Vi sender telefonen tilbake til adressen du oppga.",
+                checkout.ok && checkout.paid
+                  ? "Betalingen er registrert. Vi sender telefonen tilbake til adressen du oppga."
+                  : "Betal via lenken før vi sender. Kvittering kommer på e-post når betalingen er gjennomført.",
                 ...trackingMail,
-                "Kvittering ligger vedlagt som PDF.",
                 googleReviewParagraph,
               ]
             : [
                 `Jobben på ${ctx.ticketNumber}${deviceBit(ctx)} er ferdig.`,
-                `Du valgte henting i butikk. Hent telefonen hos oss: ${workshopAddressOneLine()}. Åpent ${WORKSHOP.hoursLabel}.`,
+                checkout.ok && checkout.paid
+                  ? "Betalingen er registrert."
+                  : "Betal via lenken før du henter. Lockeren åpner ikke før det er betalt.",
                 pinLine ?? "Ta med legitimasjon. Si fra om saksnummeret i skranken.",
-                "Kvittering ligger vedlagt som PDF.",
+                `Hent hos oss: ${workshopAddressOneLine()}. Åpent ${WORKSHOP.hoursLabel}.`,
                 googleReviewParagraph,
               ],
-          extraCtas: [googleReviewCta],
-          files: receipt ? [receipt] : [],
+          extraCtas: [...payCta, googleReviewCta],
         }),
         sms: pin
           ? customerSmsPickupPin({
@@ -345,11 +353,37 @@ export async function notifyReadyForPickup(ticketId: string) {
   );
 }
 
+export async function notifyPaymentReceived(
+  ticketId: string,
+  paymentLabel = "Betalt med kort (Stripe)",
+) {
+  await enqueue(async () =>
+    sendForTicket(ticketId, async (ctx) => {
+      const invoice = await createAndStoreReceiptPdf(ticketId, paymentLabel);
+      return {
+        mail: buildMail(ctx, {
+          subject: `Kvittering — ${ctx.ticketNumber}`,
+          heading: "Betaling mottatt",
+          preheader: `Faktura og kvittering for ${ctx.ticketNumber}.`,
+          paragraphs: [
+            `Vi har registrert betaling for ${ctx.ticketNumber}${deviceBit(ctx)}.`,
+            "Faktura/kvittering ligger vedlagt som PDF, i samme stil som ordrebekreftelsen.",
+            ctx.outboundMethod === "POST"
+              ? "Vi sender telefonen når returen er klar."
+              : "Du kan hente i locker med PIN-koden du har fått, eller i skranken.",
+          ],
+          files: invoice ? [invoice] : [],
+        }),
+        sms: smsLine(ctx, "er betalt. Kvittering er sendt på e-post."),
+      };
+    }),
+  );
+}
+
 export async function notifyRepairCompleted(ticketId: string) {
   await enqueue(async () =>
     sendForTicket(ticketId, async (ctx) => {
       const byPost = ctx.outboundMethod === "POST";
-      const receipt = await createAndStoreReceiptPdf(ticketId);
       return {
         mail: buildMail(ctx, {
           subject: `Saken er avsluttet — ${ctx.ticketNumber}`,
@@ -360,11 +394,10 @@ export async function notifyRepairCompleted(ticketId: string) {
             byPost
               ? "Hvis telefonen skulle i retur med post, er den sendt eller levert. Mangler du pakken, svar på denne e-posten."
               : "Hvis du skulle hente i butikk, er saken ferdigbehandlet hos oss. Ta kontakt hvis noe mangler.",
-            "Kvittering ligger vedlagt som PDF. Statuslenken virker fortsatt hvis du trenger saksnummer eller historikk.",
+            "Faktura/kvittering fant du på e-post da betalingen ble registrert. Statuslenken virker fortsatt.",
             googleReviewParagraph,
           ],
           extraCtas: [googleReviewCta],
-          files: receipt ? [receipt] : [],
         }),
         sms: smsDone(ctx, "er ferdig"),
       };

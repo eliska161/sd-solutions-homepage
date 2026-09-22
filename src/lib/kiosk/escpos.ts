@@ -41,6 +41,16 @@ export type StickerInput = {
   version?: string;
 };
 
+export type ReceiptPrintInput = {
+  ticket: string;
+  device: string;
+  phone?: string;
+  issuedAt?: Date | string;
+  paymentLabel?: string;
+  totalLabel: string;
+  lines: { name: string; amountLabel: string }[];
+};
+
 export function formatStickerPhone(raw?: string) {
   const digits = (raw ?? "").replace(/\D/g, "");
   const eight =
@@ -438,6 +448,91 @@ export async function buildLockerSticker(input: StickerInput) {
 
   const map = canvasToBitmap(canvas, true).cropBottom(8);
 
+  return concat(
+    cmd(ESC, 0x40),
+    cmd(ESC, 0x7b, 0),
+    cmd(ESC, 0x61, 0),
+    cmd(GS, 0x4c, 0, 0),
+    cmd(GS, 0x57, w & 0xff, (w >> 8) & 0xff),
+    cmd(ESC, 0x33, 0),
+    gsRaster(map),
+    partialCut(),
+  );
+}
+
+export async function buildLockerReceipt(input: ReceiptPrintInput) {
+  const ticket = input.ticket.replace(/[^A-Za-z0-9-]/g, "") || "SD";
+  const phone = formatStickerPhone(input.phone);
+  const issued =
+    input.issuedAt instanceof Date
+      ? input.issuedAt
+      : input.issuedAt
+        ? new Date(input.issuedAt)
+        : new Date();
+  const when = Number.isNaN(issued.getTime())
+    ? ""
+    : issued.toLocaleString("nb-NO", { dateStyle: "short", timeStyle: "short" });
+  const lines = input.lines.slice(0, 12);
+  const w = LABEL_WIDTH_DOTS;
+  const h = 280 + lines.length * 36;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Kunne ikke tegne kvittering");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "#000000";
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+
+  const pad = 12;
+  await paintLogo(ctx, pad, pad, 88, 88);
+  ctx.font = "700 22px sans-serif";
+  fitText(ctx, "SD SOLUTIONS", 112, pad + 8, w - 124);
+  ctx.font = "700 28px sans-serif";
+  fitText(ctx, "KVITTERING", 112, pad + 36, w - 124);
+  ctx.font = "600 20px sans-serif";
+  if (when) fitText(ctx, when, 112, pad + 70, w - 124);
+
+  const barY = 112;
+  const bars = paintBarcode(ctx, ticket, pad, barY, w - pad * 2, 72);
+  ctx.font = "700 26px sans-serif";
+  fitText(ctx, ticket, bars.left, barY + 76, bars.width, "center");
+
+  let y = barY + 112;
+  ctx.font = "700 24px sans-serif";
+  fitText(ctx, input.device || "", pad, y, w - pad * 2);
+  y += 32;
+  if (phone) {
+    ctx.font = "600 20px sans-serif";
+    fitText(ctx, phone, pad, y, w - pad * 2);
+    y += 28;
+  }
+  ctx.fillRect(pad, y, w - pad * 2, 3);
+  y += 16;
+
+  ctx.font = "600 22px sans-serif";
+  for (const line of lines) {
+    fitText(ctx, line.name, pad, y, 360);
+    fitText(ctx, line.amountLabel, 380, y, w - pad - 380, "right");
+    y += 32;
+  }
+  ctx.fillRect(pad, y, w - pad * 2, 3);
+  y += 14;
+  ctx.font = "700 30px sans-serif";
+  fitText(ctx, "TOTAL", pad, y, 240);
+  fitText(ctx, input.totalLabel, 280, y, w - pad - 280, "right");
+  y += 40;
+  ctx.font = "600 20px sans-serif";
+  fitText(ctx, input.paymentLabel || "Betalt", pad, y, w - pad * 2);
+  y += 28;
+  ctx.font = "600 18px sans-serif";
+  fitText(ctx, "Priser inkl. mva", pad, y, w - pad * 2);
+  y += 26;
+  fitText(ctx, "Slattmyrvegen 49, 2406 Elverum", pad, y, w - pad * 2);
+
+  const map = canvasToBitmap(canvas, true).cropBottom(8);
   return concat(
     cmd(ESC, 0x40),
     cmd(ESC, 0x7b, 0),

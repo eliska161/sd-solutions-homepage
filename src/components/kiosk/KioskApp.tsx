@@ -18,6 +18,7 @@ import {
   lookupLiveDevice,
   lookupLiveDropoffs,
   lookupLivePickup,
+  lookupLivePlace,
   receiveLiveTicket,
   completeLiveTicket,
 } from "@/lib/kiosk/client";
@@ -40,6 +41,7 @@ import {
   formatNoMobile,
   openLocker,
   printLabel,
+  printReceipt,
   submitRating,
   verifyPin,
 } from "@/lib/kiosk/mock";
@@ -146,6 +148,14 @@ export function KioskApp() {
   const [draftDevice, setDraftDevice] = useState("");
   const [draftIssue, setDraftIssue] = useState("");
   const [draftComment, setDraftComment] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [streetAddress, setStreetAddress] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
+  const [placeNote, setPlaceNote] = useState("");
+  const [nameStep, setNameStep] = useState<"first" | "last">("first");
   const [deviceCode, setDeviceCode] = useState("");
   const [deviceNote, setDeviceNote] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -153,6 +163,7 @@ export function KioskApp() {
   const [liveTickets, setLiveTickets] = useState<RepairRow[]>([]);
   const lookupGen = useRef(0);
   const lastLookup = useRef("");
+  const pickupPinHold = useRef("");
 
   const ticket = selected?.id ?? MOCK_TICKET;
   const device = selected?.device ?? MOCK_DEVICE;
@@ -185,7 +196,20 @@ export function KioskApp() {
       model.screen === "DELIVERY_NEW_TERMS" || model.screen === "DELIVERY_NEW_SIGN";
     const id = setTimeout(() => dispatch({ type: "HOME" }), reading ? 180_000 : 90_000);
     return () => clearTimeout(id);
-  }, [model.screen, pin, phone, deviceCode, draftComment, termsAccepted, signaturePng]);
+  }, [
+    model.screen,
+    pin,
+    phone,
+    deviceCode,
+    draftComment,
+    firstName,
+    lastName,
+    email,
+    streetAddress,
+    postalCode,
+    termsAccepted,
+    signaturePng,
+  ]);
 
   useEffect(() => {
     if (model.screen !== "DELIVERY_SUCCESS" && model.screen !== "RATING_THANKS") {
@@ -206,6 +230,14 @@ export function KioskApp() {
       setDraftDevice("");
       setDraftIssue("");
       setDraftComment("");
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setStreetAddress("");
+      setPostalCode("");
+      setCity("");
+      setPlaceNote("");
+      setNameStep("first");
       setDeviceCode("");
       setDeviceNote("");
       setTermsAccepted(false);
@@ -273,6 +305,28 @@ export function KioskApp() {
     if (ok) setLabelPrinted(true);
   }
 
+  async function printPickupReceipt(row: RepairRow) {
+    try {
+      await printReceipt({
+        ticket: row.id,
+        device: row.device,
+        phone: row.phone,
+        paymentLabel: row.paymentLabel || "Betalt",
+        totalLabel: row.totalLabel || "",
+        lines: row.chargeLines?.length
+          ? row.chargeLines
+          : [{ name: "Reparasjon", amountLabel: row.totalLabel || "" }],
+      });
+    } catch {
+      /* henting skal fortsette selv om kvittering ikke kommer ut */
+    }
+  }
+
+  function needsKioskPay(row: RepairRow) {
+    if (row.paid) return false;
+    return (row.totalOre ?? 0) > 0;
+  }
+
   async function startOpen(next: KioskState, retry: KioskState) {
     dispatch({
       type: "GO",
@@ -321,14 +375,27 @@ export function KioskApp() {
     const live = await lookupLivePickup(pin);
     setBusy(false);
     if (live.ok) {
+      pickupPinHold.current = pin;
       setSelected(live.repair);
       setPin("");
+      if (needsKioskPay(live.repair)) {
+        dispatch({ type: "GO", screen: "PICKUP_PAY" });
+        return;
+      }
+      void printPickupReceipt(live.repair);
       dispatch({ type: "GO", screen: "PICKUP_FOUND" });
       return;
     }
     if (!live.notfound && verifyPin(pin, "customer")) {
+      pickupPinHold.current = pin;
       setSelected(initialRepairs[0] ?? null);
       setPin("");
+      const demo = initialRepairs[0];
+      if (demo && needsKioskPay(demo)) {
+        dispatch({ type: "GO", screen: "PICKUP_PAY" });
+        return;
+      }
+      if (demo) void printPickupReceipt(demo);
       dispatch({ type: "GO", screen: "PICKUP_FOUND" });
       return;
     }
@@ -400,6 +467,14 @@ export function KioskApp() {
     setBusy(false);
     setDraftIssue("");
     setDraftComment("");
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setStreetAddress("");
+    setPostalCode("");
+    setCity("");
+    setPlaceNote("");
+    setNameStep("first");
     setDeviceNote("");
     setTermsAccepted(false);
     setSignaturePng(null);
@@ -423,11 +498,12 @@ export function KioskApp() {
   }
 
   function goToIssueOrManual() {
-    if (draftDevice.trim().length >= 2) {
-      dispatch({ type: "GO", screen: "DELIVERY_NEW_ISSUE" });
-      return;
-    }
     dispatch({ type: "GO", screen: "DELIVERY_NEW_DEVICE" });
+  }
+
+  function emailLooksOk(value: string) {
+    const next = value.trim().toLowerCase();
+    return next.includes("@") && next.includes(".") && next.length >= 6;
   }
 
   async function finishNewOrder(commentOverride?: string) {
@@ -436,12 +512,28 @@ export function KioskApp() {
       return;
     }
     const ids = splitImeiAndSerial(deviceCode);
-    if (!ids.imei && !ids.serialNumber) {
-      dispatch({ type: "ERROR", kind: "generic", retry: "DELIVERY_NEW_ID" });
-      return;
-    }
     const comment = (commentOverride !== undefined ? commentOverride : draftComment).trim();
     if (commentOverride !== undefined) setDraftComment(comment);
+    if (firstName.trim().length < 2) {
+      dispatch({ type: "GO", screen: "DELIVERY_NEW_NAME" });
+      return;
+    }
+    if (lastName.trim().length < 2) {
+      dispatch({ type: "GO", screen: "DELIVERY_NEW_NAME" });
+      return;
+    }
+    if (!emailLooksOk(email)) {
+      dispatch({ type: "GO", screen: "DELIVERY_NEW_EMAIL" });
+      return;
+    }
+    if (streetAddress.trim().length < 2) {
+      dispatch({ type: "GO", screen: "DELIVERY_NEW_STREET" });
+      return;
+    }
+    if (postalCode.replace(/\D/g, "").length !== 4 || city.trim().length < 2) {
+      dispatch({ type: "GO", screen: "DELIVERY_NEW_POSTAL" });
+      return;
+    }
     if (phone.length < 8) {
       dispatch({ type: "GO", screen: "DELIVERY_NEW_PHONE" });
       return;
@@ -455,8 +547,15 @@ export function KioskApp() {
       return;
     }
     setBusy(true);
+    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
     const payload = {
       phone,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim().toLowerCase(),
+      streetAddress: streetAddress.trim(),
+      postalCode: postalCode.replace(/\D/g, "").slice(0, 4),
+      city: city.trim().toLocaleUpperCase("nb-NO"),
       device: draftDevice,
       issue: draftIssue,
       comment,
@@ -465,7 +564,7 @@ export function KioskApp() {
       termsAccepted: true,
       termsVersion: LEGAL_VERSION,
       signaturePng,
-      termsSignerName: "Kunde",
+      termsSignerName: fullName,
     };
     const live = await createLiveLockerOrder(payload);
     const result = live.ok ? live : await createKioskServiceOrder(payload);
@@ -502,6 +601,32 @@ export function KioskApp() {
   }, [phone, model.screen]);
 
   useEffect(() => {
+    if (model.screen !== "DELIVERY_NEW_POSTAL") return;
+    const code = postalCode.replace(/\D/g, "").slice(0, 4);
+    if (code.length !== 4) {
+      setBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setBusy(true);
+    setPlaceNote("");
+    void lookupLivePlace(code).then((result) => {
+      if (cancelled) return;
+      setBusy(false);
+      if (result.ok) {
+        setCity(result.city);
+        setPlaceNote("");
+        return;
+      }
+      setCity("");
+      setPlaceNote(result.error);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [postalCode, model.screen]);
+
+  useEffect(() => {
     const liveScreens =
       model.screen === "DELIVERY_SELECT" ||
       model.screen === "DELIVERY_EMPTY" ||
@@ -528,6 +653,29 @@ export function KioskApp() {
     if (model.screen === "ADMIN_PIN") submitAdminPin();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, model.screen]);
+
+  useEffect(() => {
+    if (model.screen !== "PICKUP_PAY") return;
+    const held = pickupPinHold.current;
+    if (held.length !== 6) return;
+    let cancelled = false;
+    const tick = async () => {
+      const live = await lookupLivePickup(held);
+      if (cancelled || !live.ok) return;
+      setSelected(live.repair);
+      if (!needsKioskPay(live.repair)) {
+        void printPickupReceipt(live.repair);
+        dispatch({ type: "GO", screen: "PICKUP_FOUND" });
+      }
+    };
+    void tick();
+    const id = setInterval(() => void tick(), 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model.screen]);
 
   async function adminOpen(id: 1 | 2 | 3 | 4) {
     const ok = await hardware((fail) => openLocker(id, fail), "ADMIN");
@@ -831,10 +979,14 @@ export function KioskApp() {
                   </KioskButton>
                   <KioskButton
                     variant="ghost"
-                    disabled={compactKioskId(deviceCode).length < 8 || busy}
+                    disabled={busy}
                     onClick={goToIssueOrManual}
                   >
-                    {draftDevice ? "Fortsett" : "Fyll inn modell manuelt"}
+                    {draftDevice
+                      ? "Fortsett"
+                      : compactKioskId(deviceCode).length < 8
+                        ? "Velg blant alle modeller"
+                        : "Fyll inn modell manuelt"}
                   </KioskButton>
                 </div>
               </ScreenFrame>
@@ -849,6 +1001,7 @@ export function KioskApp() {
                   Hva skal leveres inn?
                 </p>
                 <ChoiceGrid
+                  className="grid-cols-3 gap-2"
                   options={KIOSK_DEVICES}
                   onPick={(value) => {
                     setDraftDevice(value);
@@ -897,7 +1050,8 @@ export function KioskApp() {
                   options={KIOSK_COMMENTS}
                   onPick={(value) => {
                     setDraftComment(value);
-                    dispatch({ type: "GO", screen: "DELIVERY_NEW_TERMS" });
+                    setNameStep("first");
+                    dispatch({ type: "GO", screen: "DELIVERY_NEW_NAME" });
                   }}
                 />
                 <div className="mt-3">
@@ -905,11 +1059,169 @@ export function KioskApp() {
                     variant="ghost"
                     onClick={() => {
                       setDraftComment("");
-                      dispatch({ type: "GO", screen: "DELIVERY_NEW_TERMS" });
+                      setNameStep("first");
+                      dispatch({ type: "GO", screen: "DELIVERY_NEW_NAME" });
                     }}
                   >
                     Hopp over
                   </KioskButton>
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_NEW_NAME" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="mt-1 text-[30px] font-bold tracking-tight">
+                  {nameStep === "first" ? "Fornavn" : "Etternavn"}
+                </h1>
+                <p className="mt-1 mb-2 text-center text-[20px] font-semibold text-[#3d4454]">
+                  {nameStep === "first"
+                    ? "Skriv fornavnet slik det står på ID."
+                    : `${firstName} — skriv etternavn.`}
+                </p>
+                <div className="flex min-h-0 flex-1 flex-col items-center overflow-auto">
+                  <IdentifierPad
+                    value={nameStep === "first" ? firstName : lastName}
+                    onChange={nameStep === "first" ? setFirstName : setLastName}
+                    disabled={busy}
+                    maxLength={24}
+                    withSpace
+                    placeholder={nameStep === "first" ? "Fornavn" : "Etternavn"}
+                  />
+                </div>
+                <div className="mt-2 grid gap-2">
+                  <KioskButton
+                    disabled={
+                      nameStep === "first"
+                        ? firstName.trim().length < 2
+                        : lastName.trim().length < 2
+                    }
+                    onClick={() => {
+                      if (nameStep === "first") {
+                        setNameStep("last");
+                        return;
+                      }
+                      dispatch({ type: "GO", screen: "DELIVERY_NEW_EMAIL" });
+                    }}
+                  >
+                    Fortsett
+                  </KioskButton>
+                  {nameStep === "last" ? (
+                    <KioskButton variant="ghost" onClick={() => setNameStep("first")}>
+                      Tilbake til fornavn
+                    </KioskButton>
+                  ) : null}
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_NEW_EMAIL" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="mt-1 text-[30px] font-bold tracking-tight">
+                  E-post
+                </h1>
+                <p className="mt-1 mb-2 text-center text-[20px] font-semibold text-[#3d4454]">
+                  Vi sender kvittering og status til denne adressen.
+                </p>
+                <div className="flex min-h-0 flex-1 flex-col items-center overflow-auto">
+                  <IdentifierPad
+                    value={email}
+                    onChange={(next) => setEmail(next.trim().toLowerCase())}
+                    disabled={busy}
+                    maxLength={48}
+                    letterCase="lower"
+                    extras={["@", ".", "-", "_"]}
+                    placeholder="navn@epost.no"
+                  />
+                </div>
+                <div className="mt-2">
+                  <KioskButton
+                    disabled={!emailLooksOk(email)}
+                    onClick={() => dispatch({ type: "GO", screen: "DELIVERY_NEW_STREET" })}
+                  >
+                    Fortsett
+                  </KioskButton>
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_NEW_STREET" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="mt-1 text-[30px] font-bold tracking-tight">
+                  Adresse
+                </h1>
+                <p className="mt-1 mb-2 text-center text-[20px] font-semibold text-[#3d4454]">
+                  Gate og husnummer.
+                </p>
+                <div className="flex min-h-0 flex-1 flex-col items-center overflow-auto">
+                  <IdentifierPad
+                    value={streetAddress}
+                    onChange={setStreetAddress}
+                    disabled={busy}
+                    maxLength={40}
+                    withSpace
+                    extras={["-", "."]}
+                    placeholder="Storgata 1"
+                  />
+                </div>
+                <div className="mt-2">
+                  <KioskButton
+                    disabled={streetAddress.trim().length < 2}
+                    onClick={() => dispatch({ type: "GO", screen: "DELIVERY_NEW_POSTAL" })}
+                  >
+                    Fortsett
+                  </KioskButton>
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "DELIVERY_NEW_POSTAL" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <div className="flex h-full flex-col items-center justify-center">
+                  <h1 className="text-[32px] font-bold tracking-tight">
+                    Postnummer
+                  </h1>
+                  <p className="mt-2 mb-2 text-center text-[22px] font-semibold text-[#3d4454]">
+                    Fire siffer. Sted fylles inn automatisk.
+                  </p>
+                  <PinPad
+                    mode="digits"
+                    length={4}
+                    value={postalCode}
+                    onChange={(next) => {
+                      setPostalCode(next);
+                      if (next.length < 4) {
+                        setCity("");
+                        setPlaceNote("");
+                      }
+                    }}
+                    disabled={busy}
+                  />
+                  {city ? (
+                    <p className="mt-4 text-center text-[28px] font-bold tracking-wide">
+                      {city}
+                    </p>
+                  ) : placeNote ? (
+                    <div className="mt-3 flex w-full max-w-[640px] flex-col items-center">
+                      <p className="mb-2 text-center text-[18px] font-bold">{placeNote}</p>
+                      <IdentifierPad
+                        value={city}
+                        onChange={(next) => setCity(next.toLocaleUpperCase("nb-NO"))}
+                        disabled={busy}
+                        maxLength={28}
+                        withSpace
+                        placeholder="STED"
+                      />
+                    </div>
+                  ) : null}
+                  <div className="mt-4 w-full max-w-[340px]">
+                    <KioskButton
+                      disabled={postalCode.length !== 4 || city.trim().length < 2 || busy}
+                      onClick={() => void finishNewOrder()}
+                    >
+                      Fortsett
+                    </KioskButton>
+                  </div>
                 </div>
               </ScreenFrame>
             ) : null}
@@ -1147,6 +1459,57 @@ export function KioskApp() {
               </ScreenFrame>
             ) : null}
 
+            {model.screen === "PICKUP_PAY" ? (
+              <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
+                <h1 className="text-[30px] font-bold tracking-tight">
+                  Betal før henting
+                </h1>
+                <p className="mt-1 text-center text-[18px] font-semibold text-[#3d4454]">
+                  Skann QR-koden med telefonen. Luken åpner når betalingen er registrert.
+                </p>
+                <div className="mt-3 grid min-h-0 flex-1 grid-cols-2 gap-4 overflow-hidden">
+                  <div className="flex flex-col items-center justify-center">
+                    {selected?.payQr ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={selected.payQr}
+                        alt="Betalings-QR"
+                        className="h-[200px] w-[200px] border-[3px] border-[#1f2430] bg-white p-2"
+                      />
+                    ) : (
+                      <div className="flex h-[200px] w-[200px] items-center justify-center border-[3px] border-[#1f2430] bg-white text-center text-[16px] font-bold">
+                        Lenke under
+                      </div>
+                    )}
+                    <p className="mt-2 max-w-[280px] break-all text-center text-[12px] font-semibold text-[#2b6cb0]">
+                      {selected?.payUrl || "Betaling mangler. Vent, eller betal på statussiden."}
+                    </p>
+                  </div>
+                  <div className="overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
+                    <p className="text-[13px] font-bold tracking-[0.12em] text-[#3d4454]">
+                      REPARASJON #{ticket}
+                    </p>
+                    <p className="mt-1 text-[18px] font-bold">{device}</p>
+                    <ul className="mt-3 space-y-1 text-[16px] font-semibold">
+                      {(selected?.chargeLines ?? []).map((line) => (
+                        <li key={line.name} className="flex justify-between gap-2">
+                          <span>{line.name}</span>
+                          <span className="tabular-nums">{line.amountLabel}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-3 flex justify-between border-t-[3px] border-[#1f2430] pt-2 text-[20px] font-bold">
+                      <span>Total</span>
+                      <span>{selected?.totalLabel || ""}</span>
+                    </p>
+                    <p className="mt-3 text-[16px] font-bold text-[#2b6cb0]">
+                      Sjekker betaling…
+                    </p>
+                  </div>
+                </div>
+              </ScreenFrame>
+            ) : null}
+
             {model.screen === "PICKUP_FOUND" ? (
               <ScreenFrame onCancel={() => dispatch({ type: "HOME" })}>
                 <h1 className="mt-2 text-[32px] font-bold tracking-tight">
@@ -1161,7 +1524,7 @@ export function KioskApp() {
                   </p>
                   <p className="mt-1 text-[18px] font-semibold">{device}</p>
                   <p className="mt-3 text-[16px] font-bold text-[#2f855a]">
-                    Klar for henting
+                    {selected?.paid ? "Betalt · klar for henting" : "Klar for henting"}
                   </p>
                 </div>
                 <div className="flex-1" />

@@ -47,19 +47,21 @@ export function ChoiceGrid({
   options,
   onPick,
   captions,
+  className,
 }: {
   options: readonly string[];
   onPick: (value: string) => void;
   captions?: Record<string, string>;
+  className?: string;
 }) {
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-auto">
+    <div className={["grid min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-auto", className].filter(Boolean).join(" ")}>
       {options.map((option) => (
         <button
           key={option}
           type="button"
           onClick={() => onPick(option)}
-          className="min-h-[72px] border-[3px] border-[#1f2430] bg-white px-3 py-2 text-[22px] font-bold active:bg-[#d5d8de] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
+          className="min-h-[56px] border-[3px] border-[#1f2430] bg-white px-3 py-2 text-[18px] font-bold leading-tight active:bg-[#d5d8de] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#1e4e82]"
         >
           {option}
           {captions?.[option] ? (

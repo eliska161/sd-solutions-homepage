@@ -16,6 +16,7 @@ import { lookupImeiCatalog, normalizeImei } from "@/lib/imei-lookup";
 import { REPAIR_STATUS_LABELS } from "@/lib/labels";
 import { WORKSHOP } from "@/lib/workshop";
 import { isSendablePhone, toE164Phone } from "@/lib/phone";
+import { isSendableCustomerEmail } from "@/lib/mail";
 import { allocatePublicShortCode } from "@/lib/public-link";
 import { createPublicAccessToken } from "@/lib/public-token";
 import { nextRepairTicketNumber } from "@/lib/sequences";
@@ -23,7 +24,9 @@ import { publicStatusUrl } from "@/lib/mail";
 import { parsePngDataUrl, renderSignedTermsPdf } from "@/lib/pdf/customer-document";
 import { REPAIR_TERMS_VERSION } from "@/lib/repair-terms";
 import { storeCustomerPdf } from "@/lib/store-customer-pdf";
+import { estimatedCompletionAt, formatOsloDateLabel, nextDayOffer } from "@/lib/next-day";
 import { notifyDeviceReceived, notifyServiceOrderCreated } from "@/server/customer-mail";
+import { kioskPaymentForTicket } from "@/server/payments";
 
 const CLOSED = ["CANCELLED", "COMPLETED", "RETURNED"] as const;
 
@@ -38,6 +41,13 @@ export type KioskRepair = {
   issue?: string;
   parts?: string[];
   kind: "dropoff" | "pickup" | "other";
+  paid?: boolean;
+  paymentLabel?: string;
+  totalOre?: number;
+  totalLabel?: string;
+  payUrl?: string | null;
+  payQr?: string | null;
+  chargeLines?: { name: string; amountLabel: string }[];
 };
 
 type TicketLookupRow = {
@@ -257,7 +267,10 @@ export async function lookupKioskPickup(pinRaw: string): Promise<KioskRepair | n
     .orderBy(desc(repairTickets.updatedAt))
     .limit(1);
   const mapped = await withParts(rows);
-  return mapped[0] ?? null;
+  const row = mapped[0];
+  if (!row) return null;
+  const pay = await kioskPaymentForTicket(rows[0].ticketId);
+  return { ...row, ...pay };
 }
 
 export type KioskDeviceLookup = {
@@ -356,6 +369,12 @@ export async function kioskBoard() {
 
 export async function createKioskLockerOrder(input: {
   phone: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  streetAddress?: string;
+  postalCode?: string;
+  city?: string;
   device: string;
   issue: string;
   comment?: string;
@@ -370,6 +389,23 @@ export async function createKioskLockerOrder(input: {
   if (!phone || !isSendablePhone(phone)) {
     return { ok: false, error: "Ugyldig telefonnummer." };
   }
+  const firstName = (input.firstName || "").trim();
+  const lastName = (input.lastName || "").trim();
+  const customerName = `${firstName} ${lastName}`.trim();
+  if (firstName.length < 2 || lastName.length < 2) {
+    return { ok: false, error: "Skriv fornavn og etternavn." };
+  }
+  const email = (input.email || "").trim().toLowerCase();
+  if (!isSendableCustomerEmail(email)) {
+    return { ok: false, error: "Ugyldig e-postadresse." };
+  }
+  const streetAddress = (input.streetAddress || "").trim();
+  const postalCode = (input.postalCode || "").replace(/\D/g, "").slice(0, 4);
+  const city = (input.city || "").trim().toLocaleUpperCase("nb-NO");
+  if (streetAddress.length < 2 || postalCode.length !== 4 || city.length < 2) {
+    return { ok: false, error: "Skriv adresse, postnummer og sted." };
+  }
+  const customerAddress = `${streetAddress}, ${postalCode} ${city}`;
   const model = input.device.trim();
   const issue = input.issue.trim();
   const comment = (input.comment ?? "").trim();
@@ -379,9 +415,6 @@ export async function createKioskLockerOrder(input: {
   const imeiDigits = input.imei ? normalizeImei(input.imei) : "";
   const imei = imeiDigits.length >= 14 ? imeiDigits : null;
   const serialNumber = input.serialNumber?.replace(/[^A-Za-z0-9]/g, "").toUpperCase() || null;
-  if (!imei && !serialNumber) {
-    return { ok: false, error: "Oppgi IMEI eller serienummer." };
-  }
   const problem = comment ? `${issue}. ${comment}` : issue;
   if (input.termsAccepted !== true) {
     return { ok: false, error: "Du må godta vilkårene." };
@@ -393,8 +426,10 @@ export async function createKioskLockerOrder(input: {
   if (!signaturePng) {
     return { ok: false, error: "Signer på skjermen før ordren opprettes." };
   }
-  const signerName = (input.termsSignerName || "Kunde").trim() || "Kunde";
+  const signerName = (input.termsSignerName || customerName).trim() || customerName;
   const signedAt = new Date();
+  const eta = estimatedCompletionAt(signedAt);
+  const etaOffer = eta ? nextDayOffer(signedAt) : null;
 
   const db = getDb();
   const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -418,14 +453,14 @@ export async function createKioskLockerOrder(input: {
     const [created] = await db
       .insert(customers)
       .values({
-        name: "Locker-kunde",
+        name: customerName,
         phone,
-        email: "ukjent@sd-solutions.invalid",
-        streetAddress: WORKSHOP.streetAddress,
-        postalCode: WORKSHOP.postalCode,
-        city: WORKSHOP.city,
+        email,
+        streetAddress,
+        postalCode,
+        city,
         country: "Norge",
-        address: `${WORKSHOP.streetAddress}, ${WORKSHOP.postalCode} ${WORKSHOP.city}`,
+        address: customerAddress,
         notes: "Opprettet via locker-kiosk",
         lastActivityAt: new Date(),
       })
@@ -434,7 +469,17 @@ export async function createKioskLockerOrder(input: {
   } else {
     await db
       .update(customers)
-      .set({ lastActivityAt: new Date(), phone })
+      .set({
+        lastActivityAt: new Date(),
+        phone,
+        name: customerName,
+        email,
+        streetAddress,
+        postalCode,
+        city,
+        country: "Norge",
+        address: customerAddress,
+      })
       .where(eq(customers.id, customerId));
   }
 
@@ -496,6 +541,7 @@ export async function createKioskLockerOrder(input: {
       inboundMethod: "IN_PERSON",
       outboundMethod: "IN_PERSON",
       receivedAt: null,
+      estimatedCompletionDate: eta,
       termsVersion: REPAIR_TERMS_VERSION,
       termsSignedAt: signedAt,
       termsSignerName: signerName,
@@ -511,7 +557,7 @@ export async function createKioskLockerOrder(input: {
   });
   await db.insert(repairNotes).values({
     ticketId: ticket.id,
-    content: `Opprettet i locker og signert. Feil: ${issue}.${comment ? ` Kommentar: ${comment}` : ""} ${imei ? `IMEI: ${imei}.` : ""} ${serialNumber ? `SN: ${serialNumber}.` : ""}`,
+    content: `Opprettet i locker og signert. Feil: ${issue}.${comment ? ` Kommentar: ${comment}` : ""} ${imei ? `IMEI: ${imei}.` : ""} ${serialNumber ? `SN: ${serialNumber}.` : ""}${etaOffer ? ` Ferdig neste dag (${formatOsloDateLabel(etaOffer.readyOn)}) hvis innlevert i dag.` : ""}`,
     visibility: "INTERNAL",
   });
   await writeAuditLog({
@@ -535,9 +581,9 @@ export async function createKioskLockerOrder(input: {
       order: {
         ticketNumber,
         customerName: signerName,
-        customerEmail: "",
+        customerEmail: email,
         customerPhone: phone,
-        customerAddress: `${WORKSHOP.streetAddress}, ${WORKSHOP.postalCode} ${WORKSHOP.city}`,
+        customerAddress,
         deviceLabel: model,
         serialNumber,
         imei,
@@ -620,6 +666,7 @@ export async function completeKioskTicket(ticketNumber: string) {
     .select({
       id: repairTickets.id,
       status: repairTickets.status,
+      paymentStatus: repairTickets.paymentStatus,
       completedAt: repairTickets.completedAt,
       publicAccessToken: repairTickets.publicAccessToken,
       publicShortCode: repairTickets.publicShortCode,
@@ -633,6 +680,10 @@ export async function completeKioskTicket(ticketNumber: string) {
   }
   if (ticket.status !== "READY_FOR_PICKUP") {
     return { ok: false as const, error: "Saken er ikke klar for henting" };
+  }
+  const pay = await kioskPaymentForTicket(ticket.id);
+  if (!pay.paid) {
+    return { ok: false as const, error: "Ikke betalt" };
   }
 
   const completedAt = new Date();

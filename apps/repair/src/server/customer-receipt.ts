@@ -2,37 +2,32 @@ import { eq } from "drizzle-orm";
 import {
   customers,
   devices,
-  repairServices,
   repairTickets,
-  services,
 } from "@/db/schema";
 import { getDb } from "@/lib/db";
+import { PAYMENT_STATUS_LABELS } from "@/lib/labels";
 import type { MailFile } from "@/lib/mail";
 import { renderReceiptPdf } from "@/lib/pdf/customer-document";
+import { loadTicketCharge } from "@/lib/ticket-totals";
 import { storeCustomerPdf } from "@/lib/store-customer-pdf";
-
-const PAYMENT_LABEL: Record<string, string> = {
-  UNPAID: "Ikke betalt",
-  PARTIAL: "Delvis betalt",
-  PAID: "Betalt",
-  REFUNDED: "Refundert",
-};
 
 export async function createAndStoreReceiptPdf(
   ticketId: string,
+  paymentOverride?: string,
 ): Promise<MailFile | null> {
   const db = getDb();
   const [row] = await db
     .select({
       ticketNumber: repairTickets.ticketNumber,
       customerName: customers.name,
+      customerEmail: customers.email,
+      customerPhone: customers.phone,
+      streetAddress: customers.streetAddress,
+      postalCode: customers.postalCode,
+      city: customers.city,
       brand: devices.brand,
       model: devices.model,
       variant: devices.variant,
-      customerPriceOre: repairTickets.customerPriceOre,
-      discountOre: repairTickets.discountOre,
-      discountLabel: repairTickets.discountLabel,
-      outboundPostageOre: repairTickets.outboundPostageOre,
       paymentStatus: repairTickets.paymentStatus,
       warrantyDays: repairTickets.warrantyDays,
     })
@@ -43,55 +38,46 @@ export async function createAndStoreReceiptPdf(
     .limit(1);
   if (!row) return null;
 
-  const lines = await db
-    .select({
-      name: services.name,
-      priceOre: repairServices.priceOre,
-    })
-    .from(repairServices)
-    .leftJoin(services, eq(services.id, repairServices.serviceId))
-    .where(eq(repairServices.ticketId, ticketId));
-
-  const postageOre = row.outboundPostageOre ?? 0;
-  const servicesTotal = lines.reduce((sum, line) => sum + line.priceOre, 0);
-  const discountOre = row.discountOre ?? 0;
-  const totalOre = Math.max(0, servicesTotal - discountOre) + postageOre;
+  const charge = await loadTicketCharge(ticketId);
   const deviceLabel = [row.brand, row.model, row.variant]
     .filter(Boolean)
     .join(" ");
+  const address = [row.streetAddress, `${row.postalCode} ${row.city}`.trim()]
+    .filter((part) => part && part.trim())
+    .join(", ");
 
   const buffer = await renderReceiptPdf({
     ticketNumber: row.ticketNumber,
     customerName: row.customerName,
+    customerEmail: row.customerEmail,
+    customerPhone: row.customerPhone,
+    customerAddress: address || null,
     deviceLabel,
     issuedAt: new Date(),
-    paymentLabel: PAYMENT_LABEL[row.paymentStatus] || row.paymentStatus,
-    lines: lines.map((line) => ({
-      name: line.name?.trim() || "Tjeneste",
-      amountOre: line.priceOre,
-    })),
+    paymentLabel:
+      paymentOverride ||
+      PAYMENT_STATUS_LABELS[row.paymentStatus] ||
+      row.paymentStatus,
+    lines: charge.lines,
     discount:
-      discountOre > 0
-        ? {
-            label: row.discountLabel?.trim() || "Rabatt",
-            amountOre: discountOre,
-          }
+      charge.discountOre > 0
+        ? { label: charge.discountLabel || "Rabatt", amountOre: charge.discountOre }
         : null,
-    postageOre,
-    totalOre,
+    postageOre: charge.postageOre,
+    totalOre: charge.totalOre,
     warrantyDays: row.warrantyDays,
   });
 
   await storeCustomerPdf({
     ticketId,
     category: "RECEIPT",
-    fileName: `kvittering-${row.ticketNumber}.pdf`,
-    description: "Kvittering",
+    fileName: `faktura-${row.ticketNumber}.pdf`,
+    description: "Faktura / kvittering",
     buffer,
   });
 
   return {
-    filename: `kvittering-${row.ticketNumber}.pdf`,
+    filename: `faktura-${row.ticketNumber}.pdf`,
     content: buffer,
     contentType: "application/pdf",
   };

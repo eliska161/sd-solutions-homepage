@@ -8,17 +8,24 @@ export function IdentifierPad({
   disabled,
   maxLength = 15,
   withSpace = false,
+  placeholder = "IMEI eller serienummer",
+  extras = [],
+  letterCase = "upper",
 }: {
   value: string;
   onChange: (next: string) => void;
   disabled?: boolean;
   maxLength?: number;
   withSpace?: boolean;
+  placeholder?: string;
+  extras?: readonly string[];
+  letterCase?: "upper" | "lower";
 }) {
   function press(ch: string) {
     if (disabled) return;
     if (value.length >= maxLength) return;
-    onChange(value + ch);
+    const next = letterCase === "lower" ? ch.toLowerCase() : ch;
+    onChange(value + next);
   }
 
   const keyClass =
@@ -34,27 +41,44 @@ export function IdentifierPad({
         {value ? (
           value
         ) : (
-          <span className="tracking-normal text-[#8b93a3]">IMEI eller serienummer</span>
+          <span className="tracking-normal text-[#8b93a3]">{placeholder}</span>
         )}
       </p>
       <div className="flex w-full flex-col gap-1.5">
         {ROWS.map((row) => (
           <div key={row} className="grid grid-cols-10 gap-1.5">
-            {row.split("").map((ch) => (
+            {row.split("").map((ch) => {
+              const label = letterCase === "lower" ? ch.toLowerCase() : ch;
+              return (
+                <button
+                  key={ch}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => press(label)}
+                  className={keyClass}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+        <div className={`grid gap-1.5 ${withSpace || extras.length ? "grid-cols-6" : "grid-cols-5"}`}>
+          {["Æ", "Ø", "Å"].map((ch) => {
+            const label = letterCase === "lower" ? ch.toLowerCase() : ch;
+            return (
               <button
                 key={ch}
                 type="button"
                 disabled={disabled}
-                onClick={() => press(ch)}
+                onClick={() => press(label)}
                 className={keyClass}
               >
-                {ch}
+                {label}
               </button>
-            ))}
-          </div>
-        ))}
-        <div className={`grid gap-1.5 ${withSpace ? "grid-cols-6" : "grid-cols-5"}`}>
-          {["Æ", "Ø", "Å"].map((ch) => (
+            );
+          })}
+          {extras.map((ch) => (
             <button
               key={ch}
               type="button"
@@ -79,7 +103,7 @@ export function IdentifierPad({
             type="button"
             disabled={disabled}
             onClick={() => onChange(value.slice(0, -1))}
-            className={`${keyClass} text-[16px] ${withSpace ? "" : "col-span-2"}`}
+            className={`${keyClass} text-[16px]`}
             aria-label="Slett siste tegn"
           >
             Slett

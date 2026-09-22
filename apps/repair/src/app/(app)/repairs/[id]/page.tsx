@@ -13,7 +13,7 @@ import { Select } from "@/components/ui/Select";
 import { RepairStatusBadge } from "@/components/ui/StatusBadge";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatDropoffAppointment } from "@/lib/dropoff";
-import { formatDate, formatDateOnly, parseKrToOre, DELIVERY_METHOD_LABELS } from "@/lib/labels";
+import { formatDate, formatDateOnly, parseKrToOre, DELIVERY_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/labels";
 import { formatNokFromOre, grossProfitOre } from "@/lib/money";
 import { canWrite } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
@@ -35,6 +35,7 @@ import { listParts } from "@/server/parts";
 import {
   addRepairNote,
   markRepairReceived,
+  markRepairPaidInShop,
   getRepair,
   getRepairAssigneeName,
   listRepairNotes,
@@ -82,6 +83,13 @@ async function markReceivedAction(formData: FormData) {
   "use server";
   const ticketId = String(formData.get("ticketId"));
   await markRepairReceived(ticketId);
+  repairBack(ticketId, String(formData.get("tab") || ""));
+}
+
+async function markPaidAction(formData: FormData) {
+  "use server";
+  const ticketId = String(formData.get("ticketId"));
+  await markRepairPaidInShop(ticketId);
   repairBack(ticketId, String(formData.get("tab") || ""));
 }
 
@@ -286,6 +294,18 @@ export default async function RepairDetailPage({
           <p className="text-[13px] font-medium">
             Hentepin {ticket.pickupPin}
           </p>
+        ) : null}
+        <p className="text-[13px] font-medium">
+          Betaling: {PAYMENT_STATUS_LABELS[ticket.paymentStatus]}
+        </p>
+        {session && canWrite(session.user.role) && ticket.paymentStatus !== "PAID" ? (
+          <form action={markPaidAction}>
+            <input type="hidden" name="ticketId" value={ticket.id} />
+            <input type="hidden" name="tab" value={tab} />
+            <Button type="submit" variant="secondary" size="sm">
+              Merk som betalt
+            </Button>
+          </form>
         ) : null}
         <p className="text-[13px] text-muted">
           {ticket.source === "CUSTOMER_PORTAL" ? "Nettside" : "Verksted"}

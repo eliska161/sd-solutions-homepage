@@ -38,6 +38,13 @@ export const DELIVERY_METHOD_LABELS = {
   POST: "Post",
 } as const;
 
+export const PAYMENT_STATUS_LABELS = {
+  UNPAID: "Ikke betalt",
+  PARTIAL: "Delvis betalt",
+  PAID: "Betalt",
+  REFUNDED: "Refundert",
+} as const;
+
 export const REPAIR_PART_STATUS_LABELS = {
   USED: "Fra lager",
   ORDERED: "Bestilt",

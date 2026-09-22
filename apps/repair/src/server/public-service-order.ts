@@ -25,6 +25,7 @@ import { REPAIR_TERMS_VERSION } from "@/lib/repair-terms";
 import { nextRepairTicketNumber } from "@/lib/sequences";
 import { storeCustomerPdf } from "@/lib/store-customer-pdf";
 import { notifyServiceOrderCreated } from "@/server/customer-mail";
+import { estimatedCompletionAt, formatOsloDateLabel, nextDayOffer } from "@/lib/next-day";
 
 const deliverySchema = z.enum(["IN_PERSON", "POST"]);
 
@@ -224,6 +225,9 @@ export async function createPublicServiceOrder(
   const inboundPostageOre = 0;
   const outboundPostageOre =
     data.outboundMethod === "POST" ? CUSTOMER_POSTAGE_ORE : 0;
+  const eta =
+    data.inboundMethod === "IN_PERSON" ? estimatedCompletionAt() : null;
+  const etaOffer = eta ? nextDayOffer() : null;
 
   const db = getDb();
   const email = data.email.toLowerCase();
@@ -328,6 +332,7 @@ export async function createPublicServiceOrder(
       outboundPostageOre,
       otherCostsOre: outboundPostageOre,
       receivedAt: null,
+      estimatedCompletionDate: eta,
       termsVersion: data.termsVersion,
       termsSignedAt: new Date(),
       termsSignerName: data.termsSignerName,
@@ -347,7 +352,9 @@ export async function createPublicServiceOrder(
     content:
       data.inboundMethod === "POST"
         ? "Kunden sender enheten med post. Marker som mottatt når pakken kommer inn."
-        : "Kunden leverer enheten fysisk. Marker som mottatt når den er tatt inn i skranken.",
+        : etaOffer
+          ? `Kunden leverer enheten fysisk. Ferdig neste dag (${formatOsloDateLabel(etaOffer.readyOn)}) hvis den er innlevert i dag innen kl. 18:30.`
+          : "Kunden leverer enheten fysisk. Marker som mottatt når den er tatt inn i skranken.",
     visibility: "INTERNAL",
   });
 

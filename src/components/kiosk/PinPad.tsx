@@ -14,7 +14,7 @@ export function PinPad({
   length?: number;
   onChange: (next: string) => void;
   disabled?: boolean;
-  mode?: "pin" | "phone";
+  mode?: "pin" | "phone" | "digits";
 }) {
   function press(digit: string) {
     if (disabled) return;
@@ -48,6 +48,18 @@ export function PinPad({
             <span className="text-[#8b93a3]">+47 •••• ••••</span>
           ) : (
             formatNoMobile(value)
+          )}
+        </p>
+      ) : mode === "digits" ? (
+        <p
+          className="min-h-[48px] text-[32px] font-bold tabular-nums tracking-[0.18em]"
+          aria-label={`${value.length} av ${length} siffer skrevet inn`}
+          role="status"
+        >
+          {value.length === 0 ? (
+            <span className="tracking-normal text-[#8b93a3]">Postnr</span>
+          ) : (
+            value
           )}
         </p>
       ) : (

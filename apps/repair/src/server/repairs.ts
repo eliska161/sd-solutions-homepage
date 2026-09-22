@@ -485,6 +485,16 @@ export async function updateRepairStatus(
   return row;
 }
 
+export async function markRepairPaidInShop(ticketId: string) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const { markTicketPaid } = await import("@/server/payments");
+  const result = await markTicketPaid({ ticketId, source: "staff" });
+  revalidatePath(`/repairs/${ticketId}`);
+  revalidatePath("/repairs");
+  return result;
+}
+
 export async function updateReturnTracking(
   ticketId: string,
   trackingNumber: string,

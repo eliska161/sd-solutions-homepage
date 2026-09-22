@@ -99,6 +99,13 @@
       "when": 1789570000000,
       "tag": "0013_pickup_pin",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789580000000,
+      "tag": "0014_stripe_pickup",
+      "breakpoints": true
     }
   ]
 }

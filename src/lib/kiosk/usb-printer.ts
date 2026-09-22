@@ -1,6 +1,6 @@
 "use client";
 
-import { buildLockerSticker, type StickerInput } from "@/lib/kiosk/escpos";
+import { buildLockerSticker, buildLockerReceipt, type StickerInput, type ReceiptPrintInput } from "@/lib/kiosk/escpos";
 
 type UsbHandle = { kind: "usb"; device: USBDevice; endpoint: number };
 type SerialHandle = { kind: "serial"; port: SerialPort; baudRate: number; bluetooth: boolean };
@@ -300,6 +300,38 @@ export async function setSerialBaud(baudRate: number) {
     return;
   }
   await connectSerialPrinter(baudRate);
+}
+
+export async function printUsbReceipt(input: ReceiptPrintInput) {
+  if (!usbApi() && !serialApi()) {
+    return { ok: false as const, reason: "printer" as const };
+  }
+  const payload = await buildLockerReceipt(input);
+  try {
+    if (!(handle?.kind === "serial" && serialIsOpen(handle.port))) {
+      const open = await pickOpenSerial();
+      if (open) handle = open;
+      else await connectBluetoothPrinter();
+    }
+    await writeAll(payload);
+    return { ok: true as const };
+  } catch {
+    try {
+      if (handle?.kind === "serial" && serialIsOpen(handle.port)) {
+        await writeAll(payload);
+        return { ok: true as const };
+      }
+    } catch {
+      /* picker below */
+    }
+    try {
+      await connectBluetoothPrinter();
+      await writeAll(payload);
+      return { ok: true as const };
+    } catch {
+      return { ok: false as const, reason: "printer" as const };
+    }
+  }
 }
 
 export async function printUsbSticker(input: StickerInput) {
