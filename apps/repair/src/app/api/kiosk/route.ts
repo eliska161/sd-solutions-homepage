@@ -9,6 +9,7 @@ import {
   receiveKioskTicket,
   completeKioskTicket,
 } from "@/server/kiosk";
+import { lookupPostalPlace } from "@/server/postal";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,12 @@ export async function GET(request: Request) {
     const auth = readKioskAuth(request);
     if (!auth.ok) return jsonError(auth.error, auth.status);
     const url = new URL(request.url);
+    const postal = url.searchParams.get("postal") || "";
+    if (postal) {
+      const result = await lookupPostalPlace(postal);
+      if (!result.ok) return jsonError(result.error);
+      return NextResponse.json({ ok: true, postalCode: result.postalCode, city: result.city });
+    }
     const query =
       url.searchParams.get("q") ||
       url.searchParams.get("serial") ||
@@ -59,9 +66,20 @@ export async function POST(request: Request) {
       const result = await lookupKioskDevice(String(body.q || body.query || ""));
       return NextResponse.json({ ok: true, ...result });
     }
+    if (action === "place") {
+      const result = await lookupPostalPlace(String(body.postal || body.q || ""));
+      if (!result.ok) return jsonError(result.error);
+      return NextResponse.json({ ok: true, postalCode: result.postalCode, city: result.city });
+    }
     if (action === "create") {
       const result = await createKioskLockerOrder({
         phone: String(body.phone || ""),
+        firstName: String(body.firstName || ""),
+        lastName: String(body.lastName || ""),
+        email: String(body.email || ""),
+        streetAddress: String(body.streetAddress || ""),
+        postalCode: String(body.postalCode || ""),
+        city: String(body.city || ""),
         device: String(body.device || ""),
         issue: String(body.issue || ""),
         comment: String(body.comment || ""),
@@ -70,7 +88,7 @@ export async function POST(request: Request) {
         termsAccepted: body.termsAccepted === "true" || (body as { termsAccepted?: boolean }).termsAccepted === true,
         termsVersion: String(body.termsVersion || ""),
         signaturePng: String(body.signaturePng || ""),
-        termsSignerName: String(body.termsSignerName || "Kunde"),
+        termsSignerName: String(body.termsSignerName || ""),
       });
       if (!result.ok) return jsonError(result.error);
       return NextResponse.json(result);
