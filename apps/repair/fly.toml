@@ -1,7 +1,8 @@
-# fly.toml — deploy from apps/repair
-# Working directory: apps/repair
-# Config path: apps/repair/fly.toml
+# fly.toml app configuration file generated for sd-solutions-repair on 2026-09-09T17:24:58Z
+#
+# Deploy from apps/repair. Config path: apps/repair/fly.toml
 # Internal port: 3001
+# See https://fly.io/docs/reference/configuration/
 
 app = "sd-solutions-repair"
 primary_region = "arn"
@@ -32,9 +33,10 @@ primary_region = "arn"
 
 [[vm]]
   memory = "512mb"
+  memory_mb = 512
   cpu_kind = "shared"
   cpus = 1
 
-[mounts]
+[[mounts]]
   source = "repair_uploads"
   destination = "/data/uploads"
