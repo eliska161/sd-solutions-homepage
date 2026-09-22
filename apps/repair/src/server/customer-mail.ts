@@ -363,11 +363,11 @@ export async function notifyPaymentReceived(
       return {
         mail: buildMail(ctx, {
           subject: `Kvittering — ${ctx.ticketNumber}`,
-          heading: "Betaling mottatt",
-          preheader: `Faktura og kvittering for ${ctx.ticketNumber}.`,
+          heading: "Takk for betalingen",
+          preheader: `Kvittering for ${ctx.ticketNumber}.`,
           paragraphs: [
             `Vi har registrert betaling for ${ctx.ticketNumber}${deviceBit(ctx)}.`,
-            "Faktura/kvittering ligger vedlagt som PDF, i samme stil som ordrebekreftelsen.",
+            "Kvitteringen ligger vedlagt som PDF.",
             ctx.outboundMethod === "POST"
               ? "Vi sender telefonen når returen er klar."
               : "Du kan hente i locker med PIN-koden du har fått, eller i skranken.",
@@ -394,7 +394,7 @@ export async function notifyRepairCompleted(ticketId: string) {
             byPost
               ? "Hvis telefonen skulle i retur med post, er den sendt eller levert. Mangler du pakken, svar på denne e-posten."
               : "Hvis du skulle hente i butikk, er saken ferdigbehandlet hos oss. Ta kontakt hvis noe mangler.",
-            "Faktura/kvittering fant du på e-post da betalingen ble registrert. Statuslenken virker fortsatt.",
+            "Kvitteringen fant du på e-post da betalingen ble registrert. Statuslenken virker fortsatt.",
             googleReviewParagraph,
           ],
           extraCtas: [googleReviewCta],

@@ -5,8 +5,9 @@ import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { PAYMENT_STATUS_LABELS } from "@/lib/labels";
-import { publicAppOrigin } from "@/lib/mail";
-import { formatNokFromOre } from "@/lib/money";
+import { LEGAL_PARTY } from "@/lib/legal-catalog";
+import { publicAppOrigin, publicStatusUrl } from "@/lib/mail";
+import { formatNokFromOre, vatFromGrossOre } from "@/lib/money";
 import { allocatePublicShortCode, publicTicketLinkFilter } from "@/lib/public-link";
 import { getStripe, stripeConfigured } from "@/lib/stripe";
 import { loadTicketCharge } from "@/lib/ticket-totals";
@@ -16,8 +17,18 @@ export type KioskPayment = {
   paymentLabel: string;
   totalOre: number;
   totalLabel: string;
+  netLabel?: string;
+  vatLabel?: string;
   payUrl: string | null;
   payQr: string | null;
+  statusUrl?: string | null;
+  statusQr?: string | null;
+  customerName?: string;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  authCode?: string | null;
+  transactionId?: string | null;
+  paymentDetail?: string | null;
   chargeLines: { name: string; amountLabel: string }[];
 };
 
@@ -266,13 +277,89 @@ async function qrDataUrl(text: string) {
     const png = await bwipjs.toBuffer({
       bcid: "qrcode",
       text,
-      scale: 4,
+      scale: 8,
       includetext: false,
       backgroundcolor: "FFFFFF",
     });
     return `data:image/png;base64,${png.toString("base64")}`;
   } catch {
     return null;
+  }
+}
+
+function kioskPayUrl(code: string) {
+  return `${LEGAL_PARTY.web}/p/${code}`;
+}
+
+function cardBrandLabel(brand: string | undefined | null) {
+  const key = (brand || "").toLowerCase();
+  if (key === "visa") return "Visa";
+  if (key === "mastercard") return "Mastercard";
+  if (key === "amex" || key === "american express") return "American Express";
+  if (key === "diners") return "Diners";
+  if (key === "discover") return "Discover";
+  if (key === "unionpay") return "UnionPay";
+  return brand ? brand[0].toUpperCase() + brand.slice(1) : null;
+}
+
+export async function stripePaymentSlip(input: {
+  paymentIntentId: string | null;
+  checkoutSessionId: string | null;
+}): Promise<{
+  cardBrand: string | null;
+  cardLast4: string | null;
+  authCode: string | null;
+  transactionId: string | null;
+  paymentDetail: string | null;
+}> {
+  const empty = {
+    cardBrand: null as string | null,
+    cardLast4: null as string | null,
+    authCode: null as string | null,
+    transactionId: null as string | null,
+    paymentDetail: null as string | null,
+  };
+  const stripe = getStripe();
+  if (!stripe) return empty;
+  try {
+    let intentId = input.paymentIntentId;
+    if (!intentId && input.checkoutSessionId) {
+      const session = await stripe.checkout.sessions.retrieve(input.checkoutSessionId, {
+        expand: ["payment_intent"],
+      });
+      const pi = session.payment_intent;
+      intentId = typeof pi === "string" ? pi : pi?.id ?? null;
+    }
+    if (!intentId) return empty;
+    const intent = await stripe.paymentIntents.retrieve(intentId, {
+      expand: ["latest_charge"],
+    });
+    const charge =
+      typeof intent.latest_charge === "object" && intent.latest_charge
+        ? intent.latest_charge
+        : null;
+    const card = charge?.payment_method_details?.card;
+    const present = charge?.payment_method_details?.card_present;
+    const last4 = card?.last4 || present?.last4 || null;
+    const brand = cardBrandLabel(card?.brand || present?.brand);
+    const auth =
+      (present && "authorization_code" in present
+        ? String(present.authorization_code || "")
+        : "") || null;
+    const transactionId = charge?.id || intent.id;
+    const paymentDetail = last4
+      ? `${brand || "Kort"} **** ${last4}`
+      : brand || "Kort";
+    return {
+      cardBrand: brand,
+      cardLast4: last4,
+      authCode: auth || null,
+      transactionId,
+      paymentDetail,
+    };
+  } catch (err) {
+    console.error("==> Stripe receipt slip", err);
+    return empty;
   }
 }
 
@@ -284,16 +371,29 @@ export async function kioskPaymentForTicket(ticketId: string): Promise<KioskPaym
     .select({
       paymentStatus: repairTickets.paymentStatus,
       stripeCheckoutUrl: repairTickets.stripeCheckoutUrl,
+      stripeCheckoutSessionId: repairTickets.stripeCheckoutSessionId,
+      stripePaymentIntentId: repairTickets.stripePaymentIntentId,
+      publicAccessToken: repairTickets.publicAccessToken,
+      publicShortCode: repairTickets.publicShortCode,
+      customerName: customers.name,
     })
     .from(repairTickets)
+    .innerJoin(customers, eq(customers.id, repairTickets.customerId))
     .where(eq(repairTickets.id, ticketId))
     .limit(1);
 
-  const paid = ticket?.paymentStatus === "PAID" || charge.totalOre <= 0;
+  let paid = ticket?.paymentStatus === "PAID" || charge.totalOre <= 0;
   let payUrl: string | null = null;
+  const code = ticket
+    ? await shortLink(ticketId, ticket.publicAccessToken, ticket.publicShortCode)
+    : null;
   if (!paid) {
     const checkout = await ensurePickupCheckout(ticketId);
-    payUrl = checkout.ok ? checkout.url : ticket?.stripeCheckoutUrl ?? null;
+    if (checkout.ok && checkout.paid) {
+      paid = true;
+    } else {
+      payUrl = code ? kioskPayUrl(code) : null;
+    }
   }
 
   const lines = [
@@ -315,6 +415,21 @@ export async function kioskPaymentForTicket(ticketId: string): Promise<KioskPaym
     });
   }
 
+  const vat = vatFromGrossOre(charge.totalOre);
+  const statusUrl = code ? publicStatusUrl(code) : null;
+  const slip = paid
+    ? await stripePaymentSlip({
+        paymentIntentId: ticket?.stripePaymentIntentId ?? null,
+        checkoutSessionId: ticket?.stripeCheckoutSessionId ?? null,
+      })
+    : {
+        cardBrand: null,
+        cardLast4: null,
+        authCode: null,
+        transactionId: null,
+        paymentDetail: null,
+      };
+
   return {
     paid,
     paymentLabel: paid
@@ -322,8 +437,20 @@ export async function kioskPaymentForTicket(ticketId: string): Promise<KioskPaym
       : PAYMENT_STATUS_LABELS[ticket?.paymentStatus || "UNPAID"],
     totalOre: charge.totalOre,
     totalLabel: formatNokFromOre(charge.totalOre),
+    netLabel: vat.netLabel,
+    vatLabel: vat.vatLabel,
     payUrl,
     payQr: payUrl ? await qrDataUrl(payUrl) : null,
+    statusUrl,
+    statusQr: statusUrl ? await qrDataUrl(statusUrl) : null,
+    customerName: ticket?.customerName || "",
+    cardBrand: slip.cardBrand,
+    cardLast4: slip.cardLast4,
+    authCode: slip.authCode,
+    transactionId: slip.transactionId,
+    paymentDetail: paid
+      ? slip.paymentDetail || (ticket?.stripePaymentIntentId ? "Kort" : "Betalt i butikk")
+      : null,
     chargeLines: lines,
   };
 }

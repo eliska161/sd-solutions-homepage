@@ -6,10 +6,12 @@ import {
 } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { PAYMENT_STATUS_LABELS } from "@/lib/labels";
-import type { MailFile } from "@/lib/mail";
+import { publicStatusUrl, type MailFile } from "@/lib/mail";
+import { allocatePublicShortCode } from "@/lib/public-link";
 import { renderReceiptPdf } from "@/lib/pdf/customer-document";
 import { loadTicketCharge } from "@/lib/ticket-totals";
 import { storeCustomerPdf } from "@/lib/store-customer-pdf";
+import { stripePaymentSlip } from "@/server/payments";
 
 export async function createAndStoreReceiptPdf(
   ticketId: string,
@@ -20,16 +22,16 @@ export async function createAndStoreReceiptPdf(
     .select({
       ticketNumber: repairTickets.ticketNumber,
       customerName: customers.name,
-      customerEmail: customers.email,
       customerPhone: customers.phone,
-      streetAddress: customers.streetAddress,
-      postalCode: customers.postalCode,
-      city: customers.city,
       brand: devices.brand,
       model: devices.model,
       variant: devices.variant,
       paymentStatus: repairTickets.paymentStatus,
       warrantyDays: repairTickets.warrantyDays,
+      publicAccessToken: repairTickets.publicAccessToken,
+      publicShortCode: repairTickets.publicShortCode,
+      stripeCheckoutSessionId: repairTickets.stripeCheckoutSessionId,
+      stripePaymentIntentId: repairTickets.stripePaymentIntentId,
     })
     .from(repairTickets)
     .innerJoin(customers, eq(customers.id, repairTickets.customerId))
@@ -42,22 +44,37 @@ export async function createAndStoreReceiptPdf(
   const deviceLabel = [row.brand, row.model, row.variant]
     .filter(Boolean)
     .join(" ");
-  const address = [row.streetAddress, `${row.postalCode} ${row.city}`.trim()]
-    .filter((part) => part && part.trim())
-    .join(", ");
+
+  let code = row.publicShortCode;
+  if (!code && row.publicAccessToken) {
+    code = await allocatePublicShortCode();
+    await db
+      .update(repairTickets)
+      .set({ publicShortCode: code, updatedAt: new Date() })
+      .where(eq(repairTickets.id, ticketId));
+  }
+
+  const slip = await stripePaymentSlip({
+    paymentIntentId: row.stripePaymentIntentId,
+    checkoutSessionId: row.stripeCheckoutSessionId,
+  });
 
   const buffer = await renderReceiptPdf({
     ticketNumber: row.ticketNumber,
     customerName: row.customerName,
-    customerEmail: row.customerEmail,
     customerPhone: row.customerPhone,
-    customerAddress: address || null,
     deviceLabel,
     issuedAt: new Date(),
     paymentLabel:
       paymentOverride ||
       PAYMENT_STATUS_LABELS[row.paymentStatus] ||
       row.paymentStatus,
+    paymentDetail: slip.paymentDetail,
+    cardBrand: slip.cardBrand,
+    cardLast4: slip.cardLast4,
+    authCode: slip.authCode,
+    transactionId: slip.transactionId,
+    statusUrl: code ? publicStatusUrl(code) : null,
     lines: charge.lines,
     discount:
       charge.discountOre > 0
@@ -71,13 +88,13 @@ export async function createAndStoreReceiptPdf(
   await storeCustomerPdf({
     ticketId,
     category: "RECEIPT",
-    fileName: `faktura-${row.ticketNumber}.pdf`,
-    description: "Faktura / kvittering",
+    fileName: `kvittering-${row.ticketNumber}.pdf`,
+    description: "Kvittering",
     buffer,
   });
 
   return {
-    filename: `faktura-${row.ticketNumber}.pdf`,
+    filename: `kvittering-${row.ticketNumber}.pdf`,
     content: buffer,
     contentType: "application/pdf",
   };
