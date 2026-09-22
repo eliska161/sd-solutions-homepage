@@ -6,10 +6,17 @@ import {
   fysiskReparasjonsvilkar,
   getLegalDocument,
 } from "@/lib/legal";
-import bwipjs from "bwip-js/node";
-import { formatDate } from "@/lib/labels";
+import { formatDate, formatDateOnly } from "@/lib/labels";
 import { formatNokFromOre, vatFromGrossOre } from "@/lib/money";
-import { renderOrderConfirmationPdf } from "@/lib/pdf/order-confirmation";
+import {
+  barcodePng,
+  drawLogoWordmark,
+  drawPageChrome,
+  kv,
+  pageWidth as confirmationPageWidth,
+  qrPng,
+  renderOrderConfirmationPdf,
+} from "@/lib/pdf/order-confirmation";
 import {
   PDF_COLORS,
   pdfFontPaths,
@@ -222,8 +229,12 @@ export async function renderSignedTermsPdf(input: {
 export async function renderReceiptPdf(input: {
   ticketNumber: string;
   customerName: string;
+  customerEmail?: string | null;
   customerPhone?: string | null;
+  customerAddress?: string | null;
   deviceLabel: string;
+  serialNumber?: string | null;
+  imei?: string | null;
   issuedAt: Date;
   paymentLabel: string;
   paymentDetail?: string | null;
@@ -240,11 +251,18 @@ export async function renderReceiptPdf(input: {
 }): Promise<Buffer> {
   const fonts = pdfFontPaths();
   const ink = "#111111";
-  const muted = "#444444";
-  const colW = 300;
+  const muted = "#5c6370";
+  const line = "#d5d8de";
+  const wash = "#f3f4f6";
+  const barcodeText = input.ticketNumber.replace(/[^A-Za-z0-9-]/g, "") || "SD";
+  const [bar, qr] = await Promise.all([
+    barcodePng(barcodeText),
+    input.statusUrl ? qrPng(input.statusUrl) : Promise.resolve(null),
+  ]);
+
   const doc = new PDFDocument({
     size: "A4",
-    margins: { top: 36, bottom: 36, left: 48, right: 48 },
+    margins: { top: 36, bottom: 48, left: 42, right: 42 },
     bufferPages: true,
     info: {
       Title: `Kvittering ${input.ticketNumber}`,
@@ -263,63 +281,71 @@ export async function renderReceiptPdf(input: {
     doc.on("error", reject);
   });
 
-  const left = (doc.page.width - colW) / 2;
-  const rule = () => {
-    doc
-      .moveTo(left, doc.y)
-      .lineTo(left + colW, doc.y)
-      .strokeColor(ink)
-      .lineWidth(0.8)
-      .stroke();
-    doc.moveDown(0.45);
-  };
-  const row = (label: string, value: string, bold = false) => {
-    const y = doc.y;
-    doc.font(bold ? fonts.bold : fonts.regular).fontSize(bold ? 11 : 9).fillColor(ink);
-    doc.text(label, left, y, { width: colW - 88 });
-    doc.text(value, left, y, { width: colW, align: "right" });
-    doc.y = y + (bold ? 16 : 14);
-  };
+  const left = doc.page.margins.left;
+  const width = confirmationPageWidth(doc);
+  const right = left + width;
+  const dateLabel = formatDateOnly(input.issuedAt);
+  const when = formatDate(input.issuedAt);
 
-  const logo = resolvePdfLogoFile();
-  const logoSize = 56;
-  if (logo && existsSync(logo)) {
-    doc.image(logo, left + (colW - logoSize) / 2, doc.y, {
-      width: logoSize,
-      height: logoSize,
-    });
-    doc.y += logoSize + 10;
-  }
+  drawLogoWordmark(doc, left, 36);
+  doc.image(bar, right - 160, 36, { width: 160, height: 28 });
 
-  doc.font(fonts.bold).fontSize(12).fillColor(ink);
-  doc.text(LEGAL_PARTY.brandName, left, doc.y, { width: colW, align: "center" });
-  doc.moveDown(0.2);
+  doc.font(fonts.bold).fontSize(14).fillColor(ink);
+  doc.text("KVITTERING", left, 84, { width: width - 170 });
+  doc.font(fonts.bold).fontSize(16).text(input.ticketNumber, right - 160, 84, {
+    width: 160,
+    align: "right",
+  });
+  doc.font(fonts.regular).fontSize(8).fillColor(muted);
+  doc.text(`Dato: ${dateLabel}`, right - 160, 104, {
+    width: 160,
+    align: "right",
+  });
+
+  doc
+    .moveTo(left, 120)
+    .lineTo(right, 120)
+    .strokeColor(line)
+    .lineWidth(0.8)
+    .stroke();
+
+  doc.font(fonts.bold).fontSize(11).fillColor(ink);
+  doc.text(input.customerName || "Kunde", left, 132, { width: width / 2 - 12 });
   doc.font(fonts.regular).fontSize(9).fillColor(ink);
-  doc.text(LEGAL_PARTY.legalName, left, doc.y, { width: colW, align: "center" });
-  doc.text(LEGAL_PARTY.address, left, doc.y, { width: colW, align: "center" });
-  doc.moveDown(0.5);
-  rule();
-  doc.font(fonts.bold).fontSize(12).fillColor(ink);
-  doc.text("KVITTERING", left, doc.y, { width: colW, align: "center" });
-  doc.moveDown(0.2);
-  doc.font(fonts.regular).fontSize(9).fillColor(muted);
-  doc.text(formatDate(input.issuedAt), left, doc.y, { width: colW, align: "center" });
-  doc.moveDown(0.45);
-  rule();
+  if (input.customerPhone) doc.text(input.customerPhone, { width: width / 2 - 12 });
+  if (input.customerEmail) doc.text(input.customerEmail, { width: width / 2 - 12 });
+  if (input.customerAddress) doc.text(input.customerAddress, { width: width / 2 - 12 });
 
-  const meta: [string, string][] = [
-    input.customerName ? ["Kunde", input.customerName] : null,
-    ["Rep.nr", input.ticketNumber],
-    input.deviceLabel ? ["Enhet", input.deviceLabel] : null,
-    input.customerPhone ? ["Telefon", input.customerPhone] : null,
-  ].filter(Boolean) as [string, string][];
-  for (const [label, value] of meta) row(label, value);
-  doc.moveDown(0.25);
-  rule();
+  const boxX = left + width / 2 + 8;
+  const boxW = width / 2 - 8;
+  doc.roundedRect(boxX, 128, boxW, 72, 4).strokeColor(line).lineWidth(0.8).stroke();
+  doc.font(fonts.bold).fontSize(10).fillColor(ink);
+  doc.text(input.deviceLabel || "Enhet", boxX + 10, 136, { width: boxW - 20 });
+  doc.font(fonts.regular).fontSize(8).fillColor(muted);
+  doc.text(
+    input.serialNumber ? `Serienummer  ${input.serialNumber}` : "Serienummer  —",
+    boxX + 10,
+    158,
+    { width: boxW - 20 },
+  );
+  doc.text(
+    input.imei ? `IMEI  ${input.imei}` : "IMEI  —",
+    boxX + 10,
+    172,
+    { width: boxW - 20 },
+  );
 
-  const serviceLines: { name: string; amountLabel: string }[] = input.lines.map((line) => ({
-    name: line.name,
-    amountLabel: formatNokFromOre(line.amountOre),
+  const gridY = 226;
+  kv(doc, "Kvitteringsdato", when, left, gridY, 90, 140);
+  kv(doc, "Saksnummer", input.ticketNumber, boxX, gridY, 90, 140);
+  kv(doc, "Verksted", LEGAL_PARTY.address, left, gridY + 18, 90, 140);
+  kv(doc, "E-post", LEGAL_PARTY.email, boxX, gridY + 18, 90, 140);
+  kv(doc, "Åpent", LEGAL_PARTY.hours, left, gridY + 36, 90, 140);
+  kv(doc, "Type", "Kvittering / betaling", boxX, gridY + 36, 90, 140);
+
+  const serviceLines: { name: string; amountLabel: string }[] = input.lines.map((item) => ({
+    name: item.name,
+    amountLabel: formatNokFromOre(item.amountOre),
   }));
   if (input.discount && input.discount.amountOre > 0) {
     serviceLines.push({
@@ -333,28 +359,53 @@ export async function renderReceiptPdf(input: {
       amountLabel: formatNokFromOre(input.postageOre),
     });
   }
+
+  const feeY = 292;
+  doc.roundedRect(left, feeY, width, 18, 2).fill(wash);
+  doc.fillColor(ink).font(fonts.bold).fontSize(9);
+  doc.text("Tjenester (inkl. mva)", left + 8, feeY + 4, { lineBreak: false });
+
+  let rowY = feeY + 26;
   if (serviceLines.length === 0) {
-    doc.font(fonts.regular).fontSize(9).fillColor(muted);
-    doc.text("Ingen tjenester registrert.", left, doc.y, { width: colW });
-    doc.moveDown(0.4);
+    doc.font(fonts.regular).fontSize(8).fillColor(muted);
+    doc.text("Ingen tjenester registrert.", left, rowY, { width });
+    rowY = Math.max(doc.y, rowY) + 10;
+  } else {
+    for (const item of serviceLines) {
+      doc.font(fonts.regular).fontSize(9).fillColor(ink);
+      doc.text(item.name, left, rowY, { width: width - 90, lineBreak: false });
+      doc.text(item.amountLabel, left, rowY, { width, align: "right" });
+      rowY += 16;
+    }
   }
-  for (const line of serviceLines) row(line.name, line.amountLabel);
-  doc.moveDown(0.2);
-  rule();
 
   const vat = vatFromGrossOre(input.totalOre);
-  row("Sum eks. mva", vat.netLabel);
-  row("Herav mva 25 %", vat.vatLabel);
-  row("TOTAL", formatNokFromOre(input.totalOre), true);
-  doc.moveDown(0.25);
-  rule();
+  rowY += 4;
+  doc
+    .moveTo(left, rowY)
+    .lineTo(right, rowY)
+    .strokeColor(line)
+    .lineWidth(0.8)
+    .stroke();
+  rowY += 10;
+  doc.font(fonts.regular).fontSize(9).fillColor(ink);
+  doc.text("Sum eks. mva", left, rowY, { width: width - 90 });
+  doc.text(vat.netLabel, left, rowY, { width, align: "right" });
+  rowY += 16;
+  doc.text("Herav mva 25 %", left, rowY, { width: width - 90 });
+  doc.text(vat.vatLabel, left, rowY, { width, align: "right" });
+  rowY += 18;
+  doc.font(fonts.bold).fontSize(12).fillColor(ink);
+  doc.text("TOTAL", left, rowY, { width: width - 90 });
+  doc.text(formatNokFromOre(input.totalOre), left, rowY, { width, align: "right" });
+  rowY += 24;
 
-  doc.font(fonts.bold).fontSize(10).fillColor(ink);
-  doc.text("Betaling", left, doc.y, { width: colW });
-  doc.moveDown(0.2);
-  doc.font(fonts.regular).fontSize(9);
-  doc.text(input.paymentLabel || "Betalt", left, doc.y, { width: colW });
+  doc.roundedRect(left, rowY, width, 18, 2).fill(wash);
+  doc.fillColor(ink).font(fonts.bold).fontSize(9);
+  doc.text("Betaling", left + 8, rowY + 4, { lineBreak: false });
+  rowY += 26;
   const payRows = [
+    input.paymentLabel || "Betalt",
     input.paymentDetail,
     input.cardLast4 && input.cardBrand
       ? `${input.cardBrand} **** ${input.cardLast4}`
@@ -363,47 +414,34 @@ export async function renderReceiptPdf(input: {
         : null,
     input.authCode ? `Aut.id ${input.authCode}` : null,
     input.transactionId ? `Transaksjon ${input.transactionId}` : null,
-  ].filter((rowText, i, all): rowText is string => Boolean(rowText) && all.indexOf(rowText) === i);
-  for (const line of payRows) {
-    doc.text(line, left, doc.y, { width: colW });
+    input.warrantyDays && input.warrantyDays > 0
+      ? `Garanti på utført arbeid: ${input.warrantyDays} dager.`
+      : null,
+  ].filter((row, i, all): row is string => Boolean(row) && all.indexOf(row) === i);
+  doc.font(fonts.regular).fontSize(9).fillColor(ink);
+  for (const item of payRows) {
+    doc.text(item, left, rowY, { width });
+    rowY += 14;
   }
-  if (input.warrantyDays && input.warrantyDays > 0) {
-    doc.fillColor(muted);
-    doc.text(`Garanti på utført arbeid: ${input.warrantyDays} dager.`, left, doc.y, {
-      width: colW,
-    });
-    doc.fillColor(ink);
-  }
-  doc.moveDown(0.4);
-  rule();
 
-  if (input.statusUrl) {
-    try {
-      const qr = await bwipjs.toBuffer({
-        bcid: "qrcode",
-        text: input.statusUrl,
-        scale: 3,
-        backgroundcolor: "FFFFFF",
-      });
-      doc.font(fonts.regular).fontSize(9).fillColor(ink);
-      doc.text("Status", left, doc.y, { width: colW, align: "center" });
-      doc.moveDown(0.25);
-      const qrSize = 92;
-      doc.image(qr, left + (colW - qrSize) / 2, doc.y, { width: qrSize, height: qrSize });
-      doc.y += qrSize + 8;
-      doc.text(input.statusUrl.replace(/^https:\/\//, ""), left, doc.y, {
-        width: colW,
-        align: "center",
-      });
-      doc.moveDown(0.5);
-    } catch {
-      /* QR er pynt på kvitteringen */
-    }
+  rowY += 8;
+  if (input.statusUrl && qr) {
+    doc.font(fonts.regular).fontSize(9).fillColor(ink);
+    doc.text(`Du kan se status på saken her: ${input.statusUrl}`, left, rowY, {
+      width: width - 90,
+    });
+    doc.image(qr, right - 72, rowY, { width: 72, height: 72 });
+    rowY += 80;
   }
 
   doc.font(fonts.bold).fontSize(11).fillColor(ink);
-  doc.text("Takk for handelen", left, doc.y, { width: colW, align: "center" });
+  doc.text("Takk for handelen", left, Math.max(rowY, 640), { width });
 
+  const range = doc.bufferedPageRange();
+  for (let i = 0; i < range.count; i++) {
+    doc.switchToPage(range.start + i);
+    drawPageChrome(doc, i + 1, range.count);
+  }
   doc.end();
   return done;
 }

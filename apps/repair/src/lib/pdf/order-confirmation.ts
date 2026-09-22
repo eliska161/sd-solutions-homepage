@@ -38,11 +38,11 @@ export type OrderConfirmationInput = {
   signaturePng: Buffer;
 };
 
-function pageWidth(doc: PDFKit.PDFDocument) {
+export function pageWidth(doc: PDFKit.PDFDocument) {
   return doc.page.width - doc.page.margins.left - doc.page.margins.right;
 }
 
-async function barcodePng(text: string) {
+export async function barcodePng(text: string) {
   return bwipjs.toBuffer({
     bcid: "code128",
     text,
@@ -53,7 +53,7 @@ async function barcodePng(text: string) {
   });
 }
 
-async function qrPng(text: string) {
+export async function qrPng(text: string) {
   return bwipjs.toBuffer({
     bcid: "qrcode",
     text,
@@ -62,7 +62,7 @@ async function qrPng(text: string) {
   });
 }
 
-function drawLogoWordmark(
+export function drawLogoWordmark(
   doc: PDFKit.PDFDocument,
   left: number,
   top: number,
@@ -82,7 +82,7 @@ function drawLogoWordmark(
   });
 }
 
-function kv(
+export function kv(
   doc: PDFKit.PDFDocument,
   label: string,
   value: string,
@@ -365,7 +365,7 @@ export async function renderOrderConfirmationPdf(
   return done;
 }
 
-function drawPageChrome(
+export function drawPageChrome(
   doc: PDFKit.PDFDocument,
   page: number,
   total: number,
