@@ -1474,15 +1474,16 @@ export function KioskApp() {
                       <img
                         src={selected.payQr}
                         alt="Betalings-QR"
-                        className="h-[200px] w-[200px] border-[3px] border-[#1f2430] bg-white p-2"
+                        className="h-[320px] w-[320px] border-[3px] border-[#1f2430] bg-white p-2"
                       />
                     ) : (
-                      <div className="flex h-[200px] w-[200px] items-center justify-center border-[3px] border-[#1f2430] bg-white text-center text-[16px] font-bold">
+                      <div className="flex h-[320px] w-[320px] items-center justify-center border-[3px] border-[#1f2430] bg-white text-center text-[16px] font-bold">
                         Lenke under
                       </div>
                     )}
-                    <p className="mt-2 max-w-[280px] break-all text-center text-[12px] font-semibold text-[#2b6cb0]">
-                      {selected?.payUrl || "Betaling mangler. Vent, eller betal på statussiden."}
+                    <p className="mt-3 text-center text-[18px] font-bold tracking-tight text-[#2b6cb0]">
+                      {(selected?.payUrl || "").replace(/^https:\/\//, "") ||
+                        "Betaling mangler. Vent, eller betal på statussiden."}
                     </p>
                   </div>
                   <div className="overflow-auto border-[3px] border-[#1f2430] bg-white p-3">

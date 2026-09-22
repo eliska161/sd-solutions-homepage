@@ -5,6 +5,7 @@ import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { PAYMENT_STATUS_LABELS } from "@/lib/labels";
+import { LEGAL_PARTY } from "@/lib/legal-catalog";
 import { publicAppOrigin } from "@/lib/mail";
 import { formatNokFromOre } from "@/lib/money";
 import { allocatePublicShortCode, publicTicketLinkFilter } from "@/lib/public-link";
@@ -266,7 +267,7 @@ async function qrDataUrl(text: string) {
     const png = await bwipjs.toBuffer({
       bcid: "qrcode",
       text,
-      scale: 4,
+      scale: 8,
       includetext: false,
       backgroundcolor: "FFFFFF",
     });
@@ -274,6 +275,10 @@ async function qrDataUrl(text: string) {
   } catch {
     return null;
   }
+}
+
+function kioskPayUrl(code: string) {
+  return `${LEGAL_PARTY.web}/p/${code}`;
 }
 
 export async function kioskPaymentForTicket(ticketId: string): Promise<KioskPayment> {
@@ -284,16 +289,27 @@ export async function kioskPaymentForTicket(ticketId: string): Promise<KioskPaym
     .select({
       paymentStatus: repairTickets.paymentStatus,
       stripeCheckoutUrl: repairTickets.stripeCheckoutUrl,
+      publicAccessToken: repairTickets.publicAccessToken,
+      publicShortCode: repairTickets.publicShortCode,
     })
     .from(repairTickets)
     .where(eq(repairTickets.id, ticketId))
     .limit(1);
 
-  const paid = ticket?.paymentStatus === "PAID" || charge.totalOre <= 0;
+  let paid = ticket?.paymentStatus === "PAID" || charge.totalOre <= 0;
   let payUrl: string | null = null;
   if (!paid) {
     const checkout = await ensurePickupCheckout(ticketId);
-    payUrl = checkout.ok ? checkout.url : ticket?.stripeCheckoutUrl ?? null;
+    if (checkout.ok && checkout.paid) {
+      paid = true;
+    } else {
+      const code = await shortLink(
+        ticketId,
+        ticket?.publicAccessToken || "",
+        ticket?.publicShortCode ?? null,
+      );
+      payUrl = kioskPayUrl(code);
+    }
   }
 
   const lines = [
