@@ -6,8 +6,9 @@ import {
   fysiskReparasjonsvilkar,
   getLegalDocument,
 } from "@/lib/legal";
+import bwipjs from "bwip-js/node";
 import { formatDate } from "@/lib/labels";
-import { formatNokFromOre } from "@/lib/money";
+import { formatNokFromOre, vatFromGrossOre } from "@/lib/money";
 import { renderOrderConfirmationPdf } from "@/lib/pdf/order-confirmation";
 import {
   PDF_COLORS,
@@ -218,128 +219,193 @@ export async function renderSignedTermsPdf(input: {
   });
 }
 
-export function renderReceiptPdf(input: {
+export async function renderReceiptPdf(input: {
   ticketNumber: string;
   customerName: string;
-  customerEmail?: string | null;
   customerPhone?: string | null;
-  customerAddress?: string | null;
   deviceLabel: string;
   issuedAt: Date;
   paymentLabel: string;
+  paymentDetail?: string | null;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  authCode?: string | null;
+  transactionId?: string | null;
+  statusUrl?: string | null;
   lines: ReceiptLine[];
   discount?: { label: string; amountOre: number } | null;
   postageOre: number;
   totalOre: number;
   warrantyDays: number | null;
 }): Promise<Buffer> {
-  const doc = createDoc(
-    `Faktura ${input.ticketNumber}`,
-    "Faktura og kvittering",
-  );
-  const chunks: Buffer[] = [];
   const fonts = pdfFontPaths();
-  const left = doc.page.margins.left;
-  const width = pageWidth(doc);
-
-  drawBrandHeader(
-    doc,
-    `Faktura / kvittering ${input.ticketNumber}`,
-    `${formatDate(input.issuedAt)} · ${input.deviceLabel}`,
-  );
-
-  doc.font(fonts.bold).fontSize(9).fillColor(PDF_COLORS.accent);
-  doc.text("SELGER", { width: width / 2, continued: false });
-  doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.ink);
-  doc.text(`${LEGAL_PARTY.legalName}`, { width: width / 2 });
-  doc.text(LEGAL_PARTY.address, { width: width / 2 });
-  doc.text(LEGAL_PARTY.email, { width: width / 2 });
-  doc.moveDown(0.5);
-  doc.font(fonts.bold).fontSize(9).fillColor(PDF_COLORS.accent);
-  doc.text("KUNDE");
-  doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.ink);
-  doc.text(input.customerName, { width });
-  if (input.customerAddress) doc.text(input.customerAddress, { width });
-  if (input.customerPhone) doc.text(input.customerPhone, { width });
-  if (input.customerEmail) doc.text(input.customerEmail, { width });
-  doc.moveDown(0.8);
-
-  doc.fillColor(PDF_COLORS.accent).font(fonts.bold).fontSize(10);
-  doc.text("TJENESTER", { width, characterSpacing: 0.4 });
-  doc.moveDown(0.4);
-
-  if (input.lines.length === 0) {
-    doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
-    doc.text("Ingen tjenester registrert på saken.", { width });
-    doc.moveDown(0.5);
-  }
-
-  for (const line of input.lines) {
-    ensureSpace(doc, 18);
-    const y = doc.y;
-    doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.ink);
-    doc.text(line.name, left, y, { width: width - 90 });
-    doc.text(formatNokFromOre(line.amountOre), left, y, {
-      width,
-      align: "right",
-    });
-    doc.y = y + 16;
-  }
-
-  if (input.discount && input.discount.amountOre > 0) {
-    ensureSpace(doc, 18);
-    const y = doc.y;
-    doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
-    doc.text(input.discount.label, left, y, { width: width - 90 });
-    doc.text(`−${formatNokFromOre(input.discount.amountOre)}`, left, y, {
-      width,
-      align: "right",
-    });
-    doc.y = y + 16;
-  }
-
-  if (input.postageOre > 0) {
-    ensureSpace(doc, 18);
-    const y = doc.y;
-    doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.ink);
-    doc.text("Returporto", left, y, { width: width - 90 });
-    doc.text(formatNokFromOre(input.postageOre), left, y, {
-      width,
-      align: "right",
-    });
-    doc.y = y + 16;
-  }
-
-  doc.moveDown(0.3);
-  doc
-    .moveTo(left, doc.y)
-    .lineTo(left + width, doc.y)
-    .strokeColor(PDF_COLORS.line)
-    .stroke();
-  doc.moveDown(0.4);
-  const totalY = doc.y;
-  doc.font(fonts.bold).fontSize(11).fillColor(PDF_COLORS.ink);
-  doc.text("Total inkl. mva", left, totalY, { width: width - 90 });
-  doc.text(formatNokFromOre(input.totalOre), left, totalY, {
-    width,
-    align: "right",
+  const ink = "#111111";
+  const muted = "#444444";
+  const colW = 300;
+  const doc = new PDFDocument({
+    size: "A4",
+    margins: { top: 36, bottom: 36, left: 48, right: 48 },
+    bufferPages: true,
+    info: {
+      Title: `Kvittering ${input.ticketNumber}`,
+      Author: LEGAL_PARTY.brandName,
+      Subject: "Kvittering",
+      CreationDate: input.issuedAt,
+    },
   });
-  doc.moveDown(1);
+  doc.registerFont("Body", fonts.regular);
+  doc.registerFont("BodyBold", fonts.bold);
 
-  doc.font(fonts.regular).fontSize(9).fillColor(PDF_COLORS.muted);
-  doc.text(`Betaling: ${input.paymentLabel}`, { width });
-  if (input.warrantyDays && input.warrantyDays > 0) {
-    doc.text(`Garanti på utført arbeid: ${input.warrantyDays} dager.`, {
-      width,
+  const chunks: Buffer[] = [];
+  const done = new Promise<Buffer>((resolve, reject) => {
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+  });
+
+  const left = (doc.page.width - colW) / 2;
+  const rule = () => {
+    doc
+      .moveTo(left, doc.y)
+      .lineTo(left + colW, doc.y)
+      .strokeColor(ink)
+      .lineWidth(0.8)
+      .stroke();
+    doc.moveDown(0.45);
+  };
+  const row = (label: string, value: string, bold = false) => {
+    const y = doc.y;
+    doc.font(bold ? fonts.bold : fonts.regular).fontSize(bold ? 11 : 9).fillColor(ink);
+    doc.text(label, left, y, { width: colW - 88 });
+    doc.text(value, left, y, { width: colW, align: "right" });
+    doc.y = y + (bold ? 16 : 14);
+  };
+
+  const logo = resolvePdfLogoFile();
+  const logoSize = 56;
+  if (logo && existsSync(logo)) {
+    doc.image(logo, left + (colW - logoSize) / 2, doc.y, {
+      width: logoSize,
+      height: logoSize,
+    });
+    doc.y += logoSize + 10;
+  }
+
+  doc.font(fonts.bold).fontSize(12).fillColor(ink);
+  doc.text(LEGAL_PARTY.brandName, left, doc.y, { width: colW, align: "center" });
+  doc.moveDown(0.2);
+  doc.font(fonts.regular).fontSize(9).fillColor(ink);
+  doc.text(LEGAL_PARTY.legalName, left, doc.y, { width: colW, align: "center" });
+  doc.text(LEGAL_PARTY.address, left, doc.y, { width: colW, align: "center" });
+  doc.moveDown(0.5);
+  rule();
+  doc.font(fonts.bold).fontSize(12).fillColor(ink);
+  doc.text("KVITTERING", left, doc.y, { width: colW, align: "center" });
+  doc.moveDown(0.2);
+  doc.font(fonts.regular).fontSize(9).fillColor(muted);
+  doc.text(formatDate(input.issuedAt), left, doc.y, { width: colW, align: "center" });
+  doc.moveDown(0.45);
+  rule();
+
+  const meta: [string, string][] = [
+    input.customerName ? ["Kunde", input.customerName] : null,
+    ["Rep.nr", input.ticketNumber],
+    input.deviceLabel ? ["Enhet", input.deviceLabel] : null,
+    input.customerPhone ? ["Telefon", input.customerPhone] : null,
+  ].filter(Boolean) as [string, string][];
+  for (const [label, value] of meta) row(label, value);
+  doc.moveDown(0.25);
+  rule();
+
+  const serviceLines: { name: string; amountLabel: string }[] = input.lines.map((line) => ({
+    name: line.name,
+    amountLabel: formatNokFromOre(line.amountOre),
+  }));
+  if (input.discount && input.discount.amountOre > 0) {
+    serviceLines.push({
+      name: input.discount.label,
+      amountLabel: `−${formatNokFromOre(input.discount.amountOre)}`,
     });
   }
-  doc.moveDown(0.5);
-  doc.text(
-    "Beløpet er tjenester minus rabatt, pluss eventuell returporto. Alle priser inkl. mva.",
-    { width },
-  );
+  if (input.postageOre > 0) {
+    serviceLines.push({
+      name: "Returporto",
+      amountLabel: formatNokFromOre(input.postageOre),
+    });
+  }
+  if (serviceLines.length === 0) {
+    doc.font(fonts.regular).fontSize(9).fillColor(muted);
+    doc.text("Ingen tjenester registrert.", left, doc.y, { width: colW });
+    doc.moveDown(0.4);
+  }
+  for (const line of serviceLines) row(line.name, line.amountLabel);
+  doc.moveDown(0.2);
+  rule();
 
-  return finishPdf(doc, chunks);
+  const vat = vatFromGrossOre(input.totalOre);
+  row("Sum eks. mva", vat.netLabel);
+  row("Herav mva 25 %", vat.vatLabel);
+  row("TOTAL", formatNokFromOre(input.totalOre), true);
+  doc.moveDown(0.25);
+  rule();
+
+  doc.font(fonts.bold).fontSize(10).fillColor(ink);
+  doc.text("Betaling", left, doc.y, { width: colW });
+  doc.moveDown(0.2);
+  doc.font(fonts.regular).fontSize(9);
+  doc.text(input.paymentLabel || "Betalt", left, doc.y, { width: colW });
+  const payRows = [
+    input.paymentDetail,
+    input.cardLast4 && input.cardBrand
+      ? `${input.cardBrand} **** ${input.cardLast4}`
+      : input.cardLast4
+        ? `Kort **** ${input.cardLast4}`
+        : null,
+    input.authCode ? `Aut.id ${input.authCode}` : null,
+    input.transactionId ? `Transaksjon ${input.transactionId}` : null,
+  ].filter((rowText, i, all): rowText is string => Boolean(rowText) && all.indexOf(rowText) === i);
+  for (const line of payRows) {
+    doc.text(line, left, doc.y, { width: colW });
+  }
+  if (input.warrantyDays && input.warrantyDays > 0) {
+    doc.fillColor(muted);
+    doc.text(`Garanti på utført arbeid: ${input.warrantyDays} dager.`, left, doc.y, {
+      width: colW,
+    });
+    doc.fillColor(ink);
+  }
+  doc.moveDown(0.4);
+  rule();
+
+  if (input.statusUrl) {
+    try {
+      const qr = await bwipjs.toBuffer({
+        bcid: "qrcode",
+        text: input.statusUrl,
+        scale: 3,
+        backgroundcolor: "FFFFFF",
+      });
+      doc.font(fonts.regular).fontSize(9).fillColor(ink);
+      doc.text("Status", left, doc.y, { width: colW, align: "center" });
+      doc.moveDown(0.25);
+      const qrSize = 92;
+      doc.image(qr, left + (colW - qrSize) / 2, doc.y, { width: qrSize, height: qrSize });
+      doc.y += qrSize + 8;
+      doc.text(input.statusUrl.replace(/^https:\/\//, ""), left, doc.y, {
+        width: colW,
+        align: "center",
+      });
+      doc.moveDown(0.5);
+    } catch {
+      /* QR er pynt på kvitteringen */
+    }
+  }
+
+  doc.font(fonts.bold).fontSize(11).fillColor(ink);
+  doc.text("Takk for handelen", left, doc.y, { width: colW, align: "center" });
+
+  doc.end();
+  return done;
 }
 
 export function parsePngDataUrl(raw: string): Buffer | null {

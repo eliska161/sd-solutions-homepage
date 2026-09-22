@@ -1,3 +1,4 @@
+import type { ReceiptPrintInput } from "@/lib/kiosk/escpos";
 import type { ActivityEvent, LockerBay, RepairRow } from "@/lib/kiosk/types";
 import { REPAIR_MODELS } from "@/lib/repair-prices";
 
@@ -26,9 +27,15 @@ export const initialRepairs: RepairRow[] = [
     phone: MOCK_PHONE,
     issue: "Skjerm",
     parts: ["Skjerm (Aftermarket)"],
-    paid: true,
-    paymentLabel: "Betalt",
+    paid: false,
+    paymentLabel: "Ikke betalt",
+    totalOre: 169900,
     totalLabel: "1 699 kr",
+    netLabel: "1 359,20 kr",
+    vatLabel: "339,80 kr",
+    payUrl: "https://sd-solutions.org/p/demo",
+    statusUrl: "https://sd-solutions.org/s/demo",
+    customerName: "Ola Nordmann",
     chargeLines: [{ name: "Skjerm", amountLabel: "1 699 kr" }],
   },
   {
@@ -144,17 +151,7 @@ export async function printLabel(
   return { ok: true as const };
 }
 
-export async function printReceipt(
-  input: {
-    ticket: string;
-    device: string;
-    phone?: string;
-    paymentLabel?: string;
-    totalLabel: string;
-    lines: { name: string; amountLabel: string }[];
-  },
-  fail?: boolean,
-) {
+export async function printReceipt(input: ReceiptPrintInput, fail?: boolean) {
   if (fail) {
     await wait(300);
     return { ok: false as const, reason: "printer" as const };

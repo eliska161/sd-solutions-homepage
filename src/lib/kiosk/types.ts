@@ -25,6 +25,7 @@ export type KioskState =
   | "DELIVERY_SUCCESS"
   | "PICKUP_PIN"
   | "PICKUP_PAY"
+  | "PICKUP_THANKS"
   | "PICKUP_FOUND"
   | "PICKUP_OPEN_LOCKER"
   | "PICKUP_RETRIEVE"
@@ -61,6 +62,16 @@ export type RepairRow = {
   totalLabel?: string;
   payUrl?: string | null;
   payQr?: string | null;
+  statusUrl?: string | null;
+  statusQr?: string | null;
+  customerName?: string;
+  netLabel?: string;
+  vatLabel?: string;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  authCode?: string | null;
+  transactionId?: string | null;
+  paymentDetail?: string | null;
   chargeLines?: { name: string; amountLabel: string }[];
 };
 

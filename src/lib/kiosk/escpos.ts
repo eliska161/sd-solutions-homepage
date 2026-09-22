@@ -5,6 +5,7 @@
 
 import { LEGAL_VERSION } from "@/lib/legal";
 import { PORTAL_MARK_DATA_URL, PORTAL_MARK_SRC } from "@/lib/kiosk/portal-mark";
+import { company, formatBusinessAddress } from "@/lib/company";
 
 const ESC = 0x1b;
 const GS = 0x1d;
@@ -45,9 +46,19 @@ export type ReceiptPrintInput = {
   ticket: string;
   device: string;
   phone?: string;
+  customerName?: string;
   issuedAt?: Date | string;
   paymentLabel?: string;
+  paymentDetail?: string | null;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  authCode?: string | null;
+  transactionId?: string | null;
   totalLabel: string;
+  netLabel?: string;
+  vatLabel?: string;
+  statusUrl?: string | null;
+  statusQr?: string | null;
   lines: { name: string; amountLabel: string }[];
 };
 
@@ -460,6 +471,24 @@ export async function buildLockerSticker(input: StickerInput) {
   );
 }
 
+async function paintDataUrl(
+  ctx: CanvasRenderingContext2D,
+  dataUrl: string,
+  x: number,
+  y: number,
+  size: number,
+) {
+  const img = new Image();
+  img.decoding = "sync";
+  img.src = dataUrl;
+  try {
+    await img.decode();
+  } catch {
+    return;
+  }
+  ctx.drawImage(img, x, y, size, size);
+}
+
 export async function buildLockerReceipt(input: ReceiptPrintInput) {
   const ticket = input.ticket.replace(/[^A-Za-z0-9-]/g, "") || "SD";
   const phone = formatStickerPhone(input.phone);
@@ -473,8 +502,24 @@ export async function buildLockerReceipt(input: ReceiptPrintInput) {
     ? ""
     : issued.toLocaleString("nb-NO", { dateStyle: "short", timeStyle: "short" });
   const lines = input.lines.slice(0, 12);
+  const payRows = [
+    input.paymentDetail,
+    input.cardLast4 && input.cardBrand
+      ? `${input.cardBrand} **** ${input.cardLast4}`
+      : input.cardLast4
+        ? `Kort **** ${input.cardLast4}`
+        : null,
+    input.authCode ? `Aut.id ${input.authCode}` : null,
+    input.transactionId ? `Transaksjon ${input.transactionId}` : null,
+  ].filter((row, i, all): row is string => Boolean(row) && all.indexOf(row) === i);
+  const hasQr = Boolean(input.statusQr);
   const w = LABEL_WIDTH_DOTS;
-  const h = 280 + lines.length * 36;
+  const h =
+    430 +
+    lines.length * 34 +
+    payRows.length * 26 +
+    (hasQr ? 250 : 40) +
+    70;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
@@ -486,51 +531,104 @@ export async function buildLockerReceipt(input: ReceiptPrintInput) {
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
 
-  const pad = 12;
-  await paintLogo(ctx, pad, pad, 88, 88);
-  ctx.font = "700 22px sans-serif";
-  fitText(ctx, "SD SOLUTIONS", 112, pad + 8, w - 124);
+  const pad = 16;
+  const inner = w - pad * 2;
+  await paintLogo(ctx, (w - 120) / 2, pad, 120, 120);
+
+  let y = pad + 128;
   ctx.font = "700 28px sans-serif";
-  fitText(ctx, "KVITTERING", 112, pad + 36, w - 124);
+  fitText(ctx, company.brandName.toUpperCase(), pad, y, inner, "center");
+  y += 34;
   ctx.font = "600 20px sans-serif";
-  if (when) fitText(ctx, when, 112, pad + 70, w - 124);
-
-  const barY = 112;
-  const bars = paintBarcode(ctx, ticket, pad, barY, w - pad * 2, 72);
-  ctx.font = "700 26px sans-serif";
-  fitText(ctx, ticket, bars.left, barY + 76, bars.width, "center");
-
-  let y = barY + 112;
-  ctx.font = "700 24px sans-serif";
-  fitText(ctx, input.device || "", pad, y, w - pad * 2);
+  fitText(ctx, company.legalName, pad, y, inner, "center");
+  y += 26;
+  fitText(ctx, formatBusinessAddress(), pad, y, inner, "center");
+  y += 26;
+  fitText(ctx, company.email, pad, y, inner, "center");
   y += 32;
-  if (phone) {
-    ctx.font = "600 20px sans-serif";
-    fitText(ctx, phone, pad, y, w - pad * 2);
+  ctx.fillRect(pad, y, inner, 3);
+  y += 16;
+  ctx.font = "700 26px sans-serif";
+  fitText(ctx, "KVITTERING", pad, y, inner, "center");
+  y += 32;
+  ctx.font = "600 20px sans-serif";
+  if (when) {
+    fitText(ctx, when, pad, y, inner, "center");
     y += 28;
   }
-  ctx.fillRect(pad, y, w - pad * 2, 3);
+  ctx.fillRect(pad, y, inner, 3);
+  y += 18;
+
+  const meta = [
+    input.customerName ? ["Kunde", input.customerName] : null,
+    ["Rep.nr", ticket],
+    input.device ? ["Enhet", input.device] : null,
+    phone ? ["Telefon", phone] : null,
+  ].filter(Boolean) as [string, string][];
+  ctx.font = "600 20px sans-serif";
+  for (const [label, value] of meta) {
+    fitText(ctx, label, pad, y, 150);
+    fitText(ctx, value, pad + 150, y, inner - 150, "right");
+    y += 26;
+  }
+  y += 8;
+  ctx.fillRect(pad, y, inner, 3);
   y += 16;
 
   ctx.font = "600 22px sans-serif";
   for (const line of lines) {
-    fitText(ctx, line.name, pad, y, 360);
-    fitText(ctx, line.amountLabel, 380, y, w - pad - 380, "right");
+    fitText(ctx, line.name, pad, y, 340);
+    fitText(ctx, line.amountLabel, pad + 340, y, inner - 340, "right");
     y += 32;
   }
-  ctx.fillRect(pad, y, w - pad * 2, 3);
+  ctx.fillRect(pad, y, inner, 3);
   y += 14;
+  if (input.netLabel) {
+    ctx.font = "600 20px sans-serif";
+    fitText(ctx, "Sum eks. mva", pad, y, 300);
+    fitText(ctx, input.netLabel, pad + 300, y, inner - 300, "right");
+    y += 26;
+  }
+  if (input.vatLabel) {
+    ctx.font = "600 20px sans-serif";
+    fitText(ctx, "Herav mva 25 %", pad, y, 300);
+    fitText(ctx, input.vatLabel, pad + 300, y, inner - 300, "right");
+    y += 28;
+  }
   ctx.font = "700 30px sans-serif";
   fitText(ctx, "TOTAL", pad, y, 240);
-  fitText(ctx, input.totalLabel, 280, y, w - pad - 280, "right");
+  fitText(ctx, input.totalLabel, pad + 240, y, inner - 240, "right");
   y += 40;
-  ctx.font = "600 20px sans-serif";
-  fitText(ctx, input.paymentLabel || "Betalt", pad, y, w - pad * 2);
+  ctx.fillRect(pad, y, inner, 3);
+  y += 16;
+  ctx.font = "700 22px sans-serif";
+  fitText(ctx, "Betaling", pad, y, inner);
   y += 28;
-  ctx.font = "600 18px sans-serif";
-  fitText(ctx, "Priser inkl. mva", pad, y, w - pad * 2);
+  ctx.font = "600 20px sans-serif";
+  fitText(ctx, input.paymentLabel || "Betalt", pad, y, inner);
   y += 26;
-  fitText(ctx, "Slattmyrvegen 49, 2406 Elverum", pad, y, w - pad * 2);
+  for (const row of payRows) {
+    fitText(ctx, row, pad, y, inner);
+    y += 26;
+  }
+  y += 10;
+  ctx.fillRect(pad, y, inner, 3);
+  y += 18;
+
+  if (hasQr && input.statusQr) {
+    ctx.font = "600 20px sans-serif";
+    fitText(ctx, "Status", pad, y, inner, "center");
+    y += 28;
+    const qr = 180;
+    await paintDataUrl(ctx, input.statusQr, (w - qr) / 2, y, qr);
+    y += qr + 12;
+    const statusLabel = (input.statusUrl || "").replace(/^https:\/\//, "");
+    if (statusLabel) fitText(ctx, statusLabel, pad, y, inner, "center");
+    y += 30;
+  }
+
+  ctx.font = "700 24px sans-serif";
+  fitText(ctx, "Takk for handelen", pad, y, inner, "center");
 
   const map = canvasToBitmap(canvas, true).cropBottom(8);
   return concat(

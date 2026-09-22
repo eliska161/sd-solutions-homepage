@@ -15,6 +15,17 @@ export function formatNokFromOre(ore: number): string {
   return `${oreToKr(ore).toLocaleString("nb-NO")} kr`;
 }
 
+/** Norwegian standard VAT 25 % included in the gross amount. */
+export function vatFromGrossOre(grossOre: number, rate = 0.25) {
+  const vatOre = Math.round((grossOre * rate) / (1 + rate));
+  return {
+    vatOre,
+    netOre: grossOre - vatOre,
+    vatLabel: formatNokFromOre(vatOre),
+    netLabel: formatNokFromOre(grossOre - vatOre),
+  };
+}
+
 export function grossProfitOre(input: {
   customerPriceOre: number;
   partsCostOre: number;

@@ -75,7 +75,7 @@ export default async function CustomerStatusPage({
 
       {justPaid && data.paid ? (
         <p className="mb-4 rounded border border-border bg-white px-4 py-3 text-sm">
-          Betalingen er registrert. Faktura/kvittering er sendt på e-post.
+          Betalingen er registrert. Kvittering er sendt på e-post.
         </p>
       ) : null}
 

@@ -161,9 +161,12 @@ export function KioskApp() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [signaturePng, setSignaturePng] = useState<string | null>(null);
   const [liveTickets, setLiveTickets] = useState<RepairRow[]>([]);
+  const [thanksLeft, setThanksLeft] = useState(5);
   const lookupGen = useRef(0);
   const lastLookup = useRef("");
   const pickupPinHold = useRef("");
+  const selectedHold = useRef<RepairRow | null>(null);
+  selectedHold.current = selected;
 
   const ticket = selected?.id ?? MOCK_TICKET;
   const device = selected?.device ?? MOCK_DEVICE;
@@ -311,8 +314,18 @@ export function KioskApp() {
         ticket: row.id,
         device: row.device,
         phone: row.phone,
+        customerName: row.customerName,
         paymentLabel: row.paymentLabel || "Betalt",
+        paymentDetail: row.paymentDetail,
+        cardBrand: row.cardBrand,
+        cardLast4: row.cardLast4,
+        authCode: row.authCode,
+        transactionId: row.transactionId,
         totalLabel: row.totalLabel || "",
+        netLabel: row.netLabel,
+        vatLabel: row.vatLabel,
+        statusUrl: row.statusUrl,
+        statusQr: row.statusQr,
         lines: row.chargeLines?.length
           ? row.chargeLines
           : [{ name: "Reparasjon", amountLabel: row.totalLabel || "" }],
@@ -320,6 +333,22 @@ export function KioskApp() {
     } catch {
       /* henting skal fortsette selv om kvittering ikke kommer ut */
     }
+  }
+
+  function markPickupPaid(row: RepairRow) {
+    const paidRow: RepairRow = {
+      ...row,
+      paid: true,
+      paymentLabel: row.paymentLabel && row.paid ? row.paymentLabel : "Betalt",
+      paymentDetail:
+        row.paymentDetail ||
+        (row.cardLast4
+          ? `${row.cardBrand || "Kort"} **** ${row.cardLast4}`
+          : "Betalt i butikk"),
+    };
+    setSelected(paidRow);
+    void printPickupReceipt(paidRow);
+    dispatch({ type: "GO", screen: "PICKUP_THANKS" });
   }
 
   function needsKioskPay(row: RepairRow) {
@@ -659,20 +688,56 @@ export function KioskApp() {
     const held = pickupPinHold.current;
     if (held.length !== 6) return;
     let cancelled = false;
+    let finished = false;
+    let demoTicks = 0;
+    const finish = (row: RepairRow) => {
+      if (finished || cancelled) return;
+      finished = true;
+      markPickupPaid(row);
+    };
     const tick = async () => {
       const live = await lookupLivePickup(held);
-      if (cancelled || !live.ok) return;
-      setSelected(live.repair);
-      if (!needsKioskPay(live.repair)) {
-        void printPickupReceipt(live.repair);
-        dispatch({ type: "GO", screen: "PICKUP_FOUND" });
+      if (cancelled || finished) return;
+      if (live.ok) {
+        setSelected(live.repair);
+        if (!needsKioskPay(live.repair)) finish(live.repair);
+        return;
       }
+      demoTicks += 1;
+      const demo = selectedHold.current;
+      if (demoTicks < 3 || !demo || !needsKioskPay(demo)) return;
+      finish({
+        ...demo,
+        paid: true,
+        paymentLabel: "Betalt",
+        paymentDetail: "Visa **** 4242",
+        cardBrand: "Visa",
+        cardLast4: "4242",
+        authCode: "831492",
+        transactionId: "ch_demo_kiosk",
+      });
     };
     void tick();
     const id = setInterval(() => void tick(), 2500);
     return () => {
       cancelled = true;
       clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model.screen]);
+
+  useEffect(() => {
+    if (model.screen !== "PICKUP_THANKS") return;
+    setThanksLeft(5);
+    const ticks = setInterval(() => {
+      setThanksLeft((n) => Math.max(1, n - 1));
+    }, 1000);
+    const go = setTimeout(() => {
+      void startOpen("PICKUP_RETRIEVE", "PICKUP_THANKS");
+    }, 5000);
+    return () => {
+      clearInterval(ticks);
+      clearTimeout(go);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model.screen]);
@@ -1507,6 +1572,22 @@ export function KioskApp() {
                       Sjekker betaling…
                     </p>
                   </div>
+                </div>
+              </ScreenFrame>
+            ) : null}
+
+            {model.screen === "PICKUP_THANKS" ? (
+              <ScreenFrame>
+                <div className="flex flex-1 flex-col items-center justify-center text-center">
+                  <div className="scale-125">
+                    <CheckVisual />
+                  </div>
+                  <h1 className="mt-8 text-[36px] font-bold tracking-tight">
+                    Takk for betalingen
+                  </h1>
+                  <p className="mt-4 text-[26px] font-semibold text-[#3d4454]">
+                    Du sendes videre om {thanksLeft}
+                  </p>
                 </div>
               </ScreenFrame>
             ) : null}

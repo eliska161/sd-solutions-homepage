@@ -47,6 +47,16 @@ export type KioskRepair = {
   totalLabel?: string;
   payUrl?: string | null;
   payQr?: string | null;
+  statusUrl?: string | null;
+  statusQr?: string | null;
+  customerName?: string;
+  netLabel?: string;
+  vatLabel?: string;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  authCode?: string | null;
+  transactionId?: string | null;
+  paymentDetail?: string | null;
   chargeLines?: { name: string; amountLabel: string }[];
 };
 
