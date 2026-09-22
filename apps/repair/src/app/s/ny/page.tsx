@@ -1,6 +1,7 @@
 import { listIphoneModels } from "@/lib/apple-models";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { NextDayTimer } from "@/components/NextDayTimer";
 import { ServiceOrderForm } from "./ServiceOrderForm";
 
 export const dynamic = "force-dynamic";
@@ -10,9 +11,12 @@ export default function NewServiceOrderPage() {
 
   return (
     <div>
+      <div className="mb-4">
+        <NextDayTimer />
+      </div>
       <PageHeader
         title="Opprett serviceordre"
-        description="Fyll inn kontaktinfo og enhet. Opprett innen kl. 18:30 og lever samme dag, så er den ferdig neste arbeidsdag. Deretter leser og signerer du reparasjonsbetingelsene."
+        description="Fyll inn kontaktinfo og enhet. Deretter leser og signerer du reparasjonsbetingelsene. Vi tar saken inn når enheten er levert."
       />
       <Card>
         <CardHeader title="Ordre" />

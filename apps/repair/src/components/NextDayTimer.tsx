@@ -3,13 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatCountdown, nextDayOffer } from "@/lib/next-day";
 
-export function NextDayTimer({
-  variant = "portal",
-  inPerson = true,
-}: {
-  variant?: "portal" | "dark";
-  inPerson?: boolean;
-}) {
+export function NextDayTimer() {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -19,43 +13,27 @@ export function NextDayTimer({
 
   const offer = nextDayOffer(new Date(now));
   const remain = formatCountdown(offer.cutoffAt.getTime() - now);
-  const portal = variant === "portal";
 
   return (
     <div
-      className={
-        portal
-          ? "rounded border border-border bg-surface-elevated px-4 py-3"
-          : "max-w-[40ch] rounded-md border border-border bg-white/[0.04] px-4 py-3"
-      }
+      className="rounded border border-[#1e4e82] bg-[#1b1e24] px-4 py-3 text-white"
       role="status"
     >
-      <p
-        className={
-          portal
-            ? "text-[13px] font-semibold uppercase tracking-[0.04em] text-muted"
-            : "text-[12px] font-medium uppercase tracking-[0.08em] text-muted"
-        }
-      >
-        Ferdig neste dag
-      </p>
-      <p
-        className={
-          portal
-            ? "mt-1 font-mono text-[28px] font-semibold tabular-nums leading-none text-foreground"
-            : "mt-2 font-mono text-[2rem] font-medium tabular-nums leading-none tracking-tight text-foreground"
-        }
-      >
-        {remain}
-      </p>
+      <div className="flex items-end justify-between gap-4">
+        <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-white/70">
+          Ferdig neste dag
+        </p>
+        <p className="font-mono text-[36px] font-semibold tabular-nums leading-none tracking-tight">
+          {remain}
+        </p>
+      </div>
       {offer.active ? (
-        <p className={portal ? "mt-2 text-[13px] text-muted" : "mt-2 text-[14px] leading-relaxed text-muted"}>
-          {inPerson
-            ? `Opprett serviceordre og lever enheten i dag, så er den ferdig ${offer.readyLabel}. Kutt kl. 18:30.`
-            : `Gjelder ved innlevering i butikk. Lever innen kl. 18:30 i dag, så er den ferdig ${offer.readyLabel}.`}
+        <p className="mt-2 text-[14px] leading-snug text-white/85">
+          Opprett serviceordre og lever enheten i dag, så er den ferdig{" "}
+          {offer.readyLabel}. Kutt kl. 18:30.
         </p>
       ) : (
-        <p className={portal ? "mt-2 text-[13px] text-muted" : "mt-2 text-[14px] leading-relaxed text-muted"}>
+        <p className="mt-2 text-[14px] leading-snug text-white/85">
           Dagens kutt kl. 18:30 er passert. Neste kutt {offer.cutoffDayLabel} kl.
           18:30. Lever innen da, så er den ferdig {offer.readyLabel}.
         </p>
