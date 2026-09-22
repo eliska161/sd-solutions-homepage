@@ -17,6 +17,7 @@ import { LEGAL_PARTY, WORKSHOP_FEES, PART_GRADE_CUSTOMER_TEXT } from "@/lib/lega
 import { REPAIR_TERMS_VERSION, repairTermsSections } from "@/lib/repair-terms";
 import type { IphoneModelOption } from "@/lib/apple-models";
 import { SignaturePad } from "@/components/forms/SignaturePad";
+import { NextDayTimer } from "@/components/NextDayTimer";
 
 export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   const [pending, setPending] = useState(false);
@@ -191,6 +192,8 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
         className="hidden"
         aria-hidden
       />
+
+      <NextDayTimer inPerson={inboundMethod === "IN_PERSON"} />
 
       <fieldset className={`space-y-3 ${step === "terms" ? "hidden" : ""}`}>
         <legend className="text-sm font-semibold text-foreground">

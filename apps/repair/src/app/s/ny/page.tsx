@@ -12,7 +12,7 @@ export default function NewServiceOrderPage() {
     <div>
       <PageHeader
         title="Opprett serviceordre"
-        description="Fyll inn kontaktinfo og enhet. Deretter leser og signerer du reparasjonsbetingelsene. Vi tar saken inn når enheten er levert."
+        description="Fyll inn kontaktinfo og enhet. Opprett innen kl. 18:30 og lever samme dag, så er den ferdig neste arbeidsdag. Deretter leser og signerer du reparasjonsbetingelsene."
       />
       <Card>
         <CardHeader title="Ordre" />

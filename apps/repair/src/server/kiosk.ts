@@ -24,6 +24,7 @@ import { publicStatusUrl } from "@/lib/mail";
 import { parsePngDataUrl, renderSignedTermsPdf } from "@/lib/pdf/customer-document";
 import { REPAIR_TERMS_VERSION } from "@/lib/repair-terms";
 import { storeCustomerPdf } from "@/lib/store-customer-pdf";
+import { estimatedCompletionAt, formatOsloDateLabel, nextDayOffer } from "@/lib/next-day";
 import { notifyDeviceReceived, notifyServiceOrderCreated } from "@/server/customer-mail";
 import { kioskPaymentForTicket } from "@/server/payments";
 
@@ -427,6 +428,8 @@ export async function createKioskLockerOrder(input: {
   }
   const signerName = (input.termsSignerName || customerName).trim() || customerName;
   const signedAt = new Date();
+  const eta = estimatedCompletionAt(signedAt);
+  const etaOffer = eta ? nextDayOffer(signedAt) : null;
 
   const db = getDb();
   const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -538,6 +541,7 @@ export async function createKioskLockerOrder(input: {
       inboundMethod: "IN_PERSON",
       outboundMethod: "IN_PERSON",
       receivedAt: null,
+      estimatedCompletionDate: eta,
       termsVersion: REPAIR_TERMS_VERSION,
       termsSignedAt: signedAt,
       termsSignerName: signerName,
@@ -553,7 +557,7 @@ export async function createKioskLockerOrder(input: {
   });
   await db.insert(repairNotes).values({
     ticketId: ticket.id,
-    content: `Opprettet i locker og signert. Feil: ${issue}.${comment ? ` Kommentar: ${comment}` : ""} ${imei ? `IMEI: ${imei}.` : ""} ${serialNumber ? `SN: ${serialNumber}.` : ""}`,
+    content: `Opprettet i locker og signert. Feil: ${issue}.${comment ? ` Kommentar: ${comment}` : ""} ${imei ? `IMEI: ${imei}.` : ""} ${serialNumber ? `SN: ${serialNumber}.` : ""}${etaOffer ? ` Ferdig neste dag (${formatOsloDateLabel(etaOffer.readyOn)}) hvis innlevert i dag.` : ""}`,
     visibility: "INTERNAL",
   });
   await writeAuditLog({
