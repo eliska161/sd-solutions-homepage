@@ -22,10 +22,16 @@ export async function createAndStoreReceiptPdf(
     .select({
       ticketNumber: repairTickets.ticketNumber,
       customerName: customers.name,
+      customerEmail: customers.email,
       customerPhone: customers.phone,
+      streetAddress: customers.streetAddress,
+      postalCode: customers.postalCode,
+      city: customers.city,
       brand: devices.brand,
       model: devices.model,
       variant: devices.variant,
+      serialNumber: devices.serialNumber,
+      imei: devices.imei,
       paymentStatus: repairTickets.paymentStatus,
       warrantyDays: repairTickets.warrantyDays,
       publicAccessToken: repairTickets.publicAccessToken,
@@ -44,6 +50,9 @@ export async function createAndStoreReceiptPdf(
   const deviceLabel = [row.brand, row.model, row.variant]
     .filter(Boolean)
     .join(" ");
+  const address = [row.streetAddress, `${row.postalCode} ${row.city}`.trim()]
+    .filter((part) => part && part.trim())
+    .join(", ");
 
   let code = row.publicShortCode;
   if (!code && row.publicAccessToken) {
@@ -62,8 +71,12 @@ export async function createAndStoreReceiptPdf(
   const buffer = await renderReceiptPdf({
     ticketNumber: row.ticketNumber,
     customerName: row.customerName,
+    customerEmail: row.customerEmail,
     customerPhone: row.customerPhone,
+    customerAddress: address || null,
     deviceLabel,
+    serialNumber: row.serialNumber,
+    imei: row.imei,
     issuedAt: new Date(),
     paymentLabel:
       paymentOverride ||
