@@ -1,5 +1,6 @@
 import {
   estimateRepairTotal,
+  formatListPrice,
   formatNok,
   matchRepairModel,
   type RepairServiceId,
@@ -26,9 +27,9 @@ export function kioskIssueEstimate(device: string, issue: string) {
   }
   const kr = estimateRepairTotal(model.id, [service]);
   if (!kr) return null;
-  return { kr, text: formatNok(kr), modelLabel: model.label };
+  return { kr, text: formatListPrice(service, kr), modelLabel: model.label };
 }
 
 export function kioskEstimateDisclaimer() {
-  return "Estimat inkl. mva og arbeid. Endelig pris etter inspeksjon.";
+  return "Fra-pris inkl. mva og arbeid for billigste delvalg. Endelig pris etter inspeksjon.";
 }

@@ -8,7 +8,7 @@ import {
   type ContactPayload,
   type InquiryTypeId,
 } from "@/lib/contact";
-import { formatNok } from "@/lib/repair-prices";
+import { formatFromNok } from "@/lib/repair-prices";
 
 const inquiryIds = INQUIRY_TYPES.map((t) => t.id);
 
@@ -46,7 +46,7 @@ function buildEmail(data: ContactPayload) {
         row("Reparasjoner", data.repair.serviceLabels.join(", ")),
         row(
           "Estimert pris",
-          `${formatNok(data.repair.estimatedTotal)} (estimat — endelig pris etter inspeksjon)`,
+          `${formatFromNok(data.repair.estimatedTotal)} (estimat — endelig pris etter inspeksjon)`,
         ),
         row("Telefon", data.phone),
         row("Kommentar", data.repair.comment),
@@ -83,7 +83,7 @@ function buildEmail(data: ContactPayload) {
       ? `Reparasjoner: ${data.repair.serviceLabels.join(", ")}`
       : "",
     data.repair
-      ? `Estimert pris: ${formatNok(data.repair.estimatedTotal)} (estimat)`
+      ? `Estimert pris: ${formatFromNok(data.repair.estimatedTotal)} (estimat)`
       : "",
     data.repair?.comment ? `Kommentar: ${data.repair.comment}` : "",
     data.repair ? "" : "",
