@@ -178,7 +178,7 @@ export function KioskApp() {
     const next: Record<string, string> = {};
     for (const option of KIOSK_ISSUES) {
       const estimate = kioskIssueEstimate(draftDevice, option);
-      if (estimate) next[option] = `ca. ${estimate.text}`;
+      if (estimate) next[option] = estimate.text;
     }
     return next;
   }, [draftDevice]);

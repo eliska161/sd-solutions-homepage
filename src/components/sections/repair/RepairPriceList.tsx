@@ -8,7 +8,7 @@ import {
   REPAIR_MODELS,
   REPAIR_SERVICE_IDS,
   REPAIR_SERVICE_LABELS,
-  formatNok,
+  formatListPrice,
 } from "@/lib/repair-prices";
 
 export function RepairPriceList() {
@@ -27,8 +27,8 @@ export function RepairPriceList() {
           Prisliste
         </h2>
         <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-muted">
-          Estimater for vanlig arbeid. Velg modell. Du får et mer presist tall
-          etter diagnose.
+          Fra-priser for billigste delvalg. Velg modell. Original eller annen
+          deltype koster mer; du får et mer presist tall etter diagnose.
         </p>
       </FadeIn>
 
@@ -58,7 +58,7 @@ export function RepairPriceList() {
             >
               <span className="text-foreground">{REPAIR_SERVICE_LABELS[id]}</span>
               <span className="shrink-0 tabular-nums text-muted">
-                {formatNok(model.prices[id])}
+                {formatListPrice(id, model.prices[id])}
               </span>
             </li>
           ))}
