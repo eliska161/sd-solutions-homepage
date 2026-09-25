@@ -37,14 +37,15 @@ export function NextDayTimer() {
       </div>
       {offer.active ? (
         <p className="mt-2 text-[14px] leading-snug text-white/85">
-          Opprett serviceordre innen timeren, velg deler og lever enheten innen
-          kl. 12 {offer.readyLabel}, så er den ferdig samme dag.
+          Gjelder kun skjerm- og batteribytte. Opprett serviceordre innen
+          timeren, velg deltype og lever enheten innen kl. 12 {offer.readyLabel},
+          så er den ferdig samme dag.
         </p>
       ) : (
         <p className="mt-2 text-[14px] leading-snug text-white/85">
-          Opprett serviceordre {offer.cutoffDayLabel} innen timeren, velg deler
-          og lever enheten innen kl. 12 {offer.readyLabel}, så er den ferdig
-          samme dag.
+          Gjelder kun skjerm- og batteribytte. Opprett serviceordre{" "}
+          {offer.cutoffDayLabel} innen timeren, velg deltype og lever enheten
+          innen kl. 12 {offer.readyLabel}, så er den ferdig samme dag.
         </p>
       )}
     </div>
