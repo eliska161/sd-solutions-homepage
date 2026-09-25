@@ -15,7 +15,11 @@ import { formatDropoffAppointment, isDropoffSlotOpen } from "@/lib/dropoff";
 import { matchIphoneModel } from "@/lib/apple-models";
 import { getDb } from "@/lib/db";
 import { lookupImeiCatalog, normalizeImei } from "@/lib/imei-lookup";
-import { CUSTOMER_POSTAGE_ORE } from "@/lib/money";
+import { krToOre, CUSTOMER_POSTAGE_ORE } from "@/lib/money";
+import {
+  describePublicJob,
+  quotePublicPart,
+} from "@/lib/part-grades";
 import { publicStatusUrl } from "@/lib/mail";
 import { parsePngDataUrl, renderSignedTermsPdf } from "@/lib/pdf/customer-document";
 import { countryNameFromPhone, isSendablePhone, toE164Phone } from "@/lib/phone";
@@ -44,10 +48,13 @@ const publicOrderSchema = z
     color: z.string().trim().optional().nullable(),
     serialNumber: z.string().trim().optional().nullable(),
     imei: z.string().trim().optional().nullable(),
-    customerProblem: z
-      .string()
-      .trim()
-      .min(8, "Beskriv feilen med minst noen setninger"),
+    customerProblem: z.string().trim().optional().default(""),
+    jobType: z.enum(["screen", "battery", "other"]),
+    partGrade: z.enum(["copy", "oem_pull", "original"]).optional().nullable(),
+    batteryHealth: z
+      .enum(["90_94", "95_98", "99_100"])
+      .optional()
+      .nullable(),
     inboundMethod: deliverySchema,
     outboundMethod: deliverySchema,
     termsVersion: z.string().min(1),
@@ -65,6 +72,27 @@ const publicOrderSchema = z
         code: "custom",
         path: ["imei"],
         message: "Oppgi serienummer eller IMEI — ett av dem er nok",
+      });
+    }
+    if (val.jobType === "other" && (val.customerProblem || "").trim().length < 8) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["customerProblem"],
+        message: "Beskriv feilen med minst noen setninger",
+      });
+    }
+    if (val.jobType !== "other" && !val.partGrade) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["partGrade"],
+        message: "Velg deltype",
+      });
+    }
+    if (val.jobType === "battery" && val.partGrade === "oem_pull" && !val.batteryHealth) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["batteryHealth"],
+        message: "Velg batterihelse",
       });
     }
   });
@@ -225,8 +253,26 @@ export async function createPublicServiceOrder(
   const inboundPostageOre = 0;
   const outboundPostageOre =
     data.outboundMethod === "POST" ? CUSTOMER_POSTAGE_ORE : 0;
+  const nextDayJob = data.jobType === "screen" || data.jobType === "battery";
+  const quote =
+    nextDayJob && data.partGrade
+      ? quotePublicPart({
+          deviceLabel: data.model,
+          jobType: data.jobType,
+          partGrade: data.partGrade,
+          batteryHealth: data.batteryHealth,
+        })
+      : null;
+  const customerProblem = describePublicJob({
+    jobType: data.jobType,
+    partGrade: data.partGrade,
+    batteryHealth: data.batteryHealth,
+    comment: data.customerProblem,
+  });
   const eta =
-    data.inboundMethod === "IN_PERSON" ? estimatedCompletionAt() : null;
+    nextDayJob && data.inboundMethod === "IN_PERSON"
+      ? estimatedCompletionAt()
+      : null;
   const etaOffer = eta ? nextDayOffer() : null;
 
   const db = getDb();
@@ -321,7 +367,7 @@ export async function createPublicServiceOrder(
       ticketNumber,
       customerId,
       deviceId: device.id,
-      customerProblem: data.customerProblem,
+      customerProblem,
       status: "NEW",
       publicAccessToken,
       publicShortCode,
@@ -331,6 +377,8 @@ export async function createPublicServiceOrder(
       inboundPostageOre,
       outboundPostageOre,
       otherCostsOre: outboundPostageOre,
+      customerPriceOre: quote ? krToOre(quote.priceKr) : null,
+      estimatedPartsCostOre: quote?.partsCostOre ?? null,
       receivedAt: null,
       estimatedCompletionDate: eta,
       termsVersion: data.termsVersion,
@@ -353,7 +401,7 @@ export async function createPublicServiceOrder(
       data.inboundMethod === "POST"
         ? "Kunden sender enheten med post. Marker som mottatt når pakken kommer inn."
         : etaOffer
-          ? `Kunden leverer enheten fysisk. Ferdig neste dag (${formatOsloDateLabel(etaOffer.readyOn)}) hvis den er innlevert i dag innen kl. 18:30.`
+          ? `Kunden leverer enheten fysisk. Skjerm/batteri ferdig ${formatOsloDateLabel(etaOffer.readyOn)} hvis deltype er valgt og enheten leveres innen kl. 12 den dagen. Helg telles ikke. Valg: ${quote?.label ?? "—"}. Estimert ${quote?.priceLabel ?? "—"}.`
           : "Kunden leverer enheten fysisk. Marker som mottatt når den er tatt inn i skranken.",
     visibility: "INTERNAL",
   });
@@ -393,7 +441,7 @@ export async function createPublicServiceOrder(
         deviceLabel,
         serialNumber: data.serialNumber?.trim() || null,
         imei,
-        problem: data.customerProblem,
+        problem: customerProblem,
         inboundLabel:
           data.inboundMethod === "POST" ? "Send selv" : "Leveres i butikk",
         outboundLabel:

@@ -45,7 +45,7 @@ export function workshopFeeLines(): { label: string; value: string }[] {
 
 /** Forklart uten fagspråk. Brukes i vilkår, ordrebekreftelse og signeringssteg. */
 export const PART_GRADE_CUSTOMER_TEXT =
-  "Du velger selv hvilken del vi skal sette i, og prisen avhenger av det. Alternativene er ny kompatibel del (ikke original), original del tatt ut av en annen telefon, original del som er istandsatt, eller helt ny original del. Ikke alle typer finnes til alle modeller. Hva som monteres, står på saken.";
+  "Du velger selv hvilken del vi skal sette i, og prisen avhenger av det. For skjerm er kopi Soft OLED, for batteri kopi premium. Du kan også velge original del tatt ut av en annen telefon, eller helt ny original del. Ikke alle typer finnes til alle modeller. Hva som monteres, står på saken.";
 
 export type LegalSection = {
   title: string;

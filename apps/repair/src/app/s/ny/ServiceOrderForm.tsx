@@ -14,6 +14,15 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatNokFromOre, CUSTOMER_POSTAGE_ORE } from "@/lib/money";
 import { LEGAL_PARTY, WORKSHOP_FEES, PART_GRADE_CUSTOMER_TEXT } from "@/lib/legal";
+import {
+  BATTERY_HEALTH_OPTIONS,
+  JOB_TYPE_LABELS,
+  partGradeOptionsForJob,
+  quotePublicPart,
+  type BatteryHealthBand,
+  type PartGrade,
+  type PublicJobType,
+} from "@/lib/part-grades";
 import { REPAIR_TERMS_VERSION, repairTermsSections } from "@/lib/repair-terms";
 import type { IphoneModelOption } from "@/lib/apple-models";
 import { SignaturePad } from "@/components/forms/SignaturePad";
@@ -38,6 +47,9 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   const [outboundMethod, setOutboundMethod] = useState<"IN_PERSON" | "POST">(
     "IN_PERSON",
   );
+  const [jobType, setJobType] = useState<PublicJobType>("screen");
+  const [partGrade, setPartGrade] = useState<PartGrade>("copy");
+  const [batteryHealth, setBatteryHealth] = useState<BatteryHealthBand>("90_94");
   const [step, setStep] = useState<"order" | "terms">("order");
   const [accepted, setAccepted] = useState(false);
   const [signerName, setSignerName] = useState("");
@@ -59,6 +71,15 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   }, [model, models, lookupColors, lookupStorages]);
 
   const selected = modelChoices.find((m) => m.name === model);
+  const partQuote =
+    jobType !== "other" && model
+      ? quotePublicPart({
+          deviceLabel: model,
+          jobType,
+          partGrade,
+          batteryHealth: jobType === "battery" ? batteryHealth : null,
+        })
+      : null;
 
   const storageOptions = useMemo(() => {
     const fromLookup = lookupStorages.filter(Boolean);
@@ -123,6 +144,14 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
     setError(null);
     const name = String(new FormData(form).get("name") || "").trim();
     if (name && !signerName) setSignerName(name);
+    if (jobType !== "other" && !partGrade) {
+      setError("Velg deltype.");
+      return;
+    }
+    if (jobType === "battery" && partGrade === "oem_pull" && !batteryHealth) {
+      setError("Velg batterihelse.");
+      return;
+    }
     setStep("terms");
   }
 
@@ -166,6 +195,10 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
       serialNumber: serial || null,
       imei: imeiValue || null,
       customerProblem: String(formData.get("customerProblem") || ""),
+      jobType,
+      partGrade: jobType === "other" ? null : partGrade,
+      batteryHealth:
+        jobType === "battery" && partGrade === "oem_pull" ? batteryHealth : null,
       inboundMethod,
       outboundMethod,
       termsVersion: REPAIR_TERMS_VERSION,
@@ -359,13 +392,129 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
             )}
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="customerProblem">Hva er feil?</Label>
+            <Label htmlFor="jobType">Hva skal gjøres?</Label>
+            <Select
+              id="jobType"
+              className="mt-1"
+              value={jobType}
+              onChange={(e) => {
+                const next = e.target.value as PublicJobType;
+                setJobType(next);
+                if (next !== "battery") setBatteryHealth("90_94");
+              }}
+            >
+              <option value="screen">{JOB_TYPE_LABELS.screen}</option>
+              <option value="battery">{JOB_TYPE_LABELS.battery}</option>
+              <option value="other">{JOB_TYPE_LABELS.other}</option>
+            </Select>
+            {jobType !== "other" ? (
+              <p className="mt-1 text-[13px] text-muted">
+                Ferdig-neste-virkedag gjelder bare skjerm- og batteribytte.
+              </p>
+            ) : (
+              <p className="mt-1 text-[13px] text-muted">
+                Annet arbeid har ikke neste-virkedag-fristen. Vi gir pris etter
+                diagnose.
+              </p>
+            )}
+          </div>
+          {jobType !== "other" ? (
+            <div className="sm:col-span-2 space-y-3">
+              <p className="text-sm font-medium text-foreground">Deltype</p>
+              <div className="grid gap-2">
+                {partGradeOptionsForJob(jobType).map((option) => {
+                  const optionQuote = model
+                    ? quotePublicPart({
+                        deviceLabel: model,
+                        jobType,
+                        partGrade: option.id,
+                        batteryHealth:
+                          jobType === "battery" && option.id === "oem_pull"
+                            ? batteryHealth
+                            : null,
+                      })
+                    : null;
+                  return (
+                  <label
+                    key={option.id}
+                    className="flex cursor-pointer gap-3 rounded-xl border border-border bg-surface px-3 py-2.5"
+                  >
+                    <input
+                      type="radio"
+                      name="partGrade"
+                      className="mt-1"
+                      checked={partGrade === option.id}
+                      onChange={() => setPartGrade(option.id)}
+                    />
+                    <span>
+                      <span className="block text-[15px] text-foreground">
+                        {option.label}
+                        {optionQuote ? ` · ${optionQuote.priceLabel}` : ""}
+                      </span>
+                      <span className="block text-[13px] text-muted">
+                        {option.help}
+                      </span>
+                    </span>
+                  </label>
+                  );
+                })}
+              </div>
+              {jobType === "battery" && partGrade === "oem_pull" ? (
+                <div>
+                  <Label htmlFor="batteryHealth">Batterihelse</Label>
+                  <Select
+                    id="batteryHealth"
+                    className="mt-1"
+                    value={batteryHealth}
+                    onChange={(e) =>
+                      setBatteryHealth(e.target.value as BatteryHealthBand)
+                    }
+                  >
+                    {BATTERY_HEALTH_OPTIONS.map((option) => {
+                      const healthQuote = model
+                        ? quotePublicPart({
+                            deviceLabel: model,
+                            jobType: "battery",
+                            partGrade: "oem_pull",
+                            batteryHealth: option.id,
+                          })
+                        : null;
+                      return (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                          {healthQuote ? ` · ${healthQuote.priceLabel}` : ""}
+                        </option>
+                      );
+                    })}
+                  </Select>
+                </div>
+              ) : null}
+              {partQuote ? (
+                <p className="text-[15px] font-semibold text-foreground">
+                  Estimert pris: {partQuote.priceLabel} inkl. mva og arbeid
+                </p>
+              ) : (
+                <p className="text-[13px] text-muted">
+                  Velg modell for å se pris.
+                </p>
+              )}
+            </div>
+          ) : null}
+          <div className="sm:col-span-2">
+            <Label htmlFor="customerProblem">
+              {jobType === "other" ? "Hva er feil?" : "Merknad (valgfritt)"}
+            </Label>
             <Textarea
               id="customerProblem"
               name="customerProblem"
-              required
+              required={jobType === "other"}
+              minLength={jobType === "other" ? 8 : undefined}
               className="mt-1"
-              placeholder="Beskriv feilen, når den oppsto, og om telefonen har vært i vann, falt, osv."
+              placeholder={
+                jobType === "other"
+                  ? "Beskriv feilen, når den oppsto, og om telefonen har vært i vann, falt, osv."
+                  : "Noe vi bør vite? Fall, væske, tidligere reparasjon…"
+              }
             />
           </div>
         </div>

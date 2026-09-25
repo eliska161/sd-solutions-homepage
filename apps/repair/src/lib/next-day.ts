@@ -32,17 +32,18 @@ const MONTH_NB = [
 ] as const;
 
 export type NextDayOffer = {
-  /** True when an order created now can be delivered today for next-workshop-day finish. */
+  /** True when an order created now can be dropped off by 12:00 on the next weekday and finished that day. */
   active: boolean;
   cutoffAt: Date;
   cutoffClock: OsloClock;
   readyOn: OsloClock;
   readyLabel: string;
+  readyWeekdayLabel: string;
   cutoffDayLabel: string;
 };
 
 export function isWorkshopWeekday(weekday: number) {
-  return weekday >= 1 && weekday <= 6;
+  return weekday >= 1 && weekday <= 5;
 }
 
 export function addOsloDays(clock: OsloClock, days: number): OsloClock {
@@ -58,9 +59,13 @@ export function nextWorkshopDay(from: OsloClock): OsloClock {
   return day;
 }
 
-export function formatOsloDateLabel(clock: OsloClock) {
+export function formatOsloWeekday(clock: OsloClock) {
   const weekday = WEEKDAY_NB[clock.weekday] ?? "";
-  const name = weekday ? weekday.charAt(0).toUpperCase() + weekday.slice(1) : "";
+  return weekday ? weekday.charAt(0).toUpperCase() + weekday.slice(1) : "";
+}
+
+export function formatOsloDateLabel(clock: OsloClock) {
+  const name = formatOsloWeekday(clock);
   return `${name} ${clock.day}. ${MONTH_NB[clock.month]}`;
 }
 
@@ -104,6 +109,7 @@ export function nextDayOffer(at: Date = new Date()): NextDayOffer {
       cutoffClock: clock,
       readyOn,
       readyLabel: formatOsloDateLabel(readyOn),
+      readyWeekdayLabel: formatOsloWeekday(readyOn),
       cutoffDayLabel: "i dag",
     };
   }
@@ -115,6 +121,7 @@ export function nextDayOffer(at: Date = new Date()): NextDayOffer {
     cutoffClock: nextCutoffDay,
     readyOn,
     readyLabel: formatOsloDateLabel(readyOn),
+    readyWeekdayLabel: formatOsloWeekday(readyOn),
     cutoffDayLabel: formatOsloDateLabel(nextCutoffDay).toLowerCase(),
   };
 }
@@ -122,7 +129,7 @@ export function nextDayOffer(at: Date = new Date()): NextDayOffer {
 export function estimatedCompletionAt(at: Date = new Date()): Date | null {
   const offer = nextDayOffer(at);
   if (!offer.active) return null;
-  return osloWallTime(offer.readyOn, 12, 0, 0);
+  return osloWallTime(offer.readyOn, 18, 0, 0);
 }
 
 export function formatCountdown(ms: number) {

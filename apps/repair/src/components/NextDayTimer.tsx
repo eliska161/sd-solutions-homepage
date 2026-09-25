@@ -27,7 +27,7 @@ export function NextDayTimer() {
     >
       <div className="flex items-end justify-between gap-4">
         <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-white/70">
-          Ferdig neste dag
+          Ferdig {offer.readyWeekdayLabel.toLowerCase()}
         </p>
         <p
           className={`${clockFont.className} text-[40px] font-semibold tabular-nums leading-none tracking-tight`}
@@ -37,13 +37,15 @@ export function NextDayTimer() {
       </div>
       {offer.active ? (
         <p className="mt-2 text-[14px] leading-snug text-white/85">
-          Opprett serviceordre og lever enheten i dag, så er den ferdig{" "}
-          {offer.readyLabel}.
+          Gjelder kun skjerm- og batteribytte. Opprett serviceordre innen
+          timeren, velg deltype og lever enheten innen kl. 12 {offer.readyLabel},
+          så er den ferdig samme dag.
         </p>
       ) : (
         <p className="mt-2 text-[14px] leading-snug text-white/85">
-          Fristen i dag er passert. Lever {offer.cutoffDayLabel}, så er den
-          ferdig {offer.readyLabel}.
+          Gjelder kun skjerm- og batteribytte. Opprett serviceordre{" "}
+          {offer.cutoffDayLabel} innen timeren, velg deltype og lever enheten
+          innen kl. 12 {offer.readyLabel}, så er den ferdig samme dag.
         </p>
       )}
     </div>
