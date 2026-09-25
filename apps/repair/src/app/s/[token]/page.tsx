@@ -79,6 +79,24 @@ export default async function CustomerStatusPage({
         </p>
       ) : null}
 
+      {data.batteryCalibrate ? (
+        <div className="mb-4 overflow-hidden rounded border border-border bg-white">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/batterikalibrering.png"
+            alt="Batterikalibrering: lad til 100 %, vent to timer i laderen, tøm helt, lad til 100 % igjen."
+            className="w-full"
+          />
+          <p className="border-t border-border px-4 py-3 text-sm">
+            Gjør dette hjemme etter batteribytte.{" "}
+            <a className="underline" href="/batterikalibrering">
+              Skriv ut kortet
+            </a>
+            .
+          </p>
+        </div>
+      ) : null}
+
       <div className="mb-4 rounded border border-border bg-white px-4 py-4">
         <p className="text-[13px] text-muted">Betaling</p>
         <p className="mt-1 text-[22px] font-semibold">

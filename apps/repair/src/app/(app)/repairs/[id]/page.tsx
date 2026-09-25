@@ -31,6 +31,7 @@ import {
   getOrCreateDiagnostics,
 } from "@/server/diagnostics";
 import { getIntakeInspection } from "@/server/intake";
+import { ticketIsBatteryJob } from "@/server/battery-calibrate";
 import { listParts } from "@/server/parts";
 import {
   addRepairNote,
@@ -218,6 +219,7 @@ export default async function RepairDetailPage({
     technicians,
     assigneeName,
     intake,
+    batteryJob,
   ] = await Promise.all([
     getCustomer(ticket.customerId),
     getDevice(ticket.deviceId),
@@ -234,6 +236,7 @@ export default async function RepairDetailPage({
     listTechnicians(),
     getRepairAssigneeName(ticket.assigneeId),
     getIntakeInspection(id),
+    ticketIsBatteryJob(id),
   ]);
 
   const customerPrice = ticket.customerPriceOre ?? 0;
@@ -262,6 +265,16 @@ export default async function RepairDetailPage({
         actions={
           <>
             <DownloadSummaryLink href={`/api/repairs/${ticket.id}/summary`} />
+            {batteryJob ? (
+              <a
+                href="/batterikalibrering"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-9 items-center rounded border border-border bg-white px-3 text-sm"
+              >
+                Skriv ut kalibreringskort
+              </a>
+            ) : null}
             {session && canWrite(session.user.role) ? (
               <DeleteRepairButton
                 ticketId={ticket.id}

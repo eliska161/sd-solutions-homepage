@@ -20,6 +20,8 @@ import { loadCustomerPdfFiles } from "@/lib/store-customer-pdf";
 import { createAndStoreReceiptPdf } from "@/server/customer-receipt";
 import { ensurePickupCheckout } from "@/server/payments";
 import { ensurePickupPin } from "@/lib/sequences";
+import { batteryCalibrateMailFile } from "@/lib/battery-calibrate";
+import { ticketIsBatteryJob } from "@/server/battery-calibrate";
 
 type MailContext = {
   ticketNumber: string;
@@ -33,6 +35,7 @@ type MailContext = {
   deviceLabel: string;
   returnTrackingNumber: string | null;
   pickupPin: string | null;
+  batteryJob: boolean;
 };
 
 async function enqueue(task: () => Promise<void>) {
@@ -97,6 +100,7 @@ async function loadContext(ticketId: string): Promise<MailContext | null> {
     deviceLabel,
     returnTrackingNumber: row.returnTrackingNumber?.trim() || null,
     pickupPin: row.pickupPin && /^\d{6}$/.test(row.pickupPin) ? row.pickupPin : null,
+    batteryJob: await ticketIsBatteryJob(ticketId),
   };
 }
 
@@ -306,6 +310,12 @@ export async function notifyReadyForPickup(ticketId: string) {
         checkout.ok && !checkout.paid
           ? [{ label: "Betal nå", url: payUrl }]
           : [];
+      const calibrateFile = ctx.batteryJob ? batteryCalibrateMailFile() : null;
+      const calibrateLines = ctx.batteryJob
+        ? [
+            "Batteribytte: kalibrer hjemme (kortet ligger ved). Lad til 100 %, la den stå i laderen i to timer, tøm helt, og lad til 100 % igjen.",
+          ]
+        : [];
       return {
         mail: buildMail(ctx, {
           subject: byPost
@@ -324,6 +334,7 @@ export async function notifyReadyForPickup(ticketId: string) {
                   ? "Betalingen er registrert. Vi sender telefonen tilbake til adressen du oppga."
                   : "Betal via lenken før vi sender. Kvittering kommer på e-post når betalingen er gjennomført.",
                 ...trackingMail,
+                ...calibrateLines,
                 googleReviewParagraph,
               ]
             : [
@@ -333,9 +344,11 @@ export async function notifyReadyForPickup(ticketId: string) {
                   : "Betal via lenken før du henter. Lockeren åpner ikke før det er betalt.",
                 pinLine ?? "Ta med legitimasjon. Si fra om saksnummeret i skranken.",
                 `Hent hos oss: ${workshopAddressOneLine()}. Åpent ${WORKSHOP.hoursLabel}.`,
+                ...calibrateLines,
                 googleReviewParagraph,
               ],
           extraCtas: [...payCta, googleReviewCta],
+          files: calibrateFile ? [calibrateFile] : undefined,
         }),
         sms: pin
           ? customerSmsPickupPin({
@@ -360,6 +373,7 @@ export async function notifyPaymentReceived(
   await enqueue(async () =>
     sendForTicket(ticketId, async (ctx) => {
       const invoice = await createAndStoreReceiptPdf(ticketId, paymentLabel);
+      const calibrate = ctx.batteryJob ? batteryCalibrateMailFile() : null;
       return {
         mail: buildMail(ctx, {
           subject: `Kvittering — ${ctx.ticketNumber}`,
@@ -368,11 +382,14 @@ export async function notifyPaymentReceived(
           paragraphs: [
             `Vi har registrert betaling for ${ctx.ticketNumber}${deviceBit(ctx)}.`,
             "Kvitteringen ligger vedlagt som PDF.",
+            ctx.batteryJob
+              ? "Batterikalibrering ligger ved som PNG. Skriv ut og følg den hjemme, så slipper du å vente hos oss."
+              : "",
             ctx.outboundMethod === "POST"
               ? "Vi sender telefonen når returen er klar."
               : "Du kan hente i locker med PIN-koden du har fått, eller i skranken.",
-          ],
-          files: invoice ? [invoice] : [],
+          ].filter(Boolean),
+          files: [invoice, calibrate].filter((file): file is NonNullable<typeof file> => Boolean(file)),
         }),
         sms: smsLine(ctx, "er betalt. Kvittering er sendt på e-post."),
       };
