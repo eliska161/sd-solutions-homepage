@@ -51,10 +51,7 @@ const publicOrderSchema = z
     customerProblem: z.string().trim().optional().default(""),
     jobType: z.enum(["screen", "battery", "other"]),
     partGrade: z.enum(["copy", "oem_pull", "original"]).optional().nullable(),
-    batteryHealth: z
-      .enum(["90_94", "95_98", "99_100"])
-      .optional()
-      .nullable(),
+    batteryHealth: z.enum(["99_100"]).optional().nullable(),
     inboundMethod: deliverySchema,
     outboundMethod: deliverySchema,
     termsVersion: z.string().min(1),
@@ -86,13 +83,6 @@ const publicOrderSchema = z
         code: "custom",
         path: ["partGrade"],
         message: "Velg deltype",
-      });
-    }
-    if (val.jobType === "battery" && val.partGrade === "oem_pull" && !val.batteryHealth) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["batteryHealth"],
-        message: "Velg batterihelse",
       });
     }
   });
@@ -260,13 +250,16 @@ export async function createPublicServiceOrder(
           deviceLabel: data.model,
           jobType: data.jobType,
           partGrade: data.partGrade,
-          batteryHealth: data.batteryHealth,
         })
+      : null;
+  const batteryHealth =
+    data.jobType === "battery" && data.partGrade === "oem_pull"
+      ? "99_100"
       : null;
   const customerProblem = describePublicJob({
     jobType: data.jobType,
     partGrade: data.partGrade,
-    batteryHealth: data.batteryHealth,
+    batteryHealth,
     comment: data.customerProblem,
   });
   const eta =

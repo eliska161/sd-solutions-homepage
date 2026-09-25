@@ -15,11 +15,9 @@ import { Textarea } from "@/components/ui/Textarea";
 import { formatNokFromOre, CUSTOMER_POSTAGE_ORE } from "@/lib/money";
 import { LEGAL_PARTY, WORKSHOP_FEES, PART_GRADE_CUSTOMER_TEXT } from "@/lib/legal";
 import {
-  BATTERY_HEALTH_OPTIONS,
   JOB_TYPE_LABELS,
   partGradeOptionsForJob,
   quotePublicPart,
-  type BatteryHealthBand,
   type PartGrade,
   type PublicJobType,
 } from "@/lib/part-grades";
@@ -49,7 +47,6 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   );
   const [jobType, setJobType] = useState<PublicJobType>("screen");
   const [partGrade, setPartGrade] = useState<PartGrade>("copy");
-  const [batteryHealth, setBatteryHealth] = useState<BatteryHealthBand>("90_94");
   const [step, setStep] = useState<"order" | "terms">("order");
   const [accepted, setAccepted] = useState(false);
   const [signerName, setSignerName] = useState("");
@@ -77,7 +74,6 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
           deviceLabel: model,
           jobType,
           partGrade,
-          batteryHealth: jobType === "battery" ? batteryHealth : null,
         })
       : null;
 
@@ -148,10 +144,6 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
       setError("Velg deltype.");
       return;
     }
-    if (jobType === "battery" && partGrade === "oem_pull" && !batteryHealth) {
-      setError("Velg batterihelse.");
-      return;
-    }
     setStep("terms");
   }
 
@@ -198,7 +190,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
       jobType,
       partGrade: jobType === "other" ? null : partGrade,
       batteryHealth:
-        jobType === "battery" && partGrade === "oem_pull" ? batteryHealth : null,
+        jobType === "battery" && partGrade === "oem_pull" ? "99_100" : null,
       inboundMethod,
       outboundMethod,
       termsVersion: REPAIR_TERMS_VERSION,
@@ -398,9 +390,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
               className="mt-1"
               value={jobType}
               onChange={(e) => {
-                const next = e.target.value as PublicJobType;
-                setJobType(next);
-                if (next !== "battery") setBatteryHealth("90_94");
+                setJobType(e.target.value as PublicJobType);
               }}
             >
               <option value="screen">{JOB_TYPE_LABELS.screen}</option>
@@ -428,10 +418,6 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
                         deviceLabel: model,
                         jobType,
                         partGrade: option.id,
-                        batteryHealth:
-                          jobType === "battery" && option.id === "oem_pull"
-                            ? batteryHealth
-                            : null,
                       })
                     : null;
                   return (
@@ -459,36 +445,6 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
                   );
                 })}
               </div>
-              {jobType === "battery" && partGrade === "oem_pull" ? (
-                <div>
-                  <Label htmlFor="batteryHealth">Batterihelse</Label>
-                  <Select
-                    id="batteryHealth"
-                    className="mt-1"
-                    value={batteryHealth}
-                    onChange={(e) =>
-                      setBatteryHealth(e.target.value as BatteryHealthBand)
-                    }
-                  >
-                    {BATTERY_HEALTH_OPTIONS.map((option) => {
-                      const healthQuote = model
-                        ? quotePublicPart({
-                            deviceLabel: model,
-                            jobType: "battery",
-                            partGrade: "oem_pull",
-                            batteryHealth: option.id,
-                          })
-                        : null;
-                      return (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                          {healthQuote ? ` · ${healthQuote.priceLabel}` : ""}
-                        </option>
-                      );
-                    })}
-                  </Select>
-                </div>
-              ) : null}
               {partQuote ? (
                 <p className="text-[15px] font-semibold text-foreground">
                   Estimert pris: {partQuote.priceLabel} inkl. mva og arbeid
