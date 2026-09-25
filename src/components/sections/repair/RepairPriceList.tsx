@@ -27,7 +27,7 @@ export function RepairPriceList() {
           Prisliste
         </h2>
         <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-muted">
-          Fra-priser. Velg modell.
+          Velg modell. Beløpene er fra-priser.
         </p>
       </FadeIn>
 
