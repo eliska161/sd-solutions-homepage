@@ -648,7 +648,7 @@ export function KioskApp() {
         return;
       }
       setCity("");
-      setPlaceNote(result.error);
+      setPlaceNote("Skriv stedet");
     });
     return () => {
       cancelled = true;
@@ -1262,11 +1262,7 @@ export function KioskApp() {
                     }}
                     disabled={busy}
                   />
-                  {city ? (
-                    <p className="mt-4 text-center text-[28px] font-bold tracking-wide">
-                      {city}
-                    </p>
-                  ) : placeNote ? (
+                  {placeNote ? (
                     <div className="mt-3 flex w-full max-w-[640px] flex-col items-center">
                       <p className="mb-2 text-center text-[18px] font-bold">{placeNote}</p>
                       <IdentifierPad
@@ -1278,6 +1274,10 @@ export function KioskApp() {
                         placeholder="STED"
                       />
                     </div>
+                  ) : city ? (
+                    <p className="mt-4 text-center text-[28px] font-bold tracking-wide">
+                      {city}
+                    </p>
                   ) : null}
                   <div className="mt-4 w-full max-w-[340px]">
                     <KioskButton
