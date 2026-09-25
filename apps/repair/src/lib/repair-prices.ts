@@ -1,7 +1,7 @@
 /**
  * Kundevendt prisliste (NOK, inkl. mva og arbeid).
  * Skjerm og batteri er «fra»-priser for kopi (iPhone 13-anker:
- * Soft OLED 1099 / kopi premium 610). Høyere modell koster mer.
+ * Soft OLED 1099 / kopi premium 549). Høyere modell koster mer.
  *
  * Mobilesentrix har ikke et åpent API. Innlogget grossistpriser derfra
  * kan du lime inn som USD og bruke suggestCustomerPriceKr() for å få et
@@ -46,7 +46,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 11",
     prices: {
       screen: 799,
-      battery: 490,
+      battery: 440,
       charging_port: 999,
       rear_camera: 1199,
       front_camera: 999,
@@ -60,7 +60,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 11 Pro",
     prices: {
       screen: 1049,
-      battery: 540,
+      battery: 490,
       charging_port: 1099,
       rear_camera: 1399,
       front_camera: 999,
@@ -74,7 +74,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 11 Pro Max",
     prices: {
       screen: 1199,
-      battery: 570,
+      battery: 520,
       charging_port: 1099,
       rear_camera: 1399,
       front_camera: 999,
@@ -88,7 +88,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 12",
     prices: {
       screen: 949,
-      battery: 550,
+      battery: 490,
       charging_port: 1099,
       rear_camera: 1399,
       front_camera: 1099,
@@ -102,7 +102,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 12 Pro",
     prices: {
       screen: 1199,
-      battery: 600,
+      battery: 540,
       charging_port: 1199,
       rear_camera: 1499,
       front_camera: 1099,
@@ -116,7 +116,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 12 Pro Max",
     prices: {
       screen: 1349,
-      battery: 630,
+      battery: 570,
       charging_port: 1199,
       rear_camera: 1599,
       front_camera: 1099,
@@ -130,7 +130,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 13",
     prices: {
       screen: 1099,
-      battery: 610,
+      battery: 549,
       charging_port: 1199,
       rear_camera: 1499,
       front_camera: 1199,
@@ -144,7 +144,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 13 Pro",
     prices: {
       screen: 1349,
-      battery: 660,
+      battery: 599,
       charging_port: 1299,
       rear_camera: 1699,
       front_camera: 1199,
@@ -158,7 +158,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 13 Pro Max",
     prices: {
       screen: 1499,
-      battery: 690,
+      battery: 629,
       charging_port: 1299,
       rear_camera: 1799,
       front_camera: 1199,
@@ -172,7 +172,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 14",
     prices: {
       screen: 1299,
-      battery: 690,
+      battery: 620,
       charging_port: 1399,
       rear_camera: 1699,
       front_camera: 1299,
@@ -186,7 +186,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 14 Pro",
     prices: {
       screen: 1549,
-      battery: 740,
+      battery: 670,
       charging_port: 1499,
       rear_camera: 1999,
       front_camera: 1299,
@@ -200,7 +200,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 14 Pro Max",
     prices: {
       screen: 1699,
-      battery: 770,
+      battery: 700,
       charging_port: 1499,
       rear_camera: 2099,
       front_camera: 1299,
@@ -214,7 +214,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 15",
     prices: {
       screen: 1499,
-      battery: 770,
+      battery: 690,
       charging_port: 1499,
       rear_camera: 1799,
       front_camera: 1399,
@@ -228,7 +228,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 15 Plus",
     prices: {
       screen: 1649,
-      battery: 800,
+      battery: 720,
       charging_port: 1499,
       rear_camera: 1899,
       front_camera: 1399,
@@ -242,7 +242,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 15 Pro",
     prices: {
       screen: 1749,
-      battery: 820,
+      battery: 740,
       charging_port: 1599,
       rear_camera: 1999,
       front_camera: 1399,
@@ -256,7 +256,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 15 Pro Max",
     prices: {
       screen: 1899,
-      battery: 850,
+      battery: 770,
       charging_port: 1599,
       rear_camera: 2099,
       front_camera: 1399,
@@ -270,7 +270,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 16e",
     prices: {
       screen: 1549,
-      battery: 800,
+      battery: 710,
       charging_port: 1399,
       rear_camera: 1699,
       front_camera: 1299,
@@ -284,7 +284,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 16",
     prices: {
       screen: 1699,
-      battery: 850,
+      battery: 760,
       charging_port: 1599,
       rear_camera: 1899,
       front_camera: 1499,
@@ -298,7 +298,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 16 Plus",
     prices: {
       screen: 1849,
-      battery: 880,
+      battery: 790,
       charging_port: 1599,
       rear_camera: 1999,
       front_camera: 1499,
@@ -312,7 +312,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 16 Pro",
     prices: {
       screen: 1949,
-      battery: 900,
+      battery: 810,
       charging_port: 1699,
       rear_camera: 2199,
       front_camera: 1499,
@@ -326,7 +326,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 16 Pro Max",
     prices: {
       screen: 2099,
-      battery: 930,
+      battery: 840,
       charging_port: 1699,
       rear_camera: 2299,
       front_camera: 1499,
@@ -340,7 +340,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 17e",
     prices: {
       screen: 1749,
-      battery: 880,
+      battery: 780,
       charging_port: 1499,
       rear_camera: 1799,
       front_camera: 1399,
@@ -354,7 +354,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 17",
     prices: {
       screen: 1899,
-      battery: 930,
+      battery: 830,
       charging_port: 1699,
       rear_camera: 2099,
       front_camera: 1599,
@@ -368,7 +368,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone Air",
     prices: {
       screen: 2099,
-      battery: 970,
+      battery: 870,
       charging_port: 1699,
       rear_camera: 2199,
       front_camera: 1599,
@@ -382,7 +382,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 17 Pro",
     prices: {
       screen: 2149,
-      battery: 980,
+      battery: 880,
       charging_port: 1799,
       rear_camera: 2399,
       front_camera: 1599,
@@ -396,7 +396,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 17 Pro Max",
     prices: {
       screen: 2299,
-      battery: 1010,
+      battery: 910,
       charging_port: 1799,
       rear_camera: 2499,
       front_camera: 1599,

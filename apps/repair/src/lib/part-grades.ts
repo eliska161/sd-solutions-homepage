@@ -15,8 +15,10 @@ export type PublicJobType = (typeof PUBLIC_JOB_TYPES)[number];
 export const PART_GRADES = ["copy", "oem_pull", "original"] as const;
 export type PartGrade = (typeof PART_GRADES)[number];
 
-export const BATTERY_HEALTH_BANDS = ["90_94", "95_98", "99_100"] as const;
+/** OEM-pull batteri: bare 99–100 % helse. */
+export const BATTERY_HEALTH_BANDS = ["99_100"] as const;
 export type BatteryHealthBand = (typeof BATTERY_HEALTH_BANDS)[number];
+export const OEM_PULL_BATTERY_HEALTH: BatteryHealthBand = "99_100";
 
 type ScreenBand = {
   copy: number;
@@ -26,35 +28,32 @@ type ScreenBand = {
 
 type BatteryBand = {
   copy: number;
-  oemPull90: number;
-  oemPull95: number;
-  oemPull99: number;
+  oemPull: number;
   original: number;
 };
 
 /** iPhone 13: kopi Soft OLED 1099, OEM-pull 1499, original 3990. */
 const SCREEN_NOK: Record<string, ScreenBand> = {
-  "11": { copy: 799, oemPull: 1099, original: 2990 },
-  "12": { copy: 949, oemPull: 1299, original: 3490 },
+  "11": { copy: 799, oemPull: 999, original: 2990 },
+  "12": { copy: 949, oemPull: 1249, original: 3490 },
   "13": { copy: 1099, oemPull: 1499, original: 3990 },
-  "14": { copy: 1299, oemPull: 1799, original: 4490 },
-  "15": { copy: 1499, oemPull: 2099, original: 4990 },
-  "16": { copy: 1699, oemPull: 2399, original: 5490 },
-  "17": { copy: 1899, oemPull: 2699, original: 5990 },
+  "14": { copy: 1299, oemPull: 2199, original: 4490 },
+  "15": { copy: 1499, oemPull: 2899, original: 5190 },
+  "16": { copy: 1699, oemPull: 3599, original: 5890 },
+  "17": { copy: 1899, oemPull: 3990, original: 6690 },
 };
 
 /**
- * iPhone 13: kopi premium 610, OEM-pull 90–94 / 95–98 / 99–100: 699 / 799 / 899,
- * original 1190.
+ * iPhone 13: kopi premium 549, OEM-pull 99–100 % 799, original 1090.
  */
 const BATTERY_NOK: Record<string, BatteryBand> = {
-  "11": { copy: 490, oemPull90: 549, oemPull95: 649, oemPull99: 749, original: 990 },
-  "12": { copy: 550, oemPull90: 629, oemPull95: 729, oemPull99: 829, original: 1090 },
-  "13": { copy: 610, oemPull90: 699, oemPull95: 799, oemPull99: 899, original: 1190 },
-  "14": { copy: 690, oemPull90: 779, oemPull95: 879, oemPull99: 979, original: 1290 },
-  "15": { copy: 770, oemPull90: 859, oemPull95: 959, oemPull99: 1059, original: 1390 },
-  "16": { copy: 850, oemPull90: 939, oemPull95: 1039, oemPull99: 1139, original: 1490 },
-  "17": { copy: 930, oemPull90: 1019, oemPull95: 1119, oemPull99: 1219, original: 1590 },
+  "11": { copy: 440, oemPull: 649, original: 890 },
+  "12": { copy: 490, oemPull: 729, original: 990 },
+  "13": { copy: 549, oemPull: 799, original: 1090 },
+  "14": { copy: 620, oemPull: 879, original: 1190 },
+  "15": { copy: 690, oemPull: 959, original: 1290 },
+  "16": { copy: 760, oemPull: 1039, original: 1390 },
+  "17": { copy: 830, oemPull: 1119, original: 1490 },
 };
 
 type ModelVariant = "e" | "base" | "plus" | "air" | "pro" | "pro_max";
@@ -66,6 +65,16 @@ const SCREEN_VARIANT: Record<ModelVariant, number> = {
   air: 200,
   pro: 250,
   pro_max: 400,
+};
+
+/** OEM-pull skjerm stiger brattere. iPhone 17 Pro Max = 3990 + 1000 = 4990. */
+const SCREEN_OEM_VARIANT: Record<ModelVariant, number> = {
+  e: -200,
+  base: 0,
+  plus: 200,
+  air: 300,
+  pro: 500,
+  pro_max: 1000,
 };
 
 const BATTERY_VARIANT: Record<ModelVariant, number> = {
@@ -106,28 +115,30 @@ export const PART_GRADE_OPTIONS: {
 ];
 
 export function partGradeOptionsForJob(jobType: PublicJobType) {
-  if (jobType === "battery") {
-    return PART_GRADE_OPTIONS.map((row) =>
-      row.id === "copy"
-        ? {
-            ...row,
-            label: "Kopi premium",
-            help: "Ny kompatibel premium-del, ikke original Apple-del.",
-          }
-        : row,
-    );
-  }
-  return PART_GRADE_OPTIONS;
+  if (jobType !== "battery") return PART_GRADE_OPTIONS;
+  return PART_GRADE_OPTIONS.map((row) => {
+    if (row.id === "copy") {
+      return {
+        ...row,
+        label: "Kopi premium",
+        help: "Ny kompatibel premium-del, ikke original Apple-del.",
+      };
+    }
+    if (row.id === "oem_pull") {
+      return {
+        ...row,
+        label: "Original fra annen telefon (99–100 %)",
+        help: "OEM-pull. Vi bruker bare batteri med 99–100 % helse.",
+      };
+    }
+    return row;
+  });
 }
 
 export const BATTERY_HEALTH_OPTIONS: {
   id: BatteryHealthBand;
   label: string;
-}[] = [
-  { id: "90_94", label: "90–94 % batterihelse" },
-  { id: "95_98", label: "95–98 % batterihelse" },
-  { id: "99_100", label: "99–100 % batterihelse" },
-];
+}[] = [{ id: "99_100", label: "99–100 % batterihelse" }];
 
 export function isPublicJobType(value: string): value is PublicJobType {
   return (PUBLIC_JOB_TYPES as readonly string[]).includes(value);
@@ -186,24 +197,22 @@ function gradePriceKr(input: {
   deviceLabel: string;
   jobType: Exclude<PublicJobType, "other">;
   partGrade: PartGrade;
-  health: BatteryHealthBand | null;
 }): number {
   const gen = generationFromModel(input.deviceLabel);
   const variant = variantFromModel(input.deviceLabel);
   if (input.jobType === "screen") {
     const row = SCREEN_NOK[gen] ?? SCREEN_NOK["13"];
-    const extra = SCREEN_VARIANT[variant];
-    if (input.partGrade === "copy") return row.copy + extra;
-    if (input.partGrade === "original") return row.original + extra;
-    return row.oemPull + extra;
+    if (input.partGrade === "copy") return row.copy + SCREEN_VARIANT[variant];
+    if (input.partGrade === "original") {
+      return row.original + SCREEN_OEM_VARIANT[variant];
+    }
+    return row.oemPull + SCREEN_OEM_VARIANT[variant];
   }
   const row = BATTERY_NOK[gen] ?? BATTERY_NOK["13"];
   const extra = BATTERY_VARIANT[variant];
   if (input.partGrade === "copy") return row.copy + extra;
   if (input.partGrade === "original") return row.original + extra;
-  if (input.health === "95_98") return row.oemPull95 + extra;
-  if (input.health === "99_100") return row.oemPull99 + extra;
-  return row.oemPull90 + extra;
+  return row.oemPull + extra;
 }
 
 export type PartQuote = {
@@ -226,13 +235,12 @@ export function quotePublicPart(input: {
   if (input.jobType === "other") return null;
   const health =
     input.jobType === "battery" && input.partGrade === "oem_pull"
-      ? input.batteryHealth ?? "90_94"
+      ? OEM_PULL_BATTERY_HEALTH
       : null;
   const priceKr = gradePriceKr({
     deviceLabel: input.deviceLabel,
     jobType: input.jobType,
     partGrade: input.partGrade,
-    health,
   });
   const partsKr = priceKr / WHOLESALE_MARKUP;
   const label = publicJobChoiceLabel({
@@ -261,11 +269,7 @@ export function publicJobChoiceLabel(input: {
   const grade = partGradeOptionsForJob(input.jobType).find(
     (row) => row.id === input.partGrade,
   );
-  const health =
-    input.jobType === "battery" && input.partGrade === "oem_pull"
-      ? BATTERY_HEALTH_OPTIONS.find((row) => row.id === input.batteryHealth)?.label
-      : null;
-  return [JOB_TYPE_LABELS[input.jobType], grade?.label, health]
+  return [JOB_TYPE_LABELS[input.jobType], grade?.label]
     .filter(Boolean)
     .join(" · ");
 }
