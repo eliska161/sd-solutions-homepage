@@ -605,6 +605,8 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
           </div>
           <a
             href="/api/public/repair-terms"
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-block text-[13px] text-accent underline"
           >
             Last ned betingelsene som PDF
