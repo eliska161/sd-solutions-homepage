@@ -286,7 +286,7 @@ export function KioskApp() {
 
   async function startPrint() {
     dispatch({ type: "GO", screen: "DELIVERY_LABEL" });
-    setLabelPrinted(false);
+    setLabelPrinted(true);
     const ok = await hardware(
       (fail) =>
         printLabel(
@@ -1394,11 +1394,11 @@ export function KioskApp() {
                 <h1 className="mt-2 text-[32px] font-bold tracking-tight">
                   Lever inn enhet
                 </h1>
-                <div className="flex flex-1 items-center">
+                <div className="flex min-h-0 flex-1 items-center overflow-hidden">
                   <EnvelopeVisual />
                 </div>
                 <p className="mb-4 text-center text-[32px] font-bold leading-tight">
-                  Legg enheten i en plastkonvolutt
+                  Legg enheten i en boblekonvolutt
                 </p>
                 <KioskButton onClick={startPrint}>Jeg har gjort dette</KioskButton>
               </ScreenFrame>
@@ -1412,18 +1412,21 @@ export function KioskApp() {
                 <h1 className="mt-2 text-[32px] font-bold tracking-tight">
                   Fest etiketten
                 </h1>
-                <div className="flex flex-1 items-center">
+                <div className="flex min-h-0 flex-1 items-center overflow-hidden">
                   <LabelVisual
                     printed={labelPrinted}
                     ticket={ticket}
                     device={device}
+                    model={selected?.model}
+                    storage={selected?.storage}
+                    color={selected?.color}
                     phone={stickerPhoneLabel}
                     issue={issue}
                     parts={stickerParts}
                   />
                 </div>
-                <p className="mb-4 text-center text-[32px] font-bold leading-tight">
-                  Ta etiketten og fest den på konvolutten
+                <p className="mb-4 text-center text-[28px] font-bold leading-tight">
+                  Ta etiketten og fest den på boblekonvolutten
                 </p>
                 <KioskButton
                   disabled={!labelPrinted || busy}
@@ -1455,7 +1458,7 @@ export function KioskApp() {
                 onCancel={() => dispatch({ type: "HOME" })}
               >
                 <h1 className="mt-2 text-[32px] font-bold leading-tight tracking-tight">
-                  Legg konvolutten i luke {MOCK_LOCKER}
+                  Legg boblekonvolutten i luke {MOCK_LOCKER}
                 </h1>
                 <div className="flex flex-1 items-center">
                   <LockerVisual
@@ -1647,7 +1650,7 @@ export function KioskApp() {
                   />
                 </div>
                 <p className="mb-4 text-center text-[32px] font-bold leading-tight">
-                  Ta ut konvolutten fra luke {MOCK_LOCKER}
+                  Ta ut boblekonvolutten fra luke {MOCK_LOCKER}
                 </p>
                 <KioskButton
                   onClick={() => {
