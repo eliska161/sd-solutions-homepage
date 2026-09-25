@@ -17,7 +17,7 @@ import { LEGAL_PARTY, WORKSHOP_FEES, PART_GRADE_CUSTOMER_TEXT } from "@/lib/lega
 import {
   BATTERY_HEALTH_OPTIONS,
   JOB_TYPE_LABELS,
-  PART_GRADE_OPTIONS,
+  partGradeOptionsForJob,
   quotePublicPart,
   type BatteryHealthBand,
   type PartGrade,
@@ -422,7 +422,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
             <div className="sm:col-span-2 space-y-3">
               <p className="text-sm font-medium text-foreground">Deltype</p>
               <div className="grid gap-2">
-                {PART_GRADE_OPTIONS.map((option) => {
+                {partGradeOptionsForJob(jobType).map((option) => {
                   const optionQuote = model
                     ? quotePublicPart({
                         deviceLabel: model,
