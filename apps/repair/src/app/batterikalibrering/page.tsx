@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function BatteryCalibratePrintPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center bg-[#f3efe6] p-4 print:min-h-0 print:bg-white print:p-0">
+    <main className="flex min-h-screen flex-col items-center bg-[#e8eaee] p-4 print:min-h-0 print:bg-white print:p-0">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={BATTERY_CALIBRATE_PUBLIC_PATH}
