@@ -19,6 +19,7 @@ export type PartGrade = (typeof PART_GRADES)[number];
 export const BATTERY_HEALTH_BANDS = ["99_100"] as const;
 export type BatteryHealthBand = (typeof BATTERY_HEALTH_BANDS)[number];
 export const OEM_PULL_BATTERY_HEALTH: BatteryHealthBand = "99_100";
+export const BATTERY_MIN_KR = 520;
 
 type ScreenBand = {
   copy: number;
@@ -45,10 +46,11 @@ const SCREEN_NOK: Record<string, ScreenBand> = {
 
 /**
  * iPhone 13: kopi premium 549, OEM-pull 99–100 % 799, original 1090.
+ * Kopi aldri under BATTERY_MIN_KR (520).
  */
 const BATTERY_NOK: Record<string, BatteryBand> = {
-  "11": { copy: 440, oemPull: 649, original: 890 },
-  "12": { copy: 490, oemPull: 729, original: 990 },
+  "11": { copy: 520, oemPull: 649, original: 890 },
+  "12": { copy: 520, oemPull: 729, original: 990 },
   "13": { copy: 549, oemPull: 799, original: 1090 },
   "14": { copy: 620, oemPull: 879, original: 1190 },
   "15": { copy: 690, oemPull: 959, original: 1290 },
@@ -190,7 +192,7 @@ export function listCopyPriceKr(
     return row.copy + SCREEN_VARIANT[variant];
   }
   const row = BATTERY_NOK[gen] ?? BATTERY_NOK["13"];
-  return row.copy + BATTERY_VARIANT[variant];
+  return Math.max(BATTERY_MIN_KR, row.copy + BATTERY_VARIANT[variant]);
 }
 
 function gradePriceKr(input: {
@@ -210,9 +212,13 @@ function gradePriceKr(input: {
   }
   const row = BATTERY_NOK[gen] ?? BATTERY_NOK["13"];
   const extra = BATTERY_VARIANT[variant];
-  if (input.partGrade === "copy") return row.copy + extra;
-  if (input.partGrade === "original") return row.original + extra;
-  return row.oemPull + extra;
+  if (input.partGrade === "copy") {
+    return Math.max(BATTERY_MIN_KR, row.copy + extra);
+  }
+  if (input.partGrade === "original") {
+    return Math.max(BATTERY_MIN_KR, row.original + extra);
+  }
+  return Math.max(BATTERY_MIN_KR, row.oemPull + extra);
 }
 
 export type PartQuote = {

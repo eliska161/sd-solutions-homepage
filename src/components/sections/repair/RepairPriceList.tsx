@@ -27,9 +27,7 @@ export function RepairPriceList() {
           Prisliste
         </h2>
         <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-muted">
-          Fra-priser for kopi (skjerm Soft OLED, batteri kopi premium). Velg
-          modell — nyere iPhone koster mer. Original fra annen telefon eller ny
-          original koster mer; du får et mer presist tall etter diagnose.
+          Velg modell. Beløpene er fra-priser.
         </p>
       </FadeIn>
 

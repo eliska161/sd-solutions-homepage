@@ -46,7 +46,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 11",
     prices: {
       screen: 799,
-      battery: 440,
+      battery: 520,
       charging_port: 999,
       rear_camera: 1199,
       front_camera: 999,
@@ -60,7 +60,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 11 Pro",
     prices: {
       screen: 1049,
-      battery: 490,
+      battery: 520,
       charging_port: 1099,
       rear_camera: 1399,
       front_camera: 999,
@@ -88,7 +88,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     label: "iPhone 12",
     prices: {
       screen: 949,
-      battery: 490,
+      battery: 520,
       charging_port: 1099,
       rear_camera: 1399,
       front_camera: 1099,
@@ -439,7 +439,7 @@ export function formatListPrice(serviceId: RepairServiceId, amount: number): str
 }
 
 export const PRICE_LIST_DISCLAIMER =
-  "Fra-priser for billigste delvalg: skjerm Kopi (Soft OLED), batteri Kopi premium. iPhone 13 er ankeret; nyere modeller koster mer. Original fra annen telefon eller ny original koster mer. Alle beløp inkl. mva og arbeid. Endelig pris etter det vi finner. Diagnose 399 kr hvis vi ikke finner feil, eller hvis du takker nei etter diagnose. Utført reparasjon: diagnosen inngår.";
+  "Fra-priser inkl. mva og arbeid. Diagnose 399 kr hvis vi ikke finner feil, eller hvis du takker nei etter diagnose. Utført reparasjon: diagnosen inngår.";
 
 /** Match «Apple iPhone 14 128 GB» to a row in the list. Longer names first. */
 export function matchRepairModel(deviceLabel: string): RepairModel | undefined {
