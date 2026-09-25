@@ -567,7 +567,7 @@ export async function createKioskLockerOrder(input: {
   });
   await db.insert(repairNotes).values({
     ticketId: ticket.id,
-    content: `Opprettet i locker og signert. Feil: ${issue}.${comment ? ` Kommentar: ${comment}` : ""} ${imei ? `IMEI: ${imei}.` : ""} ${serialNumber ? `SN: ${serialNumber}.` : ""}${etaOffer ? ` Ferdig neste dag (${formatOsloDateLabel(etaOffer.readyOn)}) hvis innlevert i dag.` : ""}`,
+    content: `Opprettet i locker og signert. Feil: ${issue}.${comment ? ` Kommentar: ${comment}` : ""} ${imei ? `IMEI: ${imei}.` : ""} ${serialNumber ? `SN: ${serialNumber}.` : ""}${etaOffer ? ` Ferdig ${formatOsloDateLabel(etaOffer.readyOn)} hvis deler velges og enheten er innlevert innen kl. 12 den dagen. Helg telles ikke.` : ""}`,
     visibility: "INTERNAL",
   });
   await writeAuditLog({

@@ -353,7 +353,7 @@ export async function createPublicServiceOrder(
       data.inboundMethod === "POST"
         ? "Kunden sender enheten med post. Marker som mottatt når pakken kommer inn."
         : etaOffer
-          ? `Kunden leverer enheten fysisk. Ferdig neste dag (${formatOsloDateLabel(etaOffer.readyOn)}) hvis den er innlevert i dag innen kl. 18:30.`
+          ? `Kunden leverer enheten fysisk. Ferdig ${formatOsloDateLabel(etaOffer.readyOn)} hvis serviceordre opprettes nå, deler velges, og enheten leveres innen kl. 12 den dagen. Helg telles ikke.`
           : "Kunden leverer enheten fysisk. Marker som mottatt når den er tatt inn i skranken.",
     visibility: "INTERNAL",
   });
