@@ -24,7 +24,6 @@ function ReviewCard({ review }: { review: GoogleReview }) {
 export function RepairReviews({ data }: { data: GoogleReviewSummary }) {
   const scroller = useRef<HTMLDivElement>(null);
   const reviews = data.reviews;
-  if (reviews.length === 0) return null;
 
   function scrollByCard(dir: -1 | 1) {
     const el = scroller.current;
@@ -63,18 +62,48 @@ export function RepairReviews({ data }: { data: GoogleReviewSummary }) {
         </div>
       </FadeIn>
 
-      <FadeIn delay={0.08}>
-        <div
-          ref={scroller}
-          className="mt-10 flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory [scrollbar-width:thin]"
-        >
-          {reviews.map((review, index) => (
-            <ReviewCard
-              key={`${review.author}-${review.publishedAt ?? index}`}
-              review={review}
-            />
-          ))}
-        </div>
+      {reviews.length > 0 ? (
+        <FadeIn delay={0.08}>
+          <div
+            ref={scroller}
+            className="mt-10 flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory [scrollbar-width:thin]"
+          >
+            {reviews.map((review, index) => (
+              <ReviewCard
+                key={`${review.author}-${review.publishedAt ?? index}`}
+                review={review}
+              />
+            ))}
+          </div>
+        </FadeIn>
+      ) : (
+        <FadeIn delay={0.08}>
+          <p className="mt-8 max-w-xl text-[15px] leading-relaxed text-muted">
+            Anmeldelser ligger på Google. Vi henter dem ikke hit uten betalt
+            Places API.
+          </p>
+        </FadeIn>
+      )}
+
+      <FadeIn delay={0.12}>
+        <p className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[15px]">
+          <a
+            href={data.mapsUrl}
+            className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Les på Google
+          </a>
+          <a
+            href={data.writeUrl}
+            className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Skriv en anmeldelse
+          </a>
+        </p>
       </FadeIn>
     </Section>
   );
