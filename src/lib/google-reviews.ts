@@ -4,6 +4,9 @@ export const GOOGLE_REVIEW_URL =
 export const GOOGLE_MAPS_URL =
   "https://www.google.com/maps/place//data=!4m2!3m1!1s0x63c843d32d4be32b:0x84953be6aa965690";
 
+/** Google Maps feature id for SD Solutions, Elverum. */
+const GOOGLE_FEATURE_ID = "0x63c843d32d4be32b:0x84953be6aa965690";
+
 export type GoogleReview = {
   author: string;
   rating: number;
@@ -20,8 +23,8 @@ export type GoogleReviewSummary = {
 };
 
 /**
- * Last-known public reviews. Updated when Places API is configured, or by
- * editing this list. Do not invent names or quotes that are not from Google.
+ * Empty until Outscraper returns real Google reviews.
+ * Do not invent names or quotes.
  */
 export const GOOGLE_REVIEW_SNAPSHOT: GoogleReviewSummary = {
   rating: null,
@@ -31,87 +34,62 @@ export const GOOGLE_REVIEW_SNAPSHOT: GoogleReviewSummary = {
   mapsUrl: GOOGLE_MAPS_URL,
 };
 
+const REVIEW_CACHE_SECONDS = 600;
+const REVIEW_LIMIT = 12;
+
 function asNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
 }
 
-function parsePlacesReview(row: unknown): GoogleReview | null {
+function parseOutscraperReview(row: unknown): GoogleReview | null {
   if (!row || typeof row !== "object") return null;
   const review = row as Record<string, unknown>;
-  const textObj = review.text;
-  let text = "";
-  if (typeof textObj === "string") text = textObj;
-  else if (textObj && typeof textObj === "object" && "text" in textObj) {
-    const inner = (textObj as { text?: unknown }).text;
-    if (typeof inner === "string") text = inner;
-  } else if (typeof review.text === "string") {
-    text = review.text;
-  }
-  text = text.trim();
+  const text =
+    typeof review.review_text === "string" ? review.review_text.trim() : "";
   if (text.length < 8) return null;
-
-  const authorObj = review.authorAttribution;
-  let author = "Google-bruker";
-  if (authorObj && typeof authorObj === "object") {
-    const name = (authorObj as { displayName?: unknown }).displayName;
-    if (typeof name === "string" && name.trim()) author = name.trim();
-  } else if (typeof review.author_name === "string" && review.author_name.trim()) {
-    author = review.author_name.trim();
-  }
-
-  const rating =
-    asNumber(review.rating) ??
-    asNumber((review as { starRating?: unknown }).starRating) ??
-    5;
-
+  const rating = asNumber(review.review_rating);
+  if (rating == null) return null;
+  const author =
+    typeof review.author_title === "string" && review.author_title.trim()
+      ? review.author_title.trim()
+      : "Google-bruker";
   let publishedAt: string | null = null;
-  if (typeof review.publishTime === "string") publishedAt = review.publishTime;
-  else if (typeof review.time === "number") {
-    publishedAt = new Date(review.time * 1000).toISOString();
-  }
-
+  const ts = asNumber(review.review_timestamp);
+  if (ts != null) publishedAt = new Date(ts * 1000).toISOString();
   return { author, rating, text, publishedAt };
 }
 
-function placeName(place: Record<string, unknown>) {
-  const name = place.displayName;
-  if (name && typeof name === "object" && "text" in name) {
-    return String((name as { text?: unknown }).text ?? "");
-  }
-  return typeof place.name === "string" ? place.name : "";
+function isSdSolutionsPlace(place: Record<string, unknown>): boolean {
+  const googleId =
+    typeof place.google_id === "string" ? place.google_id.trim() : "";
+  if (googleId === GOOGLE_FEATURE_ID) return true;
+
+  const name = typeof place.name === "string" ? place.name.toLowerCase() : "";
+  const addr =
+    typeof place.full_address === "string"
+      ? place.full_address.toLowerCase()
+      : "";
+  return (
+    name.includes("sd solutions") ||
+    (addr.includes("elverum") && name.includes("sd"))
+  );
 }
 
-function placeAddress(place: Record<string, unknown>) {
-  return typeof place.formattedAddress === "string"
-    ? place.formattedAddress
-    : "";
-}
+function fromOutscraperPlace(
+  place: Record<string, unknown>,
+): GoogleReviewSummary | null {
+  if (!isSdSolutionsPlace(place)) return null;
 
-function pickPlace(places: Record<string, unknown>[]) {
-  const scored = places.map((place) => {
-    const name = placeName(place).toLowerCase();
-    const addr = placeAddress(place).toLowerCase();
-    let score = 0;
-    if (name.includes("sd solutions")) score += 5;
-    if (addr.includes("elverum")) score += 5;
-    if (addr.includes("slått") || addr.includes("slatt")) score += 3;
-    return { place, score };
-  });
-  scored.sort((a, b) => b.score - a.score);
-  const best = scored[0];
-  if (!best || best.score < 5) return null;
-  return best.place;
-}
-
-function fromPlace(place: Record<string, unknown>): GoogleReviewSummary | null {
   const rating = asNumber(place.rating);
-  const count =
-    asNumber(place.userRatingCount) ??
-    asNumber(place.user_ratings_total) ??
-    0;
-  const rawReviews = Array.isArray(place.reviews) ? place.reviews : [];
-  const reviews = rawReviews
-    .map(parsePlacesReview)
+  const count = asNumber(place.reviews) ?? 0;
+  const raw = Array.isArray(place.reviews_data) ? place.reviews_data : [];
+  const reviews = raw
+    .map(parseOutscraperReview)
     .filter((row): row is GoogleReview => Boolean(row));
   if (!rating && reviews.length === 0 && !count) return null;
   return {
@@ -123,60 +101,37 @@ function fromPlace(place: Record<string, unknown>): GoogleReviewSummary | null {
   };
 }
 
-const REVIEW_CACHE_SECONDS = 600;
-
-/** Places API (New) text search + reviews. Falls back to the snapshot. */
+/** Outscraper Google Maps reviews. Falls back to the empty snapshot. */
 export async function loadGoogleReviews(): Promise<GoogleReviewSummary> {
-  const key = process.env.GOOGLE_PLACES_API_KEY?.trim();
+  const key = process.env.OUTSCRAPER_API_KEY?.trim();
   if (!key) return GOOGLE_REVIEW_SNAPSHOT;
+
+  const params = new URLSearchParams({
+    query: GOOGLE_FEATURE_ID,
+    reviewsLimit: String(REVIEW_LIMIT),
+    limit: "1",
+    sort: "newest",
+    ignoreEmpty: "true",
+    language: "no",
+    region: "NO",
+    async: "false",
+  });
 
   try {
     const res = await fetch(
-      "https://places.googleapis.com/v1/places:searchText",
+      `https://api.outscraper.com/google-maps-reviews?${params.toString()}`,
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": key,
-          "X-Goog-FieldMask":
-            "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.reviews",
-        },
-        body: JSON.stringify({
-          textQuery: "SD Solutions Slåttmyrvegen 49 Elverum",
-          languageCode: "no",
-          regionCode: "NO",
-          maxResultCount: 3,
-        }),
+        headers: { "X-API-KEY": key },
         next: { revalidate: REVIEW_CACHE_SECONDS },
       },
     );
     if (!res.ok) return GOOGLE_REVIEW_SNAPSHOT;
-    const data = (await res.json()) as { places?: Record<string, unknown>[] };
-    const places = data.places ?? [];
-    const match = pickPlace(places);
-    if (!match) return GOOGLE_REVIEW_SNAPSHOT;
-    const placeId =
-      typeof match.id === "string"
-        ? match.id.replace(/^places\//, "")
-        : "";
-    if (placeId) {
-      const details = await fetch(
-        `https://places.googleapis.com/v1/places/${placeId}`,
-        {
-          headers: {
-            "X-Goog-Api-Key": key,
-            "X-Goog-FieldMask":
-              "id,displayName,formattedAddress,rating,userRatingCount,reviews",
-          },
-          next: { revalidate: REVIEW_CACHE_SECONDS },
-        },
-      );
-      if (details.ok) {
-        const body = (await details.json()) as Record<string, unknown>;
-        return fromPlace(body) ?? fromPlace(match) ?? GOOGLE_REVIEW_SNAPSHOT;
-      }
-    }
-    return fromPlace(match) ?? GOOGLE_REVIEW_SNAPSHOT;
+    const body = (await res.json()) as {
+      data?: Record<string, unknown>[];
+    };
+    const place = body.data?.[0];
+    if (!place) return GOOGLE_REVIEW_SNAPSHOT;
+    return fromOutscraperPlace(place) ?? GOOGLE_REVIEW_SNAPSHOT;
   } catch {
     return GOOGLE_REVIEW_SNAPSHOT;
   }

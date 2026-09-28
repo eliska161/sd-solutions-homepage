@@ -11,6 +11,9 @@ import { RepairPriceList } from "@/components/sections/repair/RepairPriceList";
 import { company } from "@/lib/company";
 import { loadGoogleReviews } from "@/lib/google-reviews";
 
+/** Outscraper with async=false can take longer than the default serverless window. */
+export const maxDuration = 60;
+
 export const metadata: Metadata = {
   title: "SD Solutions — iPhone-reparasjon",
   description: company.repairDescription,
