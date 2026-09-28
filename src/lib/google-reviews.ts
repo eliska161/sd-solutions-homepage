@@ -123,6 +123,8 @@ function fromPlace(place: Record<string, unknown>): GoogleReviewSummary | null {
   };
 }
 
+const REVIEW_CACHE_SECONDS = 600;
+
 /** Places API (New) text search + reviews. Falls back to the snapshot. */
 export async function loadGoogleReviews(): Promise<GoogleReviewSummary> {
   const key = process.env.GOOGLE_PLACES_API_KEY?.trim();
@@ -145,7 +147,7 @@ export async function loadGoogleReviews(): Promise<GoogleReviewSummary> {
           regionCode: "NO",
           maxResultCount: 3,
         }),
-        next: { revalidate: 86400 },
+        next: { revalidate: REVIEW_CACHE_SECONDS },
       },
     );
     if (!res.ok) return GOOGLE_REVIEW_SNAPSHOT;
@@ -166,7 +168,7 @@ export async function loadGoogleReviews(): Promise<GoogleReviewSummary> {
             "X-Goog-FieldMask":
               "id,displayName,formattedAddress,rating,userRatingCount,reviews",
           },
-          next: { revalidate: 86400 },
+          next: { revalidate: REVIEW_CACHE_SECONDS },
         },
       );
       if (details.ok) {
