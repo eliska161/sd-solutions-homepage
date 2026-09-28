@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/Label";
 export function PhoneCountryField({
   value,
   onChange,
+  required = true,
 }: {
   value: string;
   onChange: (value: string) => void;
+  required?: boolean;
 }) {
   return (
     <div className="phone-field">
@@ -28,7 +30,7 @@ export function PhoneCountryField({
         numberInputProps={{
           id: "phone",
           name: "phone",
-          required: true,
+          required,
           autoComplete: "tel",
           inputMode: "tel",
         }}

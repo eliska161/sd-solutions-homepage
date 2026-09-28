@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, gte, ilike, sql } from "drizzle-orm";
+import { and, eq, gte, ilike, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   customers,
@@ -126,76 +126,166 @@ export type PublicDeviceLookup = {
   colorOptions: string[];
   storageOptions: string[];
   imei: string | null;
+  serialNumber: string | null;
   note: string;
 };
 
-/**
- * Catalog-only lookup for the public service-order form.
- * Does not search other customers' devices.
- */
-export async function lookupPublicImeiOrSerial(
-  query: string,
-): Promise<PublicDeviceLookup> {
-  const empty: PublicDeviceLookup = {
+function compactSerial(raw: string) {
+  return raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+}
+
+function emptyLookup(note = ""): PublicDeviceLookup {
+  return {
     model: null,
     colorOptions: [],
     storageOptions: [],
     imei: null,
-    note: "",
+    serialNumber: null,
+    note,
   };
+}
 
-  const q = query.trim();
-  if (q.length < 5) {
-    return { ...empty, note: "Skriv IMEI eller serienummer først." };
+function uniqueOptions(preferred: string | null | undefined, rest: string[]) {
+  const first = preferred?.trim();
+  const extras = rest.filter((value) => value && value !== first);
+  return first ? [first, ...extras] : extras;
+}
+
+function fromCatalog(catalog: NonNullable<ReturnType<typeof lookupImeiCatalog>>) {
+  if (!catalog.brand || !catalog.model) return null;
+  const matched = matchIphoneModel(catalog.model);
+  const model =
+    matched?.name ??
+    (/^iphone\b/i.test(catalog.model) ? catalog.model : null);
+  const colorOptions =
+    catalog.colorOptions.length > 0
+      ? catalog.colorOptions
+      : (matched?.colors ?? []);
+  const storageOptions =
+    catalog.storageOptions.length > 0
+      ? catalog.storageOptions
+      : (matched?.storages ?? []);
+  const note = model
+    ? `Fant ${model}. Velg farge og lagring hvis det mangler.`
+    : `Oppslag fant ${catalog.brand} ${catalog.model}. Velg iPhone-modell under.`;
+  return {
+    model,
+    colorOptions,
+    storageOptions,
+    imei: catalog.imei.length >= 14 ? catalog.imei : null,
+    serialNumber: null as string | null,
+    note,
+  };
+}
+
+async function lookupStoredHardware(opts: {
+  imeiDigits: string;
+  serialCompact: string;
+}) {
+  const clauses = [];
+  if (opts.imeiDigits.length >= 14) {
+    clauses.push(
+      sql`regexp_replace(coalesce(${devices.imei}, ''), '[^0-9]', '', 'g') = ${opts.imeiDigits}`,
+    );
+  }
+  if (opts.serialCompact.length >= 8) {
+    clauses.push(
+      sql`upper(regexp_replace(coalesce(${devices.serialNumber}, ''), '[^A-Za-z0-9]', '', 'g')) = ${opts.serialCompact}`,
+    );
+  }
+  if (clauses.length === 0) return null;
+
+  const db = getDb();
+  const [row] = await db
+    .select({
+      model: devices.model,
+      color: devices.color,
+      storage: devices.storage,
+      imei: devices.imei,
+      serialNumber: devices.serialNumber,
+    })
+    .from(devices)
+    .where(or(...clauses))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Public service-order lookup: TAC for IMEI, known serial/IMEI in our device
+ * register for hardware fields only (no customer names).
+ */
+export async function lookupPublicDevice(input: {
+  imei?: string;
+  serialNumber?: string;
+}): Promise<PublicDeviceLookup> {
+  const imeiRaw = input.imei?.trim() ?? "";
+  const serialRaw = input.serialNumber?.trim() ?? "";
+  const imeiDigits = normalizeImei(imeiRaw);
+  const serialCompact = compactSerial(serialRaw);
+
+  if (imeiDigits.length < 8 && serialCompact.length < 8) {
+    return emptyLookup("Skriv IMEI eller serienummer først.");
   }
 
-  const digits = normalizeImei(q);
-  const catalog = digits.length >= 8 ? lookupImeiCatalog(digits) : null;
-
-  if (catalog?.brand && catalog.model) {
-    const matched = matchIphoneModel(catalog.model);
-    const model =
-      matched?.name ??
-      (/^iphone\b/i.test(catalog.model) ? catalog.model : null);
-    const colorOptions =
-      catalog.colorOptions.length > 0
-        ? catalog.colorOptions
-        : (matched?.colors ?? []);
-    const storageOptions =
-      catalog.storageOptions.length > 0
-        ? catalog.storageOptions
-        : (matched?.storages ?? []);
-
-    let note: string;
-    if (model) {
-      note = `Fant ${model}. Velg farge og lagring hvis det mangler.`;
-    } else {
-      note = `Oppslag fant ${catalog.brand} ${catalog.model}. Velg iPhone-modell under.`;
+  if (imeiDigits.length >= 8) {
+    const catalog = lookupImeiCatalog(imeiDigits);
+    const mapped = catalog ? fromCatalog(catalog) : null;
+    if (mapped) {
+      return {
+        ...mapped,
+        serialNumber: serialCompact.length >= 8 ? serialRaw.trim() : null,
+      };
     }
+  }
 
+  const stored = await lookupStoredHardware({
+    imeiDigits,
+    serialCompact,
+  });
+  if (stored?.model) {
+    const matched = matchIphoneModel(stored.model);
+    const model = matched?.name ?? stored.model;
+    const viaSerial =
+      serialCompact.length >= 8 &&
+      compactSerial(stored.serialNumber || "") === serialCompact;
     return {
       model,
-      colorOptions,
-      storageOptions,
-      imei: catalog.imei.length >= 14 ? catalog.imei : null,
-      note,
+      colorOptions: uniqueOptions(stored.color, matched?.colors ?? []),
+      storageOptions: uniqueOptions(stored.storage, matched?.storages ?? []),
+      imei: stored.imei,
+      serialNumber: stored.serialNumber,
+      note: viaSerial
+        ? `Fant ${model} fra serienummer.`
+        : `Fant ${model} fra IMEI i registeret.`,
     };
   }
 
-  if (digits.length >= 8) {
+  if (imeiDigits.length >= 8) {
     return {
-      ...empty,
-      imei: digits.length >= 14 ? digits : null,
-      note:
-        "Fant ikke modell fra nummeret. Sjekk IMEI (15 siffer), eller velg modell under.",
+      ...emptyLookup(
+        "Fant ikke modell fra IMEI. Sjekk at det er 15 siffer, eller velg modell under.",
+      ),
+      imei: imeiDigits.length >= 14 ? imeiDigits : null,
     };
   }
 
-  return {
-    ...empty,
-    note:
-      "Serienummer alene gir ikke modell. Lim inn IMEI hvis du har det (Innstillinger → Generelt → Om), ellers velg modell under.",
-  };
+  return emptyLookup(
+    "Fant ikke modell fra serienummeret. Velg modell under, eller fyll inn IMEI (15 siffer).",
+  );
+}
+
+export async function lookupPublicImeiOrSerial(
+  query: string,
+): Promise<PublicDeviceLookup> {
+  const q = query.trim();
+  const digits = normalizeImei(q);
+  if (digits.length === 14 || digits.length === 15) {
+    return lookupPublicDevice({ imei: q });
+  }
+  return lookupPublicDevice({
+    imei: digits.length >= 8 ? q : undefined,
+    serialNumber: q,
+  });
 }
 
 export async function createPublicServiceOrder(

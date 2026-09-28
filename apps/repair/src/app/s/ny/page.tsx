@@ -1,6 +1,5 @@
 import { listIphoneModels } from "@/lib/apple-models";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { NextDayTimer } from "@/components/NextDayTimer";
 import { ServiceOrderForm } from "./ServiceOrderForm";
 
@@ -16,14 +15,9 @@ export default function NewServiceOrderPage() {
       </div>
       <PageHeader
         title="Opprett serviceordre"
-        description="Fyll inn kontaktinfo og enhet. Deretter leser og signerer du reparasjonsbetingelsene. Vi tar saken inn når enheten er levert."
+        description="Ett kort om gangen: kontakt, enhet, reparasjon, levering og signatur. Vi tar saken inn når enheten er levert."
       />
-      <Card>
-        <CardHeader title="Ordre" />
-        <CardBody>
-          <ServiceOrderForm models={models} />
-        </CardBody>
-      </Card>
+      <ServiceOrderForm models={models} />
       <p className="mt-4 text-[12px] text-muted">
         SD Solutions · Slåttmyrvegen 49, 2406 Elverum
       </p>
