@@ -4,10 +4,11 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   createPublicServiceOrder,
-  lookupPublicImeiOrSerial,
+  lookupPublicDevice,
 } from "@/server/public-service-order";
 import { PhoneCountryField } from "@/components/forms/PhoneCountryField";
 import { Button } from "@/components/ui/Button";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
@@ -24,6 +25,81 @@ import {
 import { REPAIR_TERMS_VERSION, repairTermsSections } from "@/lib/repair-terms";
 import type { IphoneModelOption } from "@/lib/apple-models";
 import { SignaturePad } from "@/components/forms/SignaturePad";
+
+const ORDER_STEPS = [
+  { id: "contact", label: "Kontakt" },
+  { id: "device", label: "Enhet" },
+  { id: "job", label: "Reparasjon" },
+  { id: "delivery", label: "Levering" },
+  { id: "terms", label: "Betingelser" },
+] as const;
+
+type OrderStep = (typeof ORDER_STEPS)[number]["id"];
+
+function compactSerial(raw: string) {
+  return raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+}
+
+function StepBar({
+  step,
+  onBackTo,
+}: {
+  step: OrderStep;
+  onBackTo: (next: OrderStep) => void;
+}) {
+  const current = ORDER_STEPS.findIndex((row) => row.id === step);
+  return (
+    <ol className="mb-4 flex items-start gap-1 sm:gap-2">
+      {ORDER_STEPS.map((row, index) => {
+        const done = index < current;
+        const active = index === current;
+        return (
+          <li key={row.id} className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
+            {index > 0 ? (
+              <span
+                aria-hidden
+                className={`hidden h-px flex-1 sm:block ${
+                  done || active ? "bg-accent" : "bg-border"
+                }`}
+              />
+            ) : null}
+            <button
+              type="button"
+              disabled={!done}
+              onClick={() => onBackTo(row.id)}
+              className="flex min-w-0 flex-col items-center gap-1 disabled:cursor-default sm:flex-row sm:gap-2"
+            >
+              <span
+                className={[
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
+                  done
+                    ? "bg-accent text-white"
+                    : active
+                      ? "bg-accent/15 text-accent ring-2 ring-accent"
+                      : "border border-border bg-white text-muted",
+                ].join(" ")}
+              >
+                {index + 1}
+              </span>
+              <span
+                className={[
+                  "max-w-full truncate text-[10px] leading-tight sm:text-[12px]",
+                  active
+                    ? "font-medium text-foreground"
+                    : done
+                      ? "text-foreground"
+                      : "text-muted",
+                ].join(" ")}
+              >
+                {row.label}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   const [pending, setPending] = useState(false);
@@ -47,7 +123,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   );
   const [jobType, setJobType] = useState<PublicJobType>("screen");
   const [partGrade, setPartGrade] = useState<PartGrade>("copy");
-  const [step, setStep] = useState<"order" | "terms">("order");
+  const [step, setStep] = useState<OrderStep>("contact");
   const [accepted, setAccepted] = useState(false);
   const [signerName, setSignerName] = useState("");
   const [signature, setSignature] = useState<string | null>(null);
@@ -89,31 +165,57 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
     return selected?.colors.filter(Boolean) ?? [];
   }, [lookupColors, selected]);
 
-  function applyLookup(raw: string, force = false) {
-    const q = raw.trim();
-    if (q.length < 5) {
+  function applyLookup(
+    force = false,
+    overrides?: { imei?: string; serialNumber?: string },
+  ) {
+    const imeiValue = (overrides?.imei ?? imei).trim();
+    const serialValue = (overrides?.serialNumber ?? serialNumber).trim();
+    if (imeiValue.replace(/\D/g, "").length < 8 && compactSerial(serialValue).length < 8) {
       setLookupMsg("Skriv IMEI eller serienummer først.");
       return;
     }
-    if (!force && q === lastLookup.current) return;
-    lastLookup.current = q;
+    const key = `${imeiValue}|${serialValue}`;
+    if (!force && key === lastLookup.current) return;
+    lastLookup.current = key;
     startLookup(async () => {
-      const result = await lookupPublicImeiOrSerial(q);
+      const result = await lookupPublicDevice({
+        imei: imeiValue,
+        serialNumber: serialValue,
+      });
       const foundImei = result.imei;
-      if (foundImei && foundImei.length >= 14) {
-        lastLookup.current = foundImei;
+      if (foundImei && foundImei.replace(/\D/g, "").length >= 14) {
         setImei((prev) =>
-          prev.replace(/\D/g, "") === foundImei ? prev : foundImei,
+          prev.replace(/\D/g, "") === foundImei.replace(/\D/g, "")
+            ? prev
+            : foundImei,
+        );
+      }
+      if (result.serialNumber && compactSerial(result.serialNumber).length >= 8) {
+        setSerialNumber((prev) =>
+          compactSerial(prev) === compactSerial(result.serialNumber || "")
+            ? prev
+            : result.serialNumber || prev,
         );
       }
       setLookupColors(result.colorOptions);
       setLookupStorages(result.storageOptions);
-      setStorage(
-        result.storageOptions.length === 1 ? (result.storageOptions[0] ?? "") : "",
-      );
-      setColor(
-        result.colorOptions.length === 1 ? (result.colorOptions[0] ?? "") : "",
-      );
+      if (result.storageOptions.length === 1) {
+        setStorage(result.storageOptions[0] ?? "");
+      } else if (
+        result.storageOptions.length > 0 &&
+        !result.storageOptions.includes(storage)
+      ) {
+        setStorage("");
+      }
+      if (result.colorOptions.length === 1) {
+        setColor(result.colorOptions[0] ?? "");
+      } else if (
+        result.colorOptions.length > 0 &&
+        !result.colorOptions.includes(color)
+      ) {
+        setColor("");
+      }
       if (result.model) {
         setModel(result.model);
       }
@@ -121,30 +223,60 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
     });
   }
 
-  function onIdentifierBlur() {
-    const q = imei.trim() || serialNumber.trim();
-    if (q.length < 8) return;
-    applyLookup(q);
+  function goTo(next: OrderStep) {
+    setError(null);
+    const form = formRef.current;
+    if (form && !form.reportValidity()) return;
+
+    if (step === "contact") {
+      if (phone.replace(/\D/g, "").length < 8) {
+        setError("Telefonnummer er påkrevd.");
+        return;
+      }
+    }
+
+    if (step === "device") {
+      const serial = serialNumber.trim();
+      const imeiValue = imei.trim();
+      if (!serial && !imeiValue) {
+        setError("Oppgi serienummer eller IMEI — ett av dem er nok.");
+        return;
+      }
+      if (!model.trim()) {
+        setError("Velg modell.");
+        return;
+      }
+    }
+
+    if (step === "job") {
+      const problem = form
+        ? String(new FormData(form).get("customerProblem") || "").trim()
+        : "";
+      if (jobType === "other") {
+        if (problem.length < 8) {
+          setError("Beskriv feilen med minst noen setninger.");
+          return;
+        }
+      } else if (!partGrade) {
+        setError("Velg deltype.");
+        return;
+      }
+    }
+
+    if (next === "terms") {
+      const name = form
+        ? String(new FormData(form).get("name") || "").trim()
+        : "";
+      if (name && !signerName) setSignerName(name);
+    }
+
+    setStep(next);
   }
 
-  function goToTerms() {
-    const form = formRef.current;
-    if (!form) return;
-    if (!form.reportValidity()) return;
-    const serial = String(new FormData(form).get("serialNumber") || "").trim();
-    const imeiValue = String(new FormData(form).get("imei") || "").trim();
-    if (!serial && !imeiValue) {
-      setError("Oppgi serienummer eller IMEI — ett av dem er nok.");
-      return;
-    }
-    setError(null);
-    const name = String(new FormData(form).get("name") || "").trim();
-    if (name && !signerName) setSignerName(name);
-    if (jobType !== "other" && !partGrade) {
-      setError("Velg deltype.");
-      return;
-    }
-    setStep("terms");
+  function nextStep() {
+    const index = ORDER_STEPS.findIndex((row) => row.id === step);
+    const following = ORDER_STEPS[index + 1];
+    if (following) goTo(following.id);
   }
 
   async function onSubmit(formData: FormData) {
@@ -155,11 +287,12 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
     if (!serial && !imeiValue) {
       setPending(false);
       setError("Oppgi serienummer eller IMEI — ett av dem er nok.");
+      setStep("device");
       return;
     }
     if (step !== "terms") {
       setPending(false);
-      goToTerms();
+      nextStep();
       return;
     }
     if (!accepted) {
@@ -206,8 +339,31 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
     window.location.href = `${LEGAL_PARTY.web}/takk/serviceordre?token=${encodeURIComponent(result.token)}`;
   }
 
+  const stepMeta: Record<OrderStep, { title: string; description: string }> = {
+    contact: {
+      title: "Kontakt",
+      description: "Navn og adresse vi bruker på saken.",
+    },
+    device: {
+      title: "Enhet",
+      description: "IMEI eller serienummer. Vi slår opp modell når vi kan.",
+    },
+    job: {
+      title: "Reparasjon",
+      description: "Hva som skal gjøres, og hvilken deltype du vil ha.",
+    },
+    delivery: {
+      title: "Levering",
+      description: "Hvordan telefonen kommer inn og ut.",
+    },
+    terms: {
+      title: "Betingelser",
+      description: "Les og signer før ordren opprettes.",
+    },
+  };
+
   return (
-    <form ref={formRef} action={onSubmit} className="space-y-6">
+    <form ref={formRef} action={onSubmit} className="space-y-4">
       <input
         type="text"
         name="company"
@@ -217,408 +373,466 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
         aria-hidden
       />
 
-      <fieldset className={`space-y-3 ${step === "terms" ? "hidden" : ""}`}>
-        <legend className="text-sm font-semibold text-foreground">
-          Personalia
-        </legend>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Label htmlFor="name">Navn</Label>
-            <Input id="name" name="name" required className="mt-1" />
-          </div>
-          <div>
-            <PhoneCountryField value={phone} onChange={setPhone} />
-          </div>
-          <div>
-            <Label htmlFor="email">E-post</Label>
-            <Input id="email" name="email" type="email" required className="mt-1" />
-          </div>
-          <div className="sm:col-span-2">
-            <Label htmlFor="streetAddress">Adresse</Label>
-            <Input
-              id="streetAddress"
-              name="streetAddress"
-              required
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label htmlFor="postalCode">Postnummer</Label>
-            <Input id="postalCode" name="postalCode" required className="mt-1" />
-          </div>
-          <div>
-            <Label htmlFor="city">Sted</Label>
-            <Input id="city" name="city" required className="mt-1" />
-          </div>
-        </div>
-      </fieldset>
+      <StepBar
+        step={step}
+        onBackTo={(next) => {
+          setError(null);
+          setStep(next);
+        }}
+      />
 
-      <fieldset className={`space-y-3 ${step === "terms" ? "hidden" : ""}`}>
-        <legend className="text-sm font-semibold text-foreground">Enhet</legend>
-        <p className="text-[13px] text-muted">
-          Fyll inn IMEI eller serienummer. IMEI (15 siffer) henter modell
-          automatisk. Ett av feltene er nok.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="imei">IMEI</Label>
-            <Input
-              id="imei"
-              name="imei"
-              inputMode="numeric"
-              className="mt-1"
-              value={imei}
-              onChange={(e) => {
-                const next = e.target.value;
-                setImei(next);
-                const digits = next.replace(/\D/g, "");
-                if (digits.length === 15) applyLookup(digits);
-              }}
-              onBlur={onIdentifierBlur}
-            />
-          </div>
-          <div>
-            <Label htmlFor="serialNumber">Serienummer</Label>
-            <Input
-              id="serialNumber"
-              name="serialNumber"
-              className="mt-1"
-              value={serialNumber}
-              onChange={(e) => setSerialNumber(e.target.value)}
-              onBlur={onIdentifierBlur}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={lookupPending}
-              onClick={() =>
-                applyLookup(imei.trim() || serialNumber.trim(), true)
-              }
-            >
-              {lookupPending ? "Henter…" : "Hent modell"}
-            </Button>
-            {lookupMsg ? (
-              <p className="mt-2 text-[13px] text-muted">{lookupMsg}</p>
-            ) : null}
-          </div>
-          <div className="sm:col-span-2">
-            <Label htmlFor="model">Modell</Label>
-            <Select
-              id="model"
-              name="model"
-              required
-              className="mt-1"
-              value={model}
-              onChange={(e) => {
-                setModel(e.target.value);
-                setLookupColors([]);
-                setLookupStorages([]);
-                setStorage("");
-                setColor("");
-              }}
-            >
-              <option value="">Velg iPhone…</option>
-              {modelChoices.map((m) => (
-                <option key={m.name} value={m.name}>
-                  {m.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="storage">Lagring</Label>
-            {storageOptions.length > 0 ? (
-              <Select
-                id="storage"
-                name="storage"
-                className="mt-1"
-                value={storage}
-                onChange={(e) => setStorage(e.target.value)}
-              >
-                <option value="">Velg…</option>
-                {storageOptions.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <Input
-                id="storage"
-                name="storage"
-                className="mt-1"
-                placeholder="f.eks. 128 GB"
-                value={storage}
-                onChange={(e) => setStorage(e.target.value)}
-              />
-            )}
-          </div>
-          <div>
-            <Label htmlFor="color">Farge</Label>
-            {colorOptions.length > 0 ? (
-              <Select
-                id="color"
-                name="color"
-                className="mt-1"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-              >
-                <option value="">Velg…</option>
-                {colorOptions.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <Input
-                id="color"
-                name="color"
-                className="mt-1"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-              />
-            )}
-          </div>
-          <div className="sm:col-span-2">
-            <Label htmlFor="jobType">Hva skal gjøres?</Label>
-            <Select
-              id="jobType"
-              className="mt-1"
-              value={jobType}
-              onChange={(e) => {
-                setJobType(e.target.value as PublicJobType);
-              }}
-            >
-              <option value="screen">{JOB_TYPE_LABELS.screen}</option>
-              <option value="battery">{JOB_TYPE_LABELS.battery}</option>
-              <option value="other">{JOB_TYPE_LABELS.other}</option>
-            </Select>
-            {jobType !== "other" ? (
-              <p className="mt-1 text-[13px] text-muted">
-                Ferdig-neste-virkedag gjelder bare skjerm- og batteribytte.
-              </p>
-            ) : (
-              <p className="mt-1 text-[13px] text-muted">
-                Annet arbeid har ikke neste-virkedag-fristen. Vi gir pris etter
-                diagnose.
-              </p>
-            )}
-          </div>
-          {jobType !== "other" ? (
-            <div className="sm:col-span-2 space-y-3">
-              <p className="text-sm font-medium text-foreground">Deltype</p>
-              <div className="grid gap-2">
-                {partGradeOptionsForJob(jobType).map((option) => {
-                  const optionQuote = model
-                    ? quotePublicPart({
-                        deviceLabel: model,
-                        jobType,
-                        partGrade: option.id,
-                      })
-                    : null;
-                  return (
-                  <label
-                    key={option.id}
-                    className="flex cursor-pointer gap-3 rounded-xl border border-border bg-surface px-3 py-2.5"
-                  >
-                    <input
-                      type="radio"
-                      name="partGrade"
-                      className="mt-1"
-                      checked={partGrade === option.id}
-                      onChange={() => setPartGrade(option.id)}
-                    />
-                    <span>
-                      <span className="block text-[15px] text-foreground">
-                        {option.label}
-                        {optionQuote ? ` · ${optionQuote.priceLabel}` : ""}
-                      </span>
-                      <span className="block text-[13px] text-muted">
-                        {option.help}
-                      </span>
-                    </span>
-                  </label>
-                  );
-                })}
+      <Card>
+        <CardHeader
+          title={stepMeta[step].title}
+          description={stepMeta[step].description}
+        />
+        <CardBody className="space-y-4">
+          <fieldset className={`space-y-3 ${step === "contact" ? "" : "hidden"}`}>
+            <legend className="sr-only">Personalia</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Label htmlFor="name">Navn</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  required={step === "contact"}
+                  className="mt-1"
+                />
               </div>
-              {partQuote ? (
-                <p className="text-[15px] font-semibold text-foreground">
-                  Estimert pris: {partQuote.priceLabel} inkl. mva og arbeid
+              <div>
+                <PhoneCountryField
+                  value={phone}
+                  onChange={setPhone}
+                  required={step === "contact"}
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">E-post</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required={step === "contact"}
+                  className="mt-1"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="streetAddress">Adresse</Label>
+                <Input
+                  id="streetAddress"
+                  name="streetAddress"
+                  required={step === "contact"}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="postalCode">Postnummer</Label>
+                <Input
+                  id="postalCode"
+                  name="postalCode"
+                  required={step === "contact"}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="city">Sted</Label>
+                <Input
+                  id="city"
+                  name="city"
+                  required={step === "contact"}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset className={`space-y-3 ${step === "device" ? "" : "hidden"}`}>
+            <legend className="sr-only">Enhet</legend>
+            <p className="text-[13px] text-muted">
+              Ett av feltene er nok. IMEI (15 siffer) slår opp modell fra TAC.
+              Serienummer slår opp hvis enheten er kjent hos oss.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="imei">IMEI</Label>
+                <Input
+                  id="imei"
+                  name="imei"
+                  inputMode="numeric"
+                  className="mt-1"
+                  value={imei}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setImei(next);
+                    const digits = next.replace(/\D/g, "");
+                    if (digits.length === 15) {
+                      applyLookup(false, { imei: next });
+                    }
+                  }}
+                  onBlur={() => {
+                    if (imei.replace(/\D/g, "").length >= 14) applyLookup();
+                  }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="serialNumber">Serienummer</Label>
+                <Input
+                  id="serialNumber"
+                  name="serialNumber"
+                  className="mt-1"
+                  value={serialNumber}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setSerialNumber(next);
+                    if (compactSerial(next).length >= 10) {
+                      applyLookup(false, { serialNumber: next });
+                    }
+                  }}
+                  onBlur={() => {
+                    if (compactSerial(serialNumber).length >= 8) applyLookup();
+                  }}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={lookupPending}
+                  onClick={() => applyLookup(true)}
+                >
+                  {lookupPending ? "Henter…" : "Slå opp IMEI / serienummer"}
+                </Button>
+                {lookupMsg ? (
+                  <p className="mt-2 text-[13px] text-muted">{lookupMsg}</p>
+                ) : null}
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="model">Modell</Label>
+                <Select
+                  id="model"
+                  name="model"
+                  required={step === "device"}
+                  className="mt-1"
+                  value={model}
+                  onChange={(e) => {
+                    setModel(e.target.value);
+                    setLookupColors([]);
+                    setLookupStorages([]);
+                    setStorage("");
+                    setColor("");
+                  }}
+                >
+                  <option value="">Velg iPhone…</option>
+                  {modelChoices.map((m) => (
+                    <option key={m.name} value={m.name}>
+                      {m.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="storage">Lagring</Label>
+                {storageOptions.length > 0 ? (
+                  <Select
+                    id="storage"
+                    name="storage"
+                    className="mt-1"
+                    value={storage}
+                    onChange={(e) => setStorage(e.target.value)}
+                  >
+                    <option value="">Velg…</option>
+                    {storageOptions.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Input
+                    id="storage"
+                    name="storage"
+                    className="mt-1"
+                    placeholder="f.eks. 128 GB"
+                    value={storage}
+                    onChange={(e) => setStorage(e.target.value)}
+                  />
+                )}
+              </div>
+              <div>
+                <Label htmlFor="color">Farge</Label>
+                {colorOptions.length > 0 ? (
+                  <Select
+                    id="color"
+                    name="color"
+                    className="mt-1"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                  >
+                    <option value="">Velg…</option>
+                    {colorOptions.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Input
+                    id="color"
+                    name="color"
+                    className="mt-1"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                  />
+                )}
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset className={`space-y-3 ${step === "job" ? "" : "hidden"}`}>
+            <legend className="sr-only">Reparasjon</legend>
+            <div>
+              <Label htmlFor="jobType">Hva skal gjøres?</Label>
+              <Select
+                id="jobType"
+                className="mt-1"
+                value={jobType}
+                onChange={(e) => {
+                  setJobType(e.target.value as PublicJobType);
+                }}
+              >
+                <option value="screen">{JOB_TYPE_LABELS.screen}</option>
+                <option value="battery">{JOB_TYPE_LABELS.battery}</option>
+                <option value="other">{JOB_TYPE_LABELS.other}</option>
+              </Select>
+              {jobType !== "other" ? (
+                <p className="mt-1 text-[13px] text-muted">
+                  Ferdig-neste-virkedag gjelder bare skjerm- og batteribytte.
                 </p>
               ) : (
-                <p className="text-[13px] text-muted">
-                  Velg modell for å se pris.
+                <p className="mt-1 text-[13px] text-muted">
+                  Annet arbeid har ikke neste-virkedag-fristen. Vi gir pris etter
+                  diagnose.
                 </p>
               )}
             </div>
-          ) : null}
-          <div className="sm:col-span-2">
-            <Label htmlFor="customerProblem">
-              {jobType === "other" ? "Hva er feil?" : "Merknad (valgfritt)"}
-            </Label>
-            <Textarea
-              id="customerProblem"
-              name="customerProblem"
-              required={jobType === "other"}
-              minLength={jobType === "other" ? 8 : undefined}
-              className="mt-1"
-              placeholder={
-                jobType === "other"
-                  ? "Beskriv feilen, når den oppsto, og om telefonen har vært i vann, falt, osv."
-                  : "Noe vi bør vite? Fall, væske, tidligere reparasjon…"
-              }
-            />
-          </div>
-        </div>
-      </fieldset>
-
-      <fieldset className={`space-y-3 ${step === "terms" ? "hidden" : ""}`}>
-        <legend className="text-sm font-semibold text-foreground">
-          Innlevering og utlevering
-        </legend>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="inboundMethod">Innlevering</Label>
-            <Select
-              id="inboundMethod"
-              className="mt-1"
-              value={inboundMethod}
-              onChange={(e) =>
-                setInboundMethod(e.target.value as "IN_PERSON" | "POST")
-              }
-            >
-              <option value="IN_PERSON">Leveres i butikk</option>
-              <option value="POST">Send selv (0 kr)</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="outboundMethod">Utlevering</Label>
-            <Select
-              id="outboundMethod"
-              className="mt-1"
-              value={outboundMethod}
-              onChange={(e) =>
-                setOutboundMethod(e.target.value as "IN_PERSON" | "POST")
-              }
-            >
-              <option value="IN_PERSON">Hentes i butikk</option>
-              <option value="POST">
-                Sendes tilbake ({formatNokFromOre(CUSTOMER_POSTAGE_ORE)})
-              </option>
-            </Select>
-          </div>
-        </div>
-      </fieldset>
-
-      {step === "terms" ? (
-        <fieldset className="space-y-4">
-          <legend className="text-sm font-semibold text-foreground">
-            Reparasjonsbetingelser
-          </legend>
-          <p className="text-[13px] text-muted">
-            Les gjennom og signer. Ordren opprettes ikke før du har signert.
-            Diagnose koster {WORKSHOP_FEES.diagnosisKr} kr. Ingen feil funnet,
-            eller hvis du takker nei etter diagnose:{" "}
-            {WORKSHOP_FEES.noFaultKr} kr. Godkjent og utført reparasjon:
-            diagnosen inngår i prisen og belastes ikke separat. Send selv inn:{" "}
-            {WORKSHOP_FEES.inboundPostageKr} kr i porto fra oss. Returporto:{" "}
-            {WORKSHOP_FEES.returnPostageKr} kr. {PART_GRADE_CUSTOMER_TEXT}
-          </p>
-          <p className="text-[13px] text-muted">
-            Egne sider:{" "}
-            <Link href="/s/vilkar" className="text-accent underline">
-              vilkår
-            </Link>
-            {", "}
-            <Link href="/s/innlevering-vilkar" className="text-accent underline">
-              inn- og utlevering
-            </Link>
-            {", "}
-            <Link href="/s/garanti" className="text-accent underline">
-              garanti
-            </Link>
-            {" og "}
-            <Link href="/s/personvern" className="text-accent underline">
-              personvern
-            </Link>
-            .
-          </p>
-          <div className="max-h-[360px] space-y-3 overflow-y-auto rounded border border-border bg-surface p-3 text-[13px] leading-5">
-            {repairTermsSections().map((section) => (
-              <div key={section.title}>
-                <p className="font-semibold">{section.title}</p>
-                {section.paragraphs.map((p) => (
-                  <p key={p.slice(0, 40)} className="mt-1 text-muted">
-                    {p}
+            {jobType !== "other" ? (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-foreground">Deltype</p>
+                <div className="grid gap-2">
+                  {partGradeOptionsForJob(jobType).map((option) => {
+                    const optionQuote = model
+                      ? quotePublicPart({
+                          deviceLabel: model,
+                          jobType,
+                          partGrade: option.id,
+                        })
+                      : null;
+                    return (
+                      <label
+                        key={option.id}
+                        className="flex cursor-pointer gap-3 rounded-xl border border-border bg-white px-3 py-2.5"
+                      >
+                        <input
+                          type="radio"
+                          name="partGrade"
+                          className="mt-1"
+                          checked={partGrade === option.id}
+                          onChange={() => setPartGrade(option.id)}
+                        />
+                        <span>
+                          <span className="block text-[15px] text-foreground">
+                            {option.label}
+                            {optionQuote ? ` · ${optionQuote.priceLabel}` : ""}
+                          </span>
+                          <span className="block text-[13px] text-muted">
+                            {option.help}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {partQuote ? (
+                  <p className="text-[15px] font-semibold text-foreground">
+                    Estimert pris: {partQuote.priceLabel} inkl. mva og arbeid
                   </p>
+                ) : (
+                  <p className="text-[13px] text-muted">
+                    Velg modell for å se pris.
+                  </p>
+                )}
+              </div>
+            ) : null}
+            <div>
+              <Label htmlFor="customerProblem">
+                {jobType === "other" ? "Hva er feil?" : "Merknad (valgfritt)"}
+              </Label>
+              <Textarea
+                id="customerProblem"
+                name="customerProblem"
+                required={step === "job" && jobType === "other"}
+                minLength={jobType === "other" ? 8 : undefined}
+                className="mt-1"
+                placeholder={
+                  jobType === "other"
+                    ? "Beskriv feilen, når den oppsto, og om telefonen har vært i vann, falt, osv."
+                    : "Noe vi bør vite? Fall, væske, tidligere reparasjon…"
+                }
+              />
+            </div>
+          </fieldset>
+
+          <fieldset className={`space-y-3 ${step === "delivery" ? "" : "hidden"}`}>
+            <legend className="sr-only">Innlevering og utlevering</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="inboundMethod">Innlevering</Label>
+                <Select
+                  id="inboundMethod"
+                  className="mt-1"
+                  value={inboundMethod}
+                  onChange={(e) =>
+                    setInboundMethod(e.target.value as "IN_PERSON" | "POST")
+                  }
+                >
+                  <option value="IN_PERSON">Leveres i butikk</option>
+                  <option value="POST">Send selv (0 kr)</option>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="outboundMethod">Utlevering</Label>
+                <Select
+                  id="outboundMethod"
+                  className="mt-1"
+                  value={outboundMethod}
+                  onChange={(e) =>
+                    setOutboundMethod(e.target.value as "IN_PERSON" | "POST")
+                  }
+                >
+                  <option value="IN_PERSON">Hentes i butikk</option>
+                  <option value="POST">
+                    Sendes tilbake ({formatNokFromOre(CUSTOMER_POSTAGE_ORE)})
+                  </option>
+                </Select>
+              </div>
+            </div>
+          </fieldset>
+
+          {step === "terms" ? (
+            <fieldset className="space-y-4">
+              <legend className="sr-only">Reparasjonsbetingelser</legend>
+              <p className="text-[13px] text-muted">
+                Les gjennom og signer. Ordren opprettes ikke før du har signert.
+                Diagnose koster {WORKSHOP_FEES.diagnosisKr} kr. Ingen feil funnet,
+                eller hvis du takker nei etter diagnose:{" "}
+                {WORKSHOP_FEES.noFaultKr} kr. Godkjent og utført reparasjon:
+                diagnosen inngår i prisen og belastes ikke separat. Send selv inn:{" "}
+                {WORKSHOP_FEES.inboundPostageKr} kr i porto fra oss. Returporto:{" "}
+                {WORKSHOP_FEES.returnPostageKr} kr. {PART_GRADE_CUSTOMER_TEXT}
+              </p>
+              <p className="text-[13px] text-muted">
+                Egne sider:{" "}
+                <Link href="/s/vilkar" className="text-accent underline">
+                  vilkår
+                </Link>
+                {", "}
+                <Link href="/s/innlevering-vilkar" className="text-accent underline">
+                  inn- og utlevering
+                </Link>
+                {", "}
+                <Link href="/s/garanti" className="text-accent underline">
+                  garanti
+                </Link>
+                {" og "}
+                <Link href="/s/personvern" className="text-accent underline">
+                  personvern
+                </Link>
+                .
+              </p>
+              <div className="max-h-[360px] space-y-3 overflow-y-auto rounded border border-border bg-white p-3 text-[13px] leading-5">
+                {repairTermsSections().map((section) => (
+                  <div key={section.title}>
+                    <p className="font-semibold">{section.title}</p>
+                    {section.paragraphs.map((p) => (
+                      <p key={p.slice(0, 40)} className="mt-1 text-muted">
+                        {p}
+                      </p>
+                    ))}
+                  </div>
                 ))}
               </div>
-            ))}
-          </div>
-          <a
-            href="/api/public/repair-terms"
-            className="inline-block text-[13px] text-accent underline"
-          >
-            Last ned betingelsene som PDF
-          </a>
-          <div>
-            <Label htmlFor="signerName">Navn (signatur)</Label>
-            <Input
-              id="signerName"
-              className="mt-1"
-              value={signerName}
-              onChange={(e) => setSignerName(e.target.value)}
-              required={step === "terms"}
-            />
-          </div>
-          <div>
-            <p className="mb-1 text-sm font-medium">Håndskrift</p>
-            <SignaturePad onChange={setSignature} />
-          </div>
-          <label className="flex items-start gap-2 text-[13px]">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={accepted}
-              onChange={(e) => setAccepted(e.target.checked)}
-            />
-            <span>
-              Jeg har lest reparasjonsbetingelsene og godtar dem. Jeg eier
-              enheten eller har rett til å levere den inn.
-            </span>
-          </label>
-        </fieldset>
-      ) : null}
+              <a
+                href="/api/public/repair-terms"
+                className="inline-block text-[13px] text-accent underline"
+              >
+                Last ned betingelsene som PDF
+              </a>
+              <div>
+                <Label htmlFor="signerName">Navn (signatur)</Label>
+                <Input
+                  id="signerName"
+                  className="mt-1"
+                  value={signerName}
+                  onChange={(e) => setSignerName(e.target.value)}
+                  required={step === "terms"}
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">Håndskrift</p>
+                <SignaturePad onChange={setSignature} />
+              </div>
+              <label className="flex items-start gap-2 text-[13px]">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={accepted}
+                  onChange={(e) => setAccepted(e.target.checked)}
+                />
+                <span>
+                  Jeg har lest reparasjonsbetingelsene og godtar dem. Jeg eier
+                  enheten eller har rett til å levere den inn.
+                </span>
+              </label>
+            </fieldset>
+          ) : null}
 
-      {error ? (
-        <p className="text-sm text-danger" role="alert">
-          {error}
-        </p>
-      ) : null}
+          {error ? (
+            <p className="text-sm text-danger" role="alert">
+              {error}
+            </p>
+          ) : null}
 
-      {step === "order" ? (
-        <Button type="button" onClick={goToTerms} disabled={pending}>
-          Fortsett til betingelser
-        </Button>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setStep("order")}
-            disabled={pending}
-          >
-            Tilbake
-          </Button>
-          <Button type="submit" disabled={pending}>
-            {pending ? "Oppretter…" : "Signer og opprett serviceordre"}
-          </Button>
-        </div>
-      )}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {step !== "contact" ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  const index = ORDER_STEPS.findIndex((row) => row.id === step);
+                  const previous = ORDER_STEPS[index - 1];
+                  if (previous) {
+                    setError(null);
+                    setStep(previous.id);
+                  }
+                }}
+                disabled={pending}
+              >
+                Tilbake
+              </Button>
+            ) : null}
+            {step !== "terms" ? (
+              <Button type="button" onClick={nextStep} disabled={pending}>
+                Fortsett
+              </Button>
+            ) : (
+              <Button type="submit" disabled={pending}>
+                {pending ? "Oppretter…" : "Signer og opprett serviceordre"}
+              </Button>
+            )}
+          </div>
+        </CardBody>
+      </Card>
     </form>
   );
 }
