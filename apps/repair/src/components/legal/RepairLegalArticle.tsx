@@ -14,7 +14,12 @@ export function RepairLegalArticle({
       <h1 className="mt-1 text-xl font-semibold text-foreground">{doc.title}</h1>
       <p className="mt-3 text-muted">{doc.intro}</p>
       <p className="mt-3">
-        <a href={pdfHref} className="text-accent underline">
+        <a
+          href={pdfHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent underline"
+        >
           Last ned PDF
         </a>
       </p>
