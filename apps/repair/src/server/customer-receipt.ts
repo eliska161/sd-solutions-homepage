@@ -13,10 +13,10 @@ import { loadTicketCharge } from "@/lib/ticket-totals";
 import { storeCustomerPdf } from "@/lib/store-customer-pdf";
 import { stripePaymentSlip } from "@/server/payments";
 
-export async function createAndStoreReceiptPdf(
+export async function renderTicketReceiptPdf(
   ticketId: string,
   paymentOverride?: string,
-): Promise<MailFile | null> {
+): Promise<{ buffer: Buffer; ticketNumber: string } | null> {
   const db = getDb();
   const [row] = await db
     .select({
@@ -98,17 +98,27 @@ export async function createAndStoreReceiptPdf(
     warrantyDays: row.warrantyDays,
   });
 
+  return { buffer, ticketNumber: row.ticketNumber };
+}
+
+export async function createAndStoreReceiptPdf(
+  ticketId: string,
+  paymentOverride?: string,
+): Promise<MailFile | null> {
+  const rendered = await renderTicketReceiptPdf(ticketId, paymentOverride);
+  if (!rendered) return null;
+
   await storeCustomerPdf({
     ticketId,
     category: "RECEIPT",
-    fileName: `kvittering-${row.ticketNumber}.pdf`,
+    fileName: `kvittering-${rendered.ticketNumber}.pdf`,
     description: "Kvittering",
-    buffer,
+    buffer: rendered.buffer,
   });
 
   return {
-    filename: `kvittering-${row.ticketNumber}.pdf`,
-    content: buffer,
+    filename: `kvittering-${rendered.ticketNumber}.pdf`,
+    content: rendered.buffer,
     contentType: "application/pdf",
   };
 }
