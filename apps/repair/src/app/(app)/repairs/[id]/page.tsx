@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { DownloadSummaryLink, PrintReceiptLink } from "@/components/DownloadSummaryLink";
+import { DownloadSummaryLink, PrintCalibrateLink, PrintReceiptLink } from "@/components/DownloadSummaryLink";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -267,14 +267,9 @@ export default async function RepairDetailPage({
             <DownloadSummaryLink href={`/api/repairs/${ticket.id}/summary`} />
             <PrintReceiptLink href={`/api/repairs/${ticket.id}/receipt`} />
             {batteryJob ? (
-              <a
-                href="/batterikalibrering"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-9 items-center rounded border border-border bg-white px-3 text-sm"
-              >
-                Skriv ut kalibreringskort
-              </a>
+              <PrintCalibrateLink
+                href={`/api/repairs/${ticket.id}/battery-calibrate`}
+              />
             ) : null}
             {session && canWrite(session.user.role) ? (
               <DeleteRepairButton

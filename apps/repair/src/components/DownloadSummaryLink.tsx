@@ -17,3 +17,11 @@ export function PrintReceiptLink({ href }: { href: string }) {
     </a>
   );
 }
+
+export function PrintCalibrateLink({ href }: { href: string }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className={pdfLinkClass}>
+      Skriv ut kalibrering
+    </a>
+  );
+}
