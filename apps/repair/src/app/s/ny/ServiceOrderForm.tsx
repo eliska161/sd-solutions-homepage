@@ -25,6 +25,7 @@ import {
 import { REPAIR_TERMS_VERSION, repairTermsSections } from "@/lib/repair-terms";
 import type { IphoneModelOption } from "@/lib/apple-models";
 import { SignaturePad } from "@/components/forms/SignaturePad";
+import { customerPriceWithLabor } from "@/lib/vat";
 
 const ORDER_STEPS = [
   { id: "contact", label: "Kontakt" },
@@ -101,7 +102,13 @@ function StepBar({
   );
 }
 
-export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
+export function ServiceOrderForm({
+  models,
+  chargeVat,
+}: {
+  models: IphoneModelOption[];
+  chargeVat: boolean;
+}) {
   const [pending, setPending] = useState(false);
   const [lookupPending, startLookup] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -718,7 +725,8 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
                 </div>
                 {partQuote ? (
                   <p className="text-[15px] font-semibold text-foreground">
-                    Estimert pris: {partQuote.priceLabel} inkl. mva og arbeid
+                    Estimert pris: {partQuote.priceLabel}{" "}
+                    {customerPriceWithLabor(chargeVat)}
                   </p>
                 ) : (
                   <p className="text-[13px] text-muted">

@@ -20,7 +20,9 @@ import { formatDropoffAppointment } from "@/lib/dropoff";
 import { formatNokFromOre } from "@/lib/money";
 import { PAYMENT_STATUS_LABELS } from "@/lib/labels";
 import { publicTicketLinkFilter } from "@/lib/public-link";
+import { customerPriceSuffix } from "@/lib/vat";
 import { ticketIsBatteryJob } from "@/server/battery-calibrate";
+import { isCustomerVatCharged } from "@/server/settings";
 
 /**
  * Public, unauthenticated customer status payload.
@@ -67,6 +69,7 @@ export async function getPublicRepairByToken(token: string) {
 
   if (!row) return null;
 
+  const chargeVat = await isCustomerVatCharged();
   const [updates, photos, ticketServices] = await Promise.all([
     db
       .select({
@@ -141,6 +144,7 @@ export async function getPublicRepairByToken(token: string) {
       row.customerPriceOre != null
         ? formatNokFromOre(row.customerPriceOre)
         : null,
+    priceSuffix: customerPriceSuffix(chargeVat),
     discount:
       (row.discountOre ?? 0) > 0
         ? {

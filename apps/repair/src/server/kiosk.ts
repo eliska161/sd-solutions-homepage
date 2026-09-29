@@ -27,6 +27,7 @@ import { storeCustomerPdf } from "@/lib/store-customer-pdf";
 import { estimatedCompletionAt, formatOsloDateLabel, nextDayOffer } from "@/lib/next-day";
 import { notifyDeviceReceived, notifyServiceOrderCreated } from "@/server/customer-mail";
 import { kioskPaymentForTicket } from "@/server/payments";
+import { isCustomerVatCharged } from "@/server/settings";
 
 const CLOSED = ["CANCELLED", "COMPLETED", "RETURNED"] as const;
 
@@ -374,6 +375,7 @@ export async function kioskBoard() {
   return {
     dropoffs: await withParts(dropoffRows),
     pickups: await withParts(pickupRows),
+    chargeVat: await isCustomerVatCharged(),
   };
 }
 
@@ -588,6 +590,7 @@ export async function createKioskLockerOrder(input: {
 
   try {
     const pdf = await renderSignedTermsPdf({
+      chargeVat: await isCustomerVatCharged(),
       order: {
         ticketNumber,
         customerName: signerName,

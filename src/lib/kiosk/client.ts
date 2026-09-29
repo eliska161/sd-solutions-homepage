@@ -158,6 +158,7 @@ export async function completeLiveTicket(ticketNumber: string) {
 export async function fetchKioskBoard(): Promise<{
   dropoffs: RepairRow[];
   pickups: RepairRow[];
+  chargeVat: boolean;
 }> {
   try {
     const res = await fetch("/api/kiosk", { cache: "no-store" });
@@ -165,8 +166,9 @@ export async function fetchKioskBoard(): Promise<{
     return {
       dropoffs: data.dropoffs ?? [],
       pickups: data.pickups ?? [],
+      chargeVat: data.chargeVat === true,
     };
   } catch {
-    return { dropoffs: [], pickups: [] };
+    return { dropoffs: [], pickups: [], chargeVat: false };
   }
 }

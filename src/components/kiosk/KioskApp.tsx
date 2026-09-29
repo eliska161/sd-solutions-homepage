@@ -161,6 +161,7 @@ export function KioskApp() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [signaturePng, setSignaturePng] = useState<string | null>(null);
   const [liveTickets, setLiveTickets] = useState<RepairRow[]>([]);
+  const [chargeVat, setChargeVat] = useState(false);
   const [thanksLeft, setThanksLeft] = useState(5);
   const lookupGen = useRef(0);
   const lastLookup = useRef("");
@@ -656,6 +657,10 @@ export function KioskApp() {
   }, [postalCode, model.screen]);
 
   useEffect(() => {
+    void fetchKioskBoard().then((board) => setChargeVat(board.chargeVat));
+  }, []);
+
+  useEffect(() => {
     const liveScreens =
       model.screen === "DELIVERY_SELECT" ||
       model.screen === "DELIVERY_EMPTY" ||
@@ -663,9 +668,10 @@ export function KioskApp() {
     if (!liveScreens) return;
     const tick = () => {
       if (model.screen === "ADMIN") {
-        void fetchKioskBoard().then((board) =>
-          setLiveTickets([...board.dropoffs, ...board.pickups]),
-        );
+        void fetchKioskBoard().then((board) => {
+          setChargeVat(board.chargeVat);
+          setLiveTickets([...board.dropoffs, ...board.pickups]);
+        });
         return;
       }
       if (lastLookup.current) void lookupQuery({ silent: true, query: lastLookup.current });
@@ -1093,7 +1099,7 @@ export function KioskApp() {
                   }}
                 />
                 <p className="mt-3 text-center text-[16px] font-semibold text-[#3d4454]">
-                  {kioskEstimateDisclaimer()}
+                  {kioskEstimateDisclaimer(chargeVat)}
                 </p>
               </ScreenFrame>
             ) : null}
@@ -1301,11 +1307,11 @@ export function KioskApp() {
                 </p>
                 {draftEstimate ? (
                   <p className="mb-2 text-center text-[18px] font-bold text-[#2b6cb0]">
-                    Estimat {draftEstimate.text}. {kioskEstimateDisclaimer()}
+                    Estimat {draftEstimate.text}. {kioskEstimateDisclaimer(chargeVat)}
                   </p>
                 ) : (
                   <p className="mb-2 text-center text-[16px] font-semibold text-[#3d4454]">
-                    {kioskEstimateDisclaimer()}
+                    {kioskEstimateDisclaimer(chargeVat)}
                   </p>
                 )}
                 <div className="min-h-0 flex-1 overflow-auto border-[3px] border-[#1f2430] bg-white p-4 text-[18px] leading-snug">
