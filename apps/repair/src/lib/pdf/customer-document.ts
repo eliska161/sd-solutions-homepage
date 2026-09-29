@@ -8,6 +8,7 @@ import {
 } from "@/lib/legal";
 import { formatDate, formatDateOnly } from "@/lib/labels";
 import { formatNokFromOre, vatFromGrossOre } from "@/lib/money";
+import { receiptServicesHeader } from "@/lib/vat";
 import {
   barcodePng,
   drawLogoWordmark,
@@ -206,6 +207,7 @@ export async function renderLegalPdfBySlug(
 export async function renderSignedTermsPdf(input: {
   order: TermsOrderSummary;
   signature: TermsSignature;
+  chargeVat?: boolean;
 }): Promise<Buffer> {
   return renderOrderConfirmationPdf({
     ticketNumber: input.order.ticketNumber,
@@ -223,6 +225,7 @@ export async function renderSignedTermsPdf(input: {
     signedAt: input.signature.signedAt,
     signerName: input.signature.signerName,
     signaturePng: input.signature.png,
+    chargeVat: input.chargeVat,
   });
 }
 
@@ -248,6 +251,7 @@ export async function renderReceiptPdf(input: {
   postageOre: number;
   totalOre: number;
   warrantyDays: number | null;
+  chargeVat?: boolean;
 }): Promise<Buffer> {
   const fonts = pdfFontPaths();
   const ink = "#111111";
@@ -363,7 +367,9 @@ export async function renderReceiptPdf(input: {
   const feeY = 292;
   doc.roundedRect(left, feeY, width, 18, 2).fill(wash);
   doc.fillColor(ink).font(fonts.bold).fontSize(9);
-  doc.text("Tjenester (inkl. mva)", left + 8, feeY + 4, { lineBreak: false });
+  doc.text(receiptServicesHeader(Boolean(input.chargeVat)), left + 8, feeY + 4, {
+    lineBreak: false,
+  });
 
   let rowY = feeY + 26;
   if (serviceLines.length === 0) {
@@ -379,7 +385,6 @@ export async function renderReceiptPdf(input: {
     }
   }
 
-  const vat = vatFromGrossOre(input.totalOre);
   rowY += 4;
   doc
     .moveTo(left, rowY)
@@ -388,13 +393,20 @@ export async function renderReceiptPdf(input: {
     .lineWidth(0.8)
     .stroke();
   rowY += 10;
-  doc.font(fonts.regular).fontSize(9).fillColor(ink);
-  doc.text("Sum eks. mva", left, rowY, { width: width - 90 });
-  doc.text(vat.netLabel, left, rowY, { width, align: "right" });
-  rowY += 16;
-  doc.text("Herav mva 25 %", left, rowY, { width: width - 90 });
-  doc.text(vat.vatLabel, left, rowY, { width, align: "right" });
-  rowY += 18;
+  if (input.chargeVat) {
+    const vat = vatFromGrossOre(input.totalOre);
+    doc.font(fonts.regular).fontSize(9).fillColor(ink);
+    doc.text("Sum eks. mva", left, rowY, { width: width - 90 });
+    doc.text(vat.netLabel, left, rowY, { width, align: "right" });
+    rowY += 16;
+    doc.text("Herav mva 25 %", left, rowY, { width: width - 90 });
+    doc.text(vat.vatLabel, left, rowY, { width, align: "right" });
+    rowY += 18;
+  } else {
+    doc.font(fonts.regular).fontSize(8).fillColor(muted);
+    doc.text("Merverdiavgift er ikke beregnet.", left, rowY, { width });
+    rowY += 16;
+  }
   doc.font(fonts.bold).fontSize(12).fillColor(ink);
   doc.text("TOTAL", left, rowY, { width: width - 90 });
   doc.text(formatNokFromOre(input.totalOre), left, rowY, { width, align: "right" });

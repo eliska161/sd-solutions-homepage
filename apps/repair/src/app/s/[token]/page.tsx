@@ -103,7 +103,9 @@ export default async function CustomerStatusPage({
           {data.paid ? "Betalt" : data.paymentLabel}
         </p>
         {data.customerPriceLabel ? (
-          <p className="mt-1 text-sm">{data.customerPriceLabel} inkl. mva</p>
+          <p className="mt-1 text-sm">
+            {data.customerPriceLabel} {data.priceSuffix}
+          </p>
         ) : null}
         {data.canPay && !data.paid ? (
           <p className="mt-3">
@@ -175,7 +177,9 @@ export default async function CustomerStatusPage({
               <div>
                 <dt className="text-[13px] text-muted">Pris</dt>
                 <dd className="mt-0.5">
-                  {data.customerPriceLabel ?? "Avventer"}
+                  {data.customerPriceLabel
+                    ? `${data.customerPriceLabel} ${data.priceSuffix}`
+                    : "Avventer"}
                 </dd>
               </div>
             </dl>
@@ -308,7 +312,9 @@ export default async function CustomerStatusPage({
               <p className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-3 font-medium">
                 <span>Totalpris</span>
                 <span className="shrink-0 tabular-nums">
-                  {data.customerPriceLabel ?? "Avventer"}
+                  {data.customerPriceLabel
+                    ? `${data.customerPriceLabel} ${data.priceSuffix}`
+                    : "Avventer"}
                 </span>
               </p>
             </CardBody>

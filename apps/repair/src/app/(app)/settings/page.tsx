@@ -5,7 +5,8 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
-import { getSetting, setSetting } from "@/server/settings";
+import { getSetting, isCustomerVatCharged, setSetting } from "@/server/settings";
+import { BILLING_CHARGE_VAT_KEY } from "@/lib/vat";
 import {
   elksAlphaSender,
   elksIsConfigured,
@@ -34,6 +35,12 @@ async function saveCompanyAction(formData: FormData) {
   redirect("/settings");
 }
 
+async function saveVatAction(formData: FormData) {
+  "use server";
+  await setSetting(BILLING_CHARGE_VAT_KEY, formData.get("chargeVat") === "on");
+  redirect("/settings");
+}
+
 export default async function SettingsPage() {
   const company =
     (await getSetting<CompanyInfo>("company.info")) ?? {
@@ -44,6 +51,7 @@ export default async function SettingsPage() {
   const webhookUrl = `${publicAppOrigin()}/api/webhooks/elks`;
   const sender = elksAlphaSender();
   const smsReady = elksIsConfigured();
+  const chargeVat = await isCustomerVatCharged();
 
   return (
     <div>
@@ -117,6 +125,42 @@ export default async function SettingsPage() {
         </Card>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader title="Merverdiavgift" />
+            <CardBody>
+              <form action={saveVatAction} className="space-y-3">
+                <label className="flex items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    name="chargeVat"
+                    className="mt-0.5"
+                    defaultChecked={chargeVat}
+                  />
+                  <span>
+                    <span className="block font-medium text-foreground">
+                      25 % MVA på kundens priser og kvitteringer
+                    </span>
+                    <span className="mt-1 block text-muted">
+                      Av når du er under 50 000 kr i omsetning og ikke
+                      MVA-registrert. På når du er MVA-pliktig. Beløpene i kr
+                      endres ikke — bare om MVA vises og splittes på
+                      kvittering.
+                    </span>
+                  </span>
+                </label>
+                <p className="text-[13px] text-muted">
+                  Nå:{" "}
+                  <span className="text-foreground">
+                    {chargeVat
+                      ? "MVA 25 % vises til kunden"
+                      : "uten merverdiavgift"}
+                  </span>
+                </p>
+                <Button type="submit">Lagre MVA</Button>
+              </form>
+            </CardBody>
+          </Card>
+
           <Card>
             <CardHeader title="Roller" />
             <CardBody className="space-y-2 text-sm text-muted">

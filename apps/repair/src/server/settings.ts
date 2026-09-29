@@ -8,9 +8,9 @@ import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { canAdmin } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
+import { BILLING_CHARGE_VAT_KEY, DEFAULT_CHARGE_VAT } from "@/lib/vat";
 
-export async function getSetting<T = unknown>(key: string): Promise<T | null> {
-  await requireSession();
+async function readSetting<T = unknown>(key: string): Promise<T | null> {
   const db = getDb();
   const [row] = await db
     .select()
@@ -18,6 +18,11 @@ export async function getSetting<T = unknown>(key: string): Promise<T | null> {
     .where(eq(settings.key, key))
     .limit(1);
   return (row?.value as T) ?? null;
+}
+
+export async function getSetting<T = unknown>(key: string): Promise<T | null> {
+  await requireSession();
+  return readSetting<T>(key);
 }
 
 export async function setSetting(key: string, value: unknown) {
@@ -58,5 +63,11 @@ export async function setSetting(key: string, value: unknown) {
   });
 
   revalidatePath("/settings");
+  revalidatePath("/s", "layout");
   return row;
+}
+
+export async function isCustomerVatCharged(): Promise<boolean> {
+  const value = await readSetting<boolean>(BILLING_CHARGE_VAT_KEY);
+  return typeof value === "boolean" ? value : DEFAULT_CHARGE_VAT;
 }

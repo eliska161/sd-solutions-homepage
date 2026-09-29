@@ -11,6 +11,7 @@ import { formatNokFromOre, vatFromGrossOre } from "@/lib/money";
 import { allocatePublicShortCode, publicTicketLinkFilter } from "@/lib/public-link";
 import { getStripe, stripeConfigured } from "@/lib/stripe";
 import { loadTicketCharge } from "@/lib/ticket-totals";
+import { isCustomerVatCharged } from "@/server/settings";
 
 export type KioskPayment = {
   paid: boolean;
@@ -415,7 +416,8 @@ export async function kioskPaymentForTicket(ticketId: string): Promise<KioskPaym
     });
   }
 
-  const vat = vatFromGrossOre(charge.totalOre);
+  const chargeVat = await isCustomerVatCharged();
+  const vat = chargeVat ? vatFromGrossOre(charge.totalOre) : null;
   const statusUrl = code ? publicStatusUrl(code) : null;
   const slip = paid
     ? await stripePaymentSlip({
@@ -437,8 +439,8 @@ export async function kioskPaymentForTicket(ticketId: string): Promise<KioskPaym
       : PAYMENT_STATUS_LABELS[ticket?.paymentStatus || "UNPAID"],
     totalOre: charge.totalOre,
     totalLabel: formatNokFromOre(charge.totalOre),
-    netLabel: vat.netLabel,
-    vatLabel: vat.vatLabel,
+    netLabel: vat?.netLabel,
+    vatLabel: vat?.vatLabel,
     payUrl,
     payQr: payUrl ? await qrDataUrl(payUrl) : null,
     statusUrl,

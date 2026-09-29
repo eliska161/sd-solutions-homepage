@@ -12,6 +12,7 @@ import { renderReceiptPdf } from "@/lib/pdf/customer-document";
 import { loadTicketCharge } from "@/lib/ticket-totals";
 import { storeCustomerPdf } from "@/lib/store-customer-pdf";
 import { stripePaymentSlip } from "@/server/payments";
+import { isCustomerVatCharged } from "@/server/settings";
 
 export async function renderTicketReceiptPdf(
   ticketId: string,
@@ -68,6 +69,7 @@ export async function renderTicketReceiptPdf(
     checkoutSessionId: row.stripeCheckoutSessionId,
   });
 
+  const chargeVat = await isCustomerVatCharged();
   const buffer = await renderReceiptPdf({
     ticketNumber: row.ticketNumber,
     customerName: row.customerName,
@@ -96,6 +98,7 @@ export async function renderTicketReceiptPdf(
     postageOre: charge.postageOre,
     totalOre: charge.totalOre,
     warrantyDays: row.warrantyDays,
+    chargeVat,
   });
 
   return { buffer, ticketNumber: row.ticketNumber };

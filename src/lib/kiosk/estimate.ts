@@ -30,6 +30,9 @@ export function kioskIssueEstimate(device: string, issue: string) {
   return { kr, text: formatListPrice(service, kr), modelLabel: model.label };
 }
 
-export function kioskEstimateDisclaimer() {
-  return "Fra-pris inkl. mva og arbeid for billigste delvalg. Endelig pris etter inspeksjon.";
+export function kioskEstimateDisclaimer(chargeVat = false) {
+  const vat = chargeVat
+    ? "inkl. mva og arbeid"
+    : "inkl. arbeid, uten merverdiavgift";
+  return `Fra-pris ${vat} for billigste delvalg. Endelig pris etter inspeksjon.`;
 }

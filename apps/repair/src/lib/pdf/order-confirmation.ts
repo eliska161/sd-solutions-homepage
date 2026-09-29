@@ -7,11 +7,8 @@ import {
   LEGAL_VERSION,
   signedWorkshopClauses,
 } from "@/lib/legal";
-import {
-  PRICE_LIST_DISCLAIMER,
-  estimateLinesForModel,
-  matchRepairModel,
-} from "@/lib/repair-prices";
+import { estimateLinesForModel, matchRepairModel } from "@/lib/repair-prices";
+import { estimateListHeader, priceListDisclaimer } from "@/lib/vat";
 import { pdfFontPaths, resolvePdfLogoFile } from "@/lib/pdf/summary-document";
 
 const INK = "#111111";
@@ -36,6 +33,7 @@ export type OrderConfirmationInput = {
   signedAt: Date;
   signerName: string;
   signaturePng: Buffer;
+  chargeVat?: boolean;
 };
 
 export function pageWidth(doc: PDFKit.PDFDocument) {
@@ -237,9 +235,7 @@ export async function renderOrderConfirmationPdf(
   doc.roundedRect(left, feeY, width, 18, 2).fill(WASH);
   doc.fillColor(INK).font(fonts.bold).fontSize(9);
   doc.text(
-    matched
-      ? `Estimert prisliste · ${matched.label} (inkl. mva)`
-      : "Estimert prisliste (inkl. mva)",
+    estimateListHeader(Boolean(input.chargeVat), matched?.label),
     left + 8,
     feeY + 4,
     { lineBreak: false },
@@ -276,7 +272,7 @@ export async function renderOrderConfirmationPdf(
     rowY += Math.ceil(estimates.length / 2) * 16 + 6;
   }
   doc.font(fonts.regular).fontSize(7.5).fillColor(MUTED);
-  doc.text(PRICE_LIST_DISCLAIMER, left, rowY, { width });
+  doc.text(priceListDisclaimer(Boolean(input.chargeVat)), left, rowY, { width });
   rowY = Math.max(doc.y, rowY) + 10;
 
   doc.roundedRect(left, rowY, width, 18, 2).fill(WASH);

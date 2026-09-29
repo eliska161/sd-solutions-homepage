@@ -29,6 +29,7 @@ import { REPAIR_TERMS_VERSION } from "@/lib/repair-terms";
 import { nextRepairTicketNumber } from "@/lib/sequences";
 import { storeCustomerPdf } from "@/lib/store-customer-pdf";
 import { notifyServiceOrderCreated } from "@/server/customer-mail";
+import { isCustomerVatCharged } from "@/server/settings";
 import { estimatedCompletionAt, formatOsloDateLabel, nextDayOffer } from "@/lib/next-day";
 
 const deliverySchema = z.enum(["IN_PERSON", "POST"]);
@@ -510,6 +511,7 @@ export async function createPublicServiceOrder(
     .join(" ");
   try {
     const pdf = await renderSignedTermsPdf({
+      chargeVat: await isCustomerVatCharged(),
       order: {
         ticketNumber,
         customerName: data.name,
