@@ -114,6 +114,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
   const [lookupColors, setLookupColors] = useState<string[]>([]);
   const [lookupStorages, setLookupStorages] = useState<string[]>([]);
   const lastLookup = useRef("");
+  const [lookupKind, setLookupKind] = useState<"ok" | "miss" | null>(null);
   const [phone, setPhone] = useState("");
   const [inboundMethod, setInboundMethod] = useState<"IN_PERSON" | "POST">(
     "IN_PERSON",
@@ -172,7 +173,8 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
     const imeiValue = (overrides?.imei ?? imei).trim();
     const serialValue = (overrides?.serialNumber ?? serialNumber).trim();
     if (imeiValue.replace(/\D/g, "").length < 8 && compactSerial(serialValue).length < 8) {
-      setLookupMsg("Skriv IMEI eller serienummer først.");
+      setLookupKind(null);
+      setLookupMsg("Skriv IMEI (15 siffer) eller serienummer først.");
       return;
     }
     const key = `${imeiValue}|${serialValue}`;
@@ -219,6 +221,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
       if (result.model) {
         setModel(result.model);
       }
+      setLookupKind(result.model ? "ok" : "miss");
       setLookupMsg(result.note);
     });
   }
@@ -346,7 +349,7 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
     },
     device: {
       title: "Enhet",
-      description: "IMEI eller serienummer. Vi slår opp modell når vi kan.",
+      description: "Lim inn IMEI eller serienummer. Én av dem holder.",
     },
     job: {
       title: "Reparasjon",
@@ -446,45 +449,79 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
             </div>
           </fieldset>
 
-          <fieldset className={`space-y-3 ${step === "device" ? "" : "hidden"}`}>
+          <fieldset className={`space-y-4 ${step === "device" ? "" : "hidden"}`}>
             <legend className="sr-only">Enhet</legend>
-            <p className="text-[13px] text-muted">
-              Ett av feltene er nok. IMEI (15 siffer) slår opp modell fra TAC.
-              Serienummer slår opp hvis enheten er kjent hos oss.
+            <p className="text-[13px] leading-5 text-muted">
+              Finn tallene på iPhonen under{" "}
+              <span className="text-foreground">
+                Innstillinger → Generelt → Om
+              </span>
+              . Lim inn ett av dem — vi henter modell automatisk når vi kan.
             </p>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-3 rounded-xl border border-border bg-white p-3 sm:p-4">
               <div>
-                <Label htmlFor="imei">IMEI</Label>
+                <div className="flex items-end justify-between gap-3">
+                  <Label htmlFor="imei">IMEI</Label>
+                  <span
+                    className={`text-[12px] tabular-nums ${
+                      imei.replace(/\D/g, "").length === 15
+                        ? "text-accent"
+                        : "text-muted"
+                    }`}
+                  >
+                    {imei.replace(/\D/g, "").length}/15
+                  </span>
+                </div>
                 <Input
                   id="imei"
                   name="imei"
                   inputMode="numeric"
-                  className="mt-1"
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={15}
+                  placeholder="15 siffer"
+                  className="mt-1 h-11 font-mono text-[15px] tracking-[0.12em]"
                   value={imei}
                   onChange={(e) => {
-                    const next = e.target.value;
+                    const next = e.target.value.replace(/\D/g, "").slice(0, 15);
                     setImei(next);
-                    const digits = next.replace(/\D/g, "");
-                    if (digits.length === 15) {
+                    if (next.length === 15) {
                       applyLookup(false, { imei: next });
                     }
                   }}
                   onBlur={() => {
-                    if (imei.replace(/\D/g, "").length >= 14) applyLookup();
+                    if (imei.replace(/\D/g, "").length === 15) applyLookup();
                   }}
                 />
+                <p className="mt-1 text-[12px] text-muted">
+                  Står som IMEI i Om. Best til å treffe riktig modell.
+                </p>
               </div>
+              <p className="text-center text-[12px] font-medium uppercase tracking-wide text-muted">
+                eller
+              </p>
               <div>
-                <Label htmlFor="serialNumber">Serienummer</Label>
+                <div className="flex items-end justify-between gap-3">
+                  <Label htmlFor="serialNumber">Serienummer</Label>
+                  <span className="text-[12px] tabular-nums text-muted">
+                    {compactSerial(serialNumber).length
+                      ? `${compactSerial(serialNumber).length} tegn`
+                      : "10–12 tegn"}
+                  </span>
+                </div>
                 <Input
                   id="serialNumber"
                   name="serialNumber"
-                  className="mt-1"
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="characters"
+                  placeholder="F.eks. F2LX1234Q6L7"
+                  className="mt-1 h-11 font-mono text-[15px] tracking-[0.08em] uppercase"
                   value={serialNumber}
                   onChange={(e) => {
-                    const next = e.target.value;
+                    const next = compactSerial(e.target.value).slice(0, 14);
                     setSerialNumber(next);
-                    if (compactSerial(next).length >= 10) {
+                    if (next.length >= 10) {
                       applyLookup(false, { serialNumber: next });
                     }
                   }}
@@ -492,21 +529,47 @@ export function ServiceOrderForm({ models }: { models: IphoneModelOption[] }) {
                     if (compactSerial(serialNumber).length >= 8) applyLookup();
                   }}
                 />
+                <p className="mt-1 text-[12px] text-muted">
+                  Står som serienummer i Om. Treffer hvis telefonen har vært her
+                  før.
+                </p>
               </div>
-              <div className="sm:col-span-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
-                  disabled={lookupPending}
+                  disabled={
+                    lookupPending ||
+                    (imei.replace(/\D/g, "").length < 8 &&
+                      compactSerial(serialNumber).length < 8)
+                  }
                   onClick={() => applyLookup(true)}
                 >
-                  {lookupPending ? "Henter…" : "Slå opp IMEI / serienummer"}
+                  {lookupPending ? "Slår opp…" : "Slå opp"}
                 </Button>
-                {lookupMsg ? (
-                  <p className="mt-2 text-[13px] text-muted">{lookupMsg}</p>
-                ) : null}
+                {lookupPending ? (
+                  <p className="text-[13px] text-muted">Henter modell…</p>
+                ) : lookupMsg ? (
+                  <p
+                    className={`text-[13px] ${
+                      lookupKind === "ok"
+                        ? "font-medium text-foreground"
+                        : "text-muted"
+                    }`}
+                    role="status"
+                  >
+                    {lookupMsg}
+                  </p>
+                ) : (
+                  <p className="text-[13px] text-muted">
+                    Oppslag skjer når IMEI er 15 siffer, eller når
+                    serienummeret er ferdig.
+                  </p>
+                )}
               </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Label htmlFor="model">Modell</Label>
                 <Select
