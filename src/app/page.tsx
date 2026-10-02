@@ -31,6 +31,7 @@ export default async function Home() {
     legalName: company.legalName,
     description: company.repairDescription,
     email: company.email,
+    telephone: company.phoneHref.replace("tel:", ""),
     url: "/",
     address: {
       "@type": "PostalAddress",

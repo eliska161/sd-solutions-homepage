@@ -39,6 +39,17 @@ export function RepairCTA() {
               </dd>
             </div>
             <div>
+              <dt className="text-[13px] text-muted">Telefon</dt>
+              <dd className="mt-2">
+                <a
+                  href={company.phoneHref}
+                  className="text-foreground transition-colors hover:text-white/80"
+                >
+                  {company.phone}
+                </a>
+              </dd>
+            </div>
+            <div>
               <dt className="text-[13px] text-muted">E-post</dt>
               <dd className="mt-2">
                 <a

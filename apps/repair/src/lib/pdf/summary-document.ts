@@ -197,7 +197,7 @@ function drawFooter(doc: PDFKit.PDFDocument) {
   const range = doc.bufferedPageRange();
   for (let i = 0; i < range.count; i++) {
     doc.switchToPage(range.start + i);
-    const text = `SD Solutions · Skaug-Danielsen Solutions · Slåttmyrvegen 49, 2406 Elverum · kontakt@sd-solutions.org · Side ${i + 1} av ${range.count}`;
+    const text = `SD Solutions · Skaug-Danielsen Solutions · Slåttmyrvegen 49, 2406 Elverum · +47 21 56 45 44 · kontakt@sd-solutions.org · Side ${i + 1} av ${range.count}`;
     const saved = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
     doc

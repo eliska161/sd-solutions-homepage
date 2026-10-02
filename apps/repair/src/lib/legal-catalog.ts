@@ -1,10 +1,11 @@
-export const LEGAL_VERSION = "2026-09-27";
+export const LEGAL_VERSION = "2026-10-02";
 
 export const LEGAL_PARTY = {
   brandName: "SD Solutions",
   legalName: "Skaug-Danielsen Solutions",
   address: "Slåttmyrvegen 49, 2406 Elverum",
   email: "kontakt@sd-solutions.org",
+  phone: "+47 21 56 45 44",
   hours: "Mandag-lørdag 12:00-18:00",
   web: "https://sd-solutions.org",
   repair: "https://repair.sd-solutions.org",
@@ -62,7 +63,7 @@ export type LegalDocument = {
 };
 
 function partyLine() {
-  return `${LEGAL_PARTY.legalName} (merkenavn ${LEGAL_PARTY.brandName}), ${LEGAL_PARTY.address}. E-post: ${LEGAL_PARTY.email}.`;
+  return `${LEGAL_PARTY.legalName} (merkenavn ${LEGAL_PARTY.brandName}), ${LEGAL_PARTY.address}. E-post: ${LEGAL_PARTY.email}. Telefon: ${LEGAL_PARTY.phone}.`;
 }
 
 export const personvernNettsted: LegalDocument = {
@@ -236,6 +237,7 @@ export const virksomhet: LegalDocument = {
       title: "2. Kontakt",
       paragraphs: [
         `E-post: ${LEGAL_PARTY.email}.`,
+        `Telefon: ${LEGAL_PARTY.phone}.`,
         `Åpent: ${LEGAL_PARTY.hours}.`,
         `Nettside: ${LEGAL_PARTY.web}. Kundeportal: ${LEGAL_PARTY.repair}.`,
       ],
@@ -338,7 +340,7 @@ export const garanti: LegalDocument = {
     {
       title: "4. Reklamasjon",
       paragraphs: [
-        `Ta kontakt på ${LEGAL_PARTY.email} eller i butikk, og oppgi saksnummer. Lovbestemt reklamasjonsrett kommer i tillegg der den gjelder.`,
+        `Ta kontakt på ${LEGAL_PARTY.email}, ${LEGAL_PARTY.phone} eller i butikk, og oppgi saksnummer. Lovbestemt reklamasjonsrett kommer i tillegg der den gjelder.`,
       ],
     },
   ],

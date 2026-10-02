@@ -1,3 +1,4 @@
+import { company } from "@/lib/company";
 import { ContactForm } from "@/components/contact/ContactForm";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { Section } from "@/components/ui/Section";
@@ -11,7 +12,14 @@ export function CTA() {
             La oss bygge noe bra.
           </h2>
           <p className="mx-auto mt-6 max-w-sm text-[15px] leading-[1.75] text-muted">
-            Programvare, Kartarkiv eller SD Kiosk.
+            Programvare, Kartarkiv eller SD Kiosk. Telefon{" "}
+            <a
+              href={company.phoneHref}
+              className="text-foreground transition-colors hover:text-white/80"
+            >
+              {company.phone}
+            </a>
+            .
           </p>
         </div>
       </FadeIn>

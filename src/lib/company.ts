@@ -5,6 +5,8 @@ export const company = {
   repairDescription:
     "Vi reparerer og refurbisher mobiltelefoner, hovedsaklig iPhone. Vanlige jobber er skjerm, batteri, ladeport, kamera, lyd og diagnostikk. Du oppretter en serviceordre, så tar vi saken inn når enheten er levert.",
   email: "kontakt@sd-solutions.org",
+  phone: "+47 21 56 45 44",
+  phoneHref: "tel:+4721564544",
   address: {
     line1: "Slåttmyrvegen 49",
     postalCode: "2406",
