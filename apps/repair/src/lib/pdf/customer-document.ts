@@ -108,7 +108,7 @@ function drawFooter(doc: PDFKit.PDFDocument) {
       .fontSize(8)
       .fillColor(PDF_COLORS.muted)
       .text(
-        `${LEGAL_PARTY.brandName} · ${LEGAL_PARTY.legalName} · ${LEGAL_PARTY.address} · ${LEGAL_PARTY.email} · Side ${i + 1} av ${range.count}`,
+        `${LEGAL_PARTY.brandName} · ${LEGAL_PARTY.legalName} · ${LEGAL_PARTY.address} · ${LEGAL_PARTY.phone} · ${LEGAL_PARTY.email} · Side ${i + 1} av ${range.count}`,
         doc.page.margins.left,
         doc.page.height - 36,
         {
@@ -345,7 +345,7 @@ export async function renderReceiptPdf(input: {
   kv(doc, "Verksted", LEGAL_PARTY.address, left, gridY + 18, 90, 140);
   kv(doc, "E-post", LEGAL_PARTY.email, boxX, gridY + 18, 90, 140);
   kv(doc, "Åpent", LEGAL_PARTY.hours, left, gridY + 36, 90, 140);
-  kv(doc, "Type", "Kvittering / betaling", boxX, gridY + 36, 90, 140);
+  kv(doc, "Telefon", LEGAL_PARTY.phone, boxX, gridY + 36, 90, 140);
 
   const serviceLines: { name: string; amountLabel: string }[] = input.lines.map((item) => ({
     name: item.name,

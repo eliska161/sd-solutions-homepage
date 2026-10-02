@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/Logo";
+import { company } from "@/lib/company";
 import { SERVICE_ORDER_URL } from "@/lib/repair-portal";
 
 const links = [
@@ -21,6 +22,14 @@ export function Footer() {
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-muted">
               iPhone-reparasjon og programvare.
+            </p>
+            <p className="mt-3 text-sm text-muted">
+              <a
+                href={company.phoneHref}
+                className="transition-colors hover:text-foreground"
+              >
+                {company.phone}
+              </a>
             </p>
           </div>
 

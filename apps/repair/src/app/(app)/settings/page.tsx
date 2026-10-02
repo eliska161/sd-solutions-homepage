@@ -47,6 +47,7 @@ export default async function SettingsPage() {
       name: "SD Solutions",
       address: "Elverum",
       email: "admin@sd-solutions.org",
+      phone: "+47 21 56 45 44",
     };
   const webhookUrl = `${publicAppOrigin()}/api/webhooks/elks`;
   const sender = elksAlphaSender();

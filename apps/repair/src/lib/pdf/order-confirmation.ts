@@ -227,7 +227,7 @@ export async function renderOrderConfirmationPdf(
   kv(doc, "Verksted", LEGAL_PARTY.address, left, gridY + 36, 90, 140);
   kv(doc, "E-post", LEGAL_PARTY.email, boxX, gridY + 36, 90, 140);
   kv(doc, "Åpent", LEGAL_PARTY.hours, left, gridY + 54, 90, 140);
-  kv(doc, "Type", "Service / diagnose", boxX, gridY + 54, 90, 140);
+  kv(doc, "Telefon", LEGAL_PARTY.phone, boxX, gridY + 54, 90, 140);
 
   const feeY = 300;
   const matched = matchRepairModel(input.deviceLabel);
@@ -373,7 +373,7 @@ export function drawPageChrome(
   doc.page.margins.bottom = 0;
   doc.font(fonts.regular).fontSize(7.5).fillColor(MUTED);
   doc.text(
-    `${LEGAL_PARTY.legalName} · ${LEGAL_PARTY.address} · ${LEGAL_PARTY.email}\nSide ${page} / ${total}`,
+    `${LEGAL_PARTY.legalName} · ${LEGAL_PARTY.address} · ${LEGAL_PARTY.phone} · ${LEGAL_PARTY.email}\nSide ${page} / ${total}`,
     left,
     doc.page.height - 36,
     { width, align: "center" },

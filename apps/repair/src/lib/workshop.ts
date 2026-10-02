@@ -6,6 +6,7 @@ export const WORKSHOP = {
   postalCode: "2406",
   city: "Elverum",
   hoursLabel: "Mandag-lørdag 12:00-18:00",
+  phone: "+47 21 56 45 44",
 } as const;
 
 /** Phone / IVR: same as the workshop door. Sunday closed. */
