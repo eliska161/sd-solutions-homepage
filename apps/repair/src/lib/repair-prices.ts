@@ -1,7 +1,8 @@
 /**
  * Kundevendt prisliste (NOK, inkl. mva og arbeid).
- * Skjerm og batteri er «fra»-priser for kopi (iPhone 13-anker:
- * Soft OLED 1099 / kopi premium 549). Høyere modell koster mer.
+ * Skjerm, batteri og ladeport er «fra»-priser for kopi, ikke original.
+ * iPhone 13-anker: Soft OLED 1099 / kopi premium 549 / ladeport 799.
+ * Høyere modell koster mer.
  *
  * Mobilesentrix har ikke et åpent API. Innlogget grossistpriser derfra
  * kan du lime inn som USD og bruke suggestCustomerPriceKr() for å få et
@@ -47,7 +48,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 799,
       battery: 520,
-      charging_port: 999,
+      charging_port: 599,
       rear_camera: 1199,
       front_camera: 999,
       speaker: 799,
@@ -61,7 +62,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1049,
       battery: 520,
-      charging_port: 1099,
+      charging_port: 699,
       rear_camera: 1399,
       front_camera: 999,
       speaker: 799,
@@ -75,7 +76,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1199,
       battery: 520,
-      charging_port: 1099,
+      charging_port: 699,
       rear_camera: 1399,
       front_camera: 999,
       speaker: 799,
@@ -89,7 +90,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 949,
       battery: 520,
-      charging_port: 1099,
+      charging_port: 699,
       rear_camera: 1399,
       front_camera: 1099,
       speaker: 899,
@@ -103,7 +104,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1199,
       battery: 540,
-      charging_port: 1199,
+      charging_port: 799,
       rear_camera: 1499,
       front_camera: 1099,
       speaker: 899,
@@ -117,7 +118,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1349,
       battery: 570,
-      charging_port: 1199,
+      charging_port: 799,
       rear_camera: 1599,
       front_camera: 1099,
       speaker: 899,
@@ -131,7 +132,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1099,
       battery: 549,
-      charging_port: 1199,
+      charging_port: 799,
       rear_camera: 1499,
       front_camera: 1199,
       speaker: 899,
@@ -145,7 +146,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1349,
       battery: 599,
-      charging_port: 1299,
+      charging_port: 899,
       rear_camera: 1699,
       front_camera: 1199,
       speaker: 899,
@@ -159,7 +160,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1499,
       battery: 629,
-      charging_port: 1299,
+      charging_port: 899,
       rear_camera: 1799,
       front_camera: 1199,
       speaker: 899,
@@ -173,7 +174,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1299,
       battery: 620,
-      charging_port: 1399,
+      charging_port: 999,
       rear_camera: 1699,
       front_camera: 1299,
       speaker: 999,
@@ -187,7 +188,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1549,
       battery: 670,
-      charging_port: 1499,
+      charging_port: 1099,
       rear_camera: 1999,
       front_camera: 1299,
       speaker: 999,
@@ -201,7 +202,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1699,
       battery: 700,
-      charging_port: 1499,
+      charging_port: 1099,
       rear_camera: 2099,
       front_camera: 1299,
       speaker: 999,
@@ -215,7 +216,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1499,
       battery: 690,
-      charging_port: 1499,
+      charging_port: 1099,
       rear_camera: 1799,
       front_camera: 1399,
       speaker: 999,
@@ -229,7 +230,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1649,
       battery: 720,
-      charging_port: 1499,
+      charging_port: 1099,
       rear_camera: 1899,
       front_camera: 1399,
       speaker: 999,
@@ -243,7 +244,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1749,
       battery: 740,
-      charging_port: 1599,
+      charging_port: 1199,
       rear_camera: 1999,
       front_camera: 1399,
       speaker: 999,
@@ -257,7 +258,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1899,
       battery: 770,
-      charging_port: 1599,
+      charging_port: 1199,
       rear_camera: 2099,
       front_camera: 1399,
       speaker: 999,
@@ -271,7 +272,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1549,
       battery: 710,
-      charging_port: 1399,
+      charging_port: 999,
       rear_camera: 1699,
       front_camera: 1299,
       speaker: 999,
@@ -285,7 +286,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1699,
       battery: 760,
-      charging_port: 1599,
+      charging_port: 1199,
       rear_camera: 1899,
       front_camera: 1499,
       speaker: 1099,
@@ -299,7 +300,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1849,
       battery: 790,
-      charging_port: 1599,
+      charging_port: 1199,
       rear_camera: 1999,
       front_camera: 1499,
       speaker: 1099,
@@ -313,7 +314,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1949,
       battery: 810,
-      charging_port: 1699,
+      charging_port: 1299,
       rear_camera: 2199,
       front_camera: 1499,
       speaker: 1099,
@@ -327,7 +328,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 2099,
       battery: 840,
-      charging_port: 1699,
+      charging_port: 1299,
       rear_camera: 2299,
       front_camera: 1499,
       speaker: 1099,
@@ -341,7 +342,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1749,
       battery: 780,
-      charging_port: 1499,
+      charging_port: 1099,
       rear_camera: 1799,
       front_camera: 1399,
       speaker: 999,
@@ -355,7 +356,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 1899,
       battery: 830,
-      charging_port: 1699,
+      charging_port: 1299,
       rear_camera: 2099,
       front_camera: 1599,
       speaker: 1099,
@@ -369,7 +370,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 2099,
       battery: 870,
-      charging_port: 1699,
+      charging_port: 1299,
       rear_camera: 2199,
       front_camera: 1599,
       speaker: 1099,
@@ -383,7 +384,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 2149,
       battery: 880,
-      charging_port: 1799,
+      charging_port: 1399,
       rear_camera: 2399,
       front_camera: 1599,
       speaker: 1099,
@@ -397,7 +398,7 @@ export const REPAIR_MODELS: RepairModel[] = [
     prices: {
       screen: 2299,
       battery: 910,
-      charging_port: 1799,
+      charging_port: 1399,
       rear_camera: 2499,
       front_camera: 1599,
       speaker: 1099,
@@ -439,7 +440,7 @@ export function formatListPrice(serviceId: RepairServiceId, amount: number): str
 }
 
 export const PRICE_LIST_DISCLAIMER =
-  "Fra-priser inkl. arbeid, uten merverdiavgift. Diagnose 399 kr hvis vi ikke finner feil, eller hvis du takker nei etter diagnose. Utført reparasjon: diagnosen inngår.";
+  "Fra-priser inkl. arbeid, uten merverdiavgift (vi samler ikke dette inn). Diagnose 399 kr hvis vi ikke finner feil, eller hvis du takker nei etter diagnose. Utført reparasjon: diagnosen inngår.";
 
 /** Match «Apple iPhone 14 128 GB» to a row in the list. Longer names first. */
 export function matchRepairModel(deviceLabel: string): RepairModel | undefined {

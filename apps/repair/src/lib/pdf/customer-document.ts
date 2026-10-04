@@ -404,7 +404,12 @@ export async function renderReceiptPdf(input: {
     rowY += 18;
   } else {
     doc.font(fonts.regular).fontSize(8).fillColor(muted);
-    doc.text("Merverdiavgift er ikke beregnet.", left, rowY, { width });
+    doc.text(
+      "Merverdiavgift er ikke beregnet (vi samler ikke dette inn).",
+      left,
+      rowY,
+      { width },
+    );
     rowY += 16;
   }
   doc.font(fonts.bold).fontSize(12).fillColor(ink);
