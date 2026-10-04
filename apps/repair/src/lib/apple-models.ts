@@ -33,6 +33,8 @@ export type IphoneModelOption = {
   storages: string[];
 };
 
+export const OTHER_PHONE_MODEL = "Annen telefon";
+
 const GB = (n: string) => n;
 
 /** Models newer than the ios-device-list dump (stops at iPhone 14). */

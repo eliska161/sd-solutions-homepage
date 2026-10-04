@@ -13,6 +13,7 @@ import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { formatDropoffAppointment, isDropoffSlotOpen } from "@/lib/dropoff";
 import { matchIphoneModel } from "@/lib/apple-models";
+import { matchRepairModel } from "@/lib/repair-prices";
 import { getDb } from "@/lib/db";
 import { lookupImeiCatalog, normalizeImei } from "@/lib/imei-lookup";
 import { krToOre, CUSTOMER_POSTAGE_ORE } from "@/lib/money";
@@ -334,7 +335,12 @@ export async function createPublicServiceOrder(
   const inboundPostageOre = 0;
   const outboundPostageOre =
     data.outboundMethod === "POST" ? CUSTOMER_POSTAGE_ORE : 0;
-  const nextDayJob = data.jobType === "screen" || data.jobType === "battery";
+  const knownIphone = Boolean(
+    matchIphoneModel(data.model) || matchRepairModel(data.model),
+  );
+  const nextDayJob =
+    knownIphone &&
+    (data.jobType === "screen" || data.jobType === "battery");
   const quote =
     nextDayJob && data.partGrade
       ? quotePublicPart({
@@ -506,7 +512,7 @@ export async function createPublicServiceOrder(
   });
 
   const signedAt = ticket.termsSignedAt ?? new Date();
-  const deviceLabel = ["Apple", data.model, data.storage, data.color]
+  const deviceLabel = [data.brand, data.model, data.storage, data.color]
     .filter(Boolean)
     .join(" ");
   try {
