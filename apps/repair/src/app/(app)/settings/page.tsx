@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
 import { getSetting, isCustomerVatCharged, setSetting } from "@/server/settings";
-import { BILLING_CHARGE_VAT_KEY } from "@/lib/vat";
+import { BILLING_CHARGE_VAT_KEY, VAT_NOT_COLLECTED } from "@/lib/vat";
 import {
   elksAlphaSender,
   elksIsConfigured,
@@ -154,7 +154,7 @@ export default async function SettingsPage() {
                   <span className="text-foreground">
                     {chargeVat
                       ? "MVA 25 % vises til kunden"
-                      : "uten merverdiavgift"}
+                      : VAT_NOT_COLLECTED}
                   </span>
                 </p>
                 <Button type="submit">Lagre MVA</Button>

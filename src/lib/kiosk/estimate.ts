@@ -33,6 +33,6 @@ export function kioskIssueEstimate(device: string, issue: string) {
 export function kioskEstimateDisclaimer(chargeVat = false) {
   const vat = chargeVat
     ? "inkl. mva og arbeid"
-    : "inkl. arbeid, uten merverdiavgift";
+    : "inkl. arbeid, uten merverdiavgift (vi samler ikke dette inn)";
   return `Fra-pris ${vat} for billigste delvalg. Endelig pris etter inspeksjon.`;
 }

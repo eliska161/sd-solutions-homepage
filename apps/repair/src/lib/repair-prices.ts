@@ -439,7 +439,7 @@ export function formatListPrice(serviceId: RepairServiceId, amount: number): str
 }
 
 export const PRICE_LIST_DISCLAIMER =
-  "Fra-priser inkl. arbeid, uten merverdiavgift. Diagnose 399 kr hvis vi ikke finner feil, eller hvis du takker nei etter diagnose. Utført reparasjon: diagnosen inngår.";
+  "Fra-priser inkl. arbeid, uten merverdiavgift (vi samler ikke dette inn). Diagnose 399 kr hvis vi ikke finner feil, eller hvis du takker nei etter diagnose. Utført reparasjon: diagnosen inngår.";
 
 /** Match «Apple iPhone 14 128 GB» to a row in the list. Longer names first. */
 export function matchRepairModel(deviceLabel: string): RepairModel | undefined {
