@@ -1404,7 +1404,7 @@ export function KioskApp() {
                   <EnvelopeVisual />
                 </div>
                 <p className="mb-4 text-center text-[32px] font-bold leading-tight">
-                  Legg enheten i en plastkonvolutt
+                  Legg enheten i en boblekonvolutt
                 </p>
                 <KioskButton onClick={startPrint}>Jeg har gjort dette</KioskButton>
               </ScreenFrame>
@@ -1429,7 +1429,7 @@ export function KioskApp() {
                   />
                 </div>
                 <p className="mb-4 text-center text-[32px] font-bold leading-tight">
-                  Ta etiketten og fest den på konvolutten
+                  Ta etiketten og fest den på boblekonvolutten
                 </p>
                 <KioskButton
                   disabled={!labelPrinted || busy}
@@ -1461,7 +1461,7 @@ export function KioskApp() {
                 onCancel={() => dispatch({ type: "HOME" })}
               >
                 <h1 className="mt-2 text-[32px] font-bold leading-tight tracking-tight">
-                  Legg konvolutten i luke {MOCK_LOCKER}
+                  Legg boblekonvolutten i luke {MOCK_LOCKER}
                 </h1>
                 <div className="flex flex-1 items-center">
                   <LockerVisual
@@ -1653,7 +1653,7 @@ export function KioskApp() {
                   />
                 </div>
                 <p className="mb-4 text-center text-[32px] font-bold leading-tight">
-                  Ta ut konvolutten fra luke {MOCK_LOCKER}
+                  Ta ut boblekonvolutten fra luke {MOCK_LOCKER}
                 </p>
                 <KioskButton
                   onClick={() => {
