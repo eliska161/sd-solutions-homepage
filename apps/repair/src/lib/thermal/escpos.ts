@@ -767,6 +767,58 @@ function drawKv(
   return y + 26;
 }
 
+function drawPayKv(
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  value: string,
+  pad: number,
+  y: number,
+  inner: number,
+) {
+  ctx.font = "600 16px sans-serif";
+  fitText(ctx, label, pad, y, 168);
+  fitText(ctx, value, pad + 174, y, inner - 174, "right");
+  return y + 24;
+}
+
+function purchaseTxPairs(input: WorkshopReceiptInput): [string, string][] {
+  const card =
+    input.cardLast4 && input.cardBrand
+      ? `${input.cardBrand} **** ${input.cardLast4}`
+      : input.cardLast4
+        ? `Kort **** ${input.cardLast4}`
+        : input.paymentDetail && input.paymentDetail !== input.paymentLabel
+          ? input.paymentDetail
+          : null;
+  const pairs: [string, string][] = [];
+  const push = (label: string, value?: string | null) => {
+    const v = (value || "").trim();
+    if (!v) return;
+    if (pairs.some((row) => row[1] === v && row[0] === label)) return;
+    pairs.push([label, v]);
+  };
+  push("Kort", card);
+  push("Korttype", input.fundingLabel);
+  push("Lesemåte", input.entryMethod);
+  push("Aut.id", input.authCode);
+  push("AID", input.aid);
+  push("App", input.applicationName);
+  push("Charge", input.chargeId || (input.transactionId?.startsWith("ch_") ? input.transactionId : null));
+  push(
+    "Betalings-ID",
+    input.paymentIntentId ||
+      (input.transactionId?.startsWith("pi_") ? input.transactionId : null),
+  );
+  if (!input.chargeId && input.transactionId && !input.transactionId.startsWith("pi_")) {
+    push("Transaksjon", input.transactionId);
+  }
+  push("Nettverk-ID", input.networkTxnId);
+  push("Land", input.cardCountry);
+  push("Utlegg", input.statement);
+  push("Tidspunkt", input.paidAt);
+  return pairs;
+}
+
 function printerInit() {
   const w = LABEL_WIDTH_DOTS;
   return concat(
@@ -812,17 +864,21 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
         minute: "2-digit",
       });
   const tx = (input.transactionId || "").replace(/\s+/g, "");
-  const payRows = [
-    input.paymentDetail,
-    input.cardLast4 && input.cardBrand
-      ? `${input.cardBrand} **** ${input.cardLast4}`
-      : input.cardLast4
-        ? `Kort **** ${input.cardLast4}`
-        : null,
-    input.authCode ? `Aut ${input.authCode}` : null,
-    tx ? `Trans ${tx.slice(-12)}` : null,
-    input.paidAt ? `Betalt ${input.paidAt}` : null,
-  ].filter((row, i, all): row is string => Boolean(row) && all.indexOf(row) === i);
+  const txPairs = input.kind === "purchase" ? purchaseTxPairs(input) : [];
+  const payRows =
+    input.kind === "purchase"
+      ? []
+      : [
+          input.paymentDetail,
+          input.cardLast4 && input.cardBrand
+            ? `${input.cardBrand} **** ${input.cardLast4}`
+            : input.cardLast4
+              ? `Kort **** ${input.cardLast4}`
+              : null,
+          input.authCode ? `Aut ${input.authCode}` : null,
+          tx ? `Trans ${tx.slice(-12)}` : null,
+          input.paidAt ? `Betalt ${input.paidAt}` : null,
+        ].filter((row, i, all): row is string => Boolean(row) && all.indexOf(row) === i);
   const notes = (input.workNotes ?? []).filter(Boolean);
   const footer = input.footer.filter(Boolean);
   const lines = input.lines;
@@ -832,9 +888,10 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
     900 +
     lines.length * 36 +
     payRows.length * 32 +
+    txPairs.length * 28 +
     notes.length * 32 +
     footer.length * 28 +
-    (input.kind === "repair" ? 400 : 80) +
+    (input.kind === "repair" ? 400 : 120) +
     (input.statusQr ? 360 : 40);
   const canvas = document.createElement("canvas");
   canvas.width = w;
@@ -965,12 +1022,19 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   ctx.font = "700 22px sans-serif";
   fitText(ctx, "Betaling", pad, y, inner);
   y += 28;
-  ctx.font = "600 20px sans-serif";
-  fitText(ctx, input.paymentLabel || "Betaling", pad, y, inner);
-  y += 26;
-  for (const row of payRows) {
-    fitText(ctx, row, pad, y, inner);
-    y += 24;
+  if (input.kind === "purchase") {
+    y = drawPayKv(ctx, "Status", input.paymentLabel || "Betaling", pad, y, inner);
+    for (const [label, value] of txPairs) {
+      y = drawPayKv(ctx, label, value, pad, y, inner);
+    }
+  } else {
+    ctx.font = "600 20px sans-serif";
+    fitText(ctx, input.paymentLabel || "Betaling", pad, y, inner);
+    y += 26;
+    for (const row of payRows) {
+      fitText(ctx, row, pad, y, inner);
+      y += 24;
+    }
   }
   y += 8;
   ctx.fillRect(pad, y, inner, 3);

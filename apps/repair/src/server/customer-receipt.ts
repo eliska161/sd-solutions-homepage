@@ -5,7 +5,7 @@ import {
   repairTickets,
 } from "@/db/schema";
 import { getDb } from "@/lib/db";
-import { PAYMENT_STATUS_LABELS } from "@/lib/labels";
+import { formatDate, PAYMENT_STATUS_LABELS } from "@/lib/labels";
 import { publicStatusUrl, type MailFile } from "@/lib/mail";
 import { allocatePublicShortCode } from "@/lib/public-link";
 import { renderReceiptPdf } from "@/lib/pdf/customer-document";
@@ -39,6 +39,7 @@ export async function renderTicketReceiptPdf(
       publicShortCode: repairTickets.publicShortCode,
       stripeCheckoutSessionId: repairTickets.stripeCheckoutSessionId,
       stripePaymentIntentId: repairTickets.stripePaymentIntentId,
+      paidAt: repairTickets.paidAt,
     })
     .from(repairTickets)
     .innerJoin(customers, eq(customers.id, repairTickets.customerId))
@@ -89,6 +90,15 @@ export async function renderTicketReceiptPdf(
     cardLast4: slip.cardLast4,
     authCode: slip.authCode,
     transactionId: slip.transactionId,
+    paymentIntentId: slip.paymentIntentId,
+    chargeId: slip.chargeId,
+    fundingLabel: slip.fundingLabel,
+    entryMethod: slip.entryMethod,
+    aid: slip.aid,
+    cardCountry: slip.cardCountry,
+    networkTxnId: slip.networkTxnId,
+    statement: slip.statement,
+    paidAt: row.paidAt ? formatDate(row.paidAt) : null,
     statusUrl: code ? publicStatusUrl(code) : null,
     lines: charge.lines,
     discount:

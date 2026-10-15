@@ -29,6 +29,16 @@ export type WorkshopReceiptInput = {
   cardLast4?: string | null;
   authCode?: string | null;
   transactionId?: string | null;
+  paymentIntentId?: string | null;
+  chargeId?: string | null;
+  fundingLabel?: string | null;
+  entryMethod?: string | null;
+  wallet?: string | null;
+  aid?: string | null;
+  applicationName?: string | null;
+  cardCountry?: string | null;
+  networkTxnId?: string | null;
+  statement?: string | null;
   paidAt?: string | null;
   lines: { name: string; amountLabel: string }[];
   netLabel?: string | null;

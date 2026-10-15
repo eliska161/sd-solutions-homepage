@@ -303,25 +303,85 @@ function cardBrandLabel(brand: string | undefined | null) {
   return brand ? brand[0].toUpperCase() + brand.slice(1) : null;
 }
 
-export async function stripePaymentSlip(input: {
-  paymentIntentId: string | null;
-  checkoutSessionId: string | null;
-}): Promise<{
+function slipText(value: unknown): string | null {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
+function fundingLabel(funding: string | null) {
+  if (funding === "debit") return "Debet";
+  if (funding === "credit") return "Kreditt";
+  if (funding === "prepaid") return "Forhåndsbetalt";
+  return null;
+}
+
+function walletLabel(kind: string | null) {
+  if (!kind) return null;
+  if (kind === "apple_pay") return "Apple Pay";
+  if (kind === "google_pay") return "Google Pay";
+  if (kind === "samsung_pay") return "Samsung Pay";
+  if (kind === "link") return "Link";
+  return kind.replace(/_/g, " ");
+}
+
+function readMethodLabel(read: string | null, type: string | null) {
+  if (
+    read === "contactless_emv" ||
+    read === "contactless" ||
+    read === "contactless_magstripe_mode"
+  ) {
+    return "Kontaktløs";
+  }
+  if (read === "contact_emv") return "Chip";
+  if (read?.includes("magnetic")) return "Magnetstripe";
+  if (type === "card_present") return "Terminal";
+  if (type === "card") return "Nettbetaling";
+  return null;
+}
+
+export type StripePaymentSlip = {
   cardBrand: string | null;
   cardLast4: string | null;
   authCode: string | null;
   transactionId: string | null;
   paymentDetail: string | null;
-}> {
-  const empty = {
-    cardBrand: null as string | null,
-    cardLast4: null as string | null,
-    authCode: null as string | null,
-    transactionId: null as string | null,
-    paymentDetail: null as string | null,
-  };
+  paymentIntentId: string | null;
+  chargeId: string | null;
+  fundingLabel: string | null;
+  entryMethod: string | null;
+  wallet: string | null;
+  aid: string | null;
+  applicationName: string | null;
+  cardCountry: string | null;
+  networkTxnId: string | null;
+  statement: string | null;
+};
+
+export const EMPTY_STRIPE_SLIP: StripePaymentSlip = {
+  cardBrand: null,
+  cardLast4: null,
+  authCode: null,
+  transactionId: null,
+  paymentDetail: null,
+  paymentIntentId: null,
+  chargeId: null,
+  fundingLabel: null,
+  entryMethod: null,
+  wallet: null,
+  aid: null,
+  applicationName: null,
+  cardCountry: null,
+  networkTxnId: null,
+  statement: null,
+};
+
+export async function stripePaymentSlip(input: {
+  paymentIntentId: string | null;
+  checkoutSessionId: string | null;
+}): Promise<StripePaymentSlip> {
   const stripe = getStripe();
-  if (!stripe) return empty;
+  if (!stripe) return EMPTY_STRIPE_SLIP;
   try {
     let intentId = input.paymentIntentId;
     if (!intentId && input.checkoutSessionId) {
@@ -331,7 +391,7 @@ export async function stripePaymentSlip(input: {
       const pi = session.payment_intent;
       intentId = typeof pi === "string" ? pi : pi?.id ?? null;
     }
-    if (!intentId) return empty;
+    if (!intentId) return EMPTY_STRIPE_SLIP;
     const intent = await stripe.paymentIntents.retrieve(intentId, {
       expand: ["latest_charge"],
     });
@@ -339,28 +399,67 @@ export async function stripePaymentSlip(input: {
       typeof intent.latest_charge === "object" && intent.latest_charge
         ? intent.latest_charge
         : null;
-    const card = charge?.payment_method_details?.card;
-    const present = charge?.payment_method_details?.card_present;
-    const last4 = card?.last4 || present?.last4 || null;
-    const brand = cardBrandLabel(card?.brand || present?.brand);
+    const details = charge?.payment_method_details as
+      | {
+          type?: string;
+          card?: Record<string, unknown>;
+          card_present?: Record<string, unknown>;
+        }
+      | undefined;
+    const type = slipText(details?.type);
+    const present = details?.card_present;
+    const card = details?.card || present;
+    const receipt =
+      present && typeof present.receipt === "object"
+        ? (present.receipt as Record<string, unknown>)
+        : null;
+    const walletObj =
+      card && typeof card.wallet === "object"
+        ? (card.wallet as Record<string, unknown>)
+        : null;
+    const threeDs =
+      card && typeof card.three_d_secure === "object"
+        ? (card.three_d_secure as Record<string, unknown>)
+        : null;
+    const last4 = slipText(card?.last4);
+    const brand = cardBrandLabel(slipText(card?.brand));
     const auth =
-      (present && "authorization_code" in present
-        ? String(present.authorization_code || "")
-        : "") || null;
-    const transactionId = charge?.id || intent.id;
+      slipText(present?.authorization_code) ||
+      slipText(receipt?.authorization_code) ||
+      slipText(card?.authorization_code);
+    const chargeId = slipText(charge?.id);
+    const paymentIntentId = slipText(intent.id);
+    const wallet = walletLabel(slipText(walletObj?.type));
+    let entryMethod =
+      wallet || readMethodLabel(slipText(present?.read_method), type);
+    if (threeDs && slipText(threeDs.result) === "authenticated") {
+      entryMethod = entryMethod
+        ? `${entryMethod}, 3-D Secure`
+        : "3-D Secure";
+    }
     const paymentDetail = last4
       ? `${brand || "Kort"} **** ${last4}`
-      : brand || "Kort";
+      : brand || (type === "card_present" ? "Kortterminal" : "Kort");
     return {
       cardBrand: brand,
       cardLast4: last4,
-      authCode: auth || null,
-      transactionId,
+      authCode: auth,
+      transactionId: chargeId || paymentIntentId,
       paymentDetail,
+      paymentIntentId,
+      chargeId,
+      fundingLabel: fundingLabel(slipText(card?.funding)),
+      entryMethod,
+      wallet,
+      aid: slipText(receipt?.dedicated_file_name),
+      applicationName: slipText(receipt?.application_preferred_name),
+      cardCountry: slipText(card?.country),
+      networkTxnId: slipText(card?.network_transaction_id),
+      statement: slipText(charge?.calculated_statement_descriptor),
     };
   } catch (err) {
     console.error("==> Stripe receipt slip", err);
-    return empty;
+    return EMPTY_STRIPE_SLIP;
   }
 }
 
@@ -424,13 +523,7 @@ export async function kioskPaymentForTicket(ticketId: string): Promise<KioskPaym
         paymentIntentId: ticket?.stripePaymentIntentId ?? null,
         checkoutSessionId: ticket?.stripeCheckoutSessionId ?? null,
       })
-    : {
-        cardBrand: null,
-        cardLast4: null,
-        authCode: null,
-        transactionId: null,
-        paymentDetail: null,
-      };
+    : EMPTY_STRIPE_SLIP;
 
   return {
     paid,

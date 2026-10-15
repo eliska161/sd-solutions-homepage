@@ -15,7 +15,7 @@ import { repairTickets } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getCustomer } from "@/server/customers";
 import { getDevice } from "@/server/devices";
-import { stripePaymentSlip } from "@/server/payments";
+import { EMPTY_STRIPE_SLIP, stripePaymentSlip } from "@/server/payments";
 import {
   getRepair,
   getRepairAssigneeName,
@@ -115,13 +115,7 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
         paymentIntentId: ticket.stripePaymentIntentId,
         checkoutSessionId: ticket.stripeCheckoutSessionId,
       })
-    : {
-        cardBrand: null,
-        cardLast4: null,
-        authCode: null,
-        transactionId: null,
-        paymentDetail: null,
-      };
+    : EMPTY_STRIPE_SLIP;
 
   const paymentLabel = paid
     ? ticket.stripePaymentIntentId
@@ -169,6 +163,16 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
     cardLast4: slip.cardLast4,
     authCode: slip.authCode,
     transactionId: slip.transactionId,
+    paymentIntentId: slip.paymentIntentId,
+    chargeId: slip.chargeId,
+    fundingLabel: slip.fundingLabel,
+    entryMethod: slip.entryMethod,
+    wallet: slip.wallet,
+    aid: slip.aid,
+    applicationName: slip.applicationName,
+    cardCountry: slip.cardCountry,
+    networkTxnId: slip.networkTxnId,
+    statement: slip.statement,
     paidAt: ticket.paidAt ? formatDate(ticket.paidAt) : null,
     lines,
     netLabel: vat?.netLabel ?? null,
