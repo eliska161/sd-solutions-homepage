@@ -328,6 +328,46 @@ function gsRaster(map: Bitmap) {
   );
 }
 
+function feedDots(n: number) {
+  const parts: Uint8Array[] = [];
+  let left = Math.max(0, n);
+  while (left > 0) {
+    let chunk = Math.min(255, left);
+    if (chunk === 17 || chunk === 19) chunk += 1;
+    parts.push(cmd(ESC, 0x4a, chunk));
+    left -= chunk;
+  }
+  return parts.length ? concat(...parts) : new Uint8Array();
+}
+
+/**
+ * Skip only large empty gaps (ESC J). Never slice a band — that cuts the QR
+ * and leftover GS v bytes print as garbage on top of it.
+ */
+function gsRasterPacked(map: Bitmap) {
+  const mergeGap = 96;
+  const bands: [number, number][] = [];
+  let y = 0;
+  while (y < map.height) {
+    while (y < map.height && !map.hasRow(y)) y += 1;
+    if (y >= map.height) break;
+    const start = y;
+    while (y < map.height && map.hasRow(y)) y += 1;
+    const prev = bands[bands.length - 1];
+    if (prev && start - prev[1] < mergeGap) prev[1] = y;
+    else bands.push([start, y]);
+  }
+  if (!bands.length) return gsRaster(map);
+
+  const parts: Uint8Array[] = [];
+  let cursor = 0;
+  for (const [start, end] of bands) {
+    if (start > cursor) parts.push(feedDots(start - cursor));
+    parts.push(gsRaster(map.copyRows(start, end)));
+  }
+  return concat(...parts);
+}
+
 function canvasToBitmap(canvas: HTMLCanvasElement, rotate180: boolean) {
   const w = canvas.width;
   const h = canvas.height;
@@ -339,7 +379,7 @@ function canvasToBitmap(canvas: HTMLCanvasElement, rotate180: boolean) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       const lum = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
-      if (pixels[i + 3] < 40 || lum >= 230) continue;
+      if (pixels[i + 3] < 40 || lum >= 200) continue;
       if (rotate180) map.set(w - 1 - x, h - 1 - y);
       else map.set(x, y);
     }
@@ -578,7 +618,21 @@ async function paintDataUrl(
   } catch {
     return;
   }
+  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, x, y, size, size);
+  const pixels = ctx.getImageData(x, y, size, size);
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    const lum = (pixels.data[i] + pixels.data[i + 1] + pixels.data[i + 2]) / 3;
+    const ink = pixels.data[i + 3] > 40 && lum < 160;
+    pixels.data[i] = ink ? 0 : 255;
+    pixels.data[i + 1] = ink ? 0 : 255;
+    pixels.data[i + 2] = ink ? 0 : 255;
+    pixels.data[i + 3] = 255;
+  }
+  ctx.putImageData(pixels, x, y);
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
 }
 
 export async function buildLockerReceipt(input: ReceiptPrintInput) {
@@ -758,7 +812,7 @@ function printerWrap(map: Bitmap) {
     cmd(GS, 0x4c, 0, 0),
     cmd(GS, 0x57, w & 0xff, (w >> 8) & 0xff),
     cmd(ESC, 0x33, 0),
-    gsRaster(map),
+    gsRasterPacked(map),
     partialCut(),
   );
 }
@@ -949,9 +1003,9 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
     ctx.font = "600 18px sans-serif";
     fitText(ctx, "Status", pad, y, inner, "center");
     y += 26;
-    const qr = 160;
+    const qr = 176;
     await paintDataUrl(ctx, input.statusQr, (w - qr) / 2, y, qr);
-    y += qr + 10;
+    y += qr + 16;
     const statusLabel = (input.statusUrl || "").replace(/^https:\/\//, "");
     if (statusLabel) fitText(ctx, statusLabel, pad, y, inner, "center");
     y += 28;
