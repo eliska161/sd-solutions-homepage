@@ -9,6 +9,7 @@ import { getDb } from "@/lib/db";
 import { canAdmin } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
 import { BILLING_CHARGE_VAT_KEY, DEFAULT_CHARGE_VAT } from "@/lib/vat";
+import { DEFAULT_LOCKER_MODE, OPS_LOCKER_MODE_KEY } from "@/lib/ops";
 
 async function readSetting<T = unknown>(key: string): Promise<T | null> {
   const db = getDb();
@@ -70,4 +71,9 @@ export async function setSetting(key: string, value: unknown) {
 export async function isCustomerVatCharged(): Promise<boolean> {
   const value = await readSetting<boolean>(BILLING_CHARGE_VAT_KEY);
   return typeof value === "boolean" ? value : DEFAULT_CHARGE_VAT;
+}
+
+export async function isLockerModeEnabled(): Promise<boolean> {
+  const value = await readSetting<boolean>(OPS_LOCKER_MODE_KEY);
+  return typeof value === "boolean" ? value : DEFAULT_LOCKER_MODE;
 }

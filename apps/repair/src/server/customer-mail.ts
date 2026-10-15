@@ -22,6 +22,7 @@ import { ensurePickupCheckout } from "@/server/payments";
 import { ensurePickupPin } from "@/lib/sequences";
 import { batteryCalibrateMailFile } from "@/lib/battery-calibrate";
 import { ticketIsBatteryJob } from "@/server/battery-calibrate";
+import { isLockerModeEnabled } from "@/server/settings";
 
 type MailContext = {
   ticketNumber: string;
@@ -300,7 +301,8 @@ export async function notifyReadyForPickup(ticketId: string) {
       const trackingMail = tracking
         ? [`Sporingsnummer: ${tracking}.`]
         : [];
-      const pin = byPost ? null : await ensurePickupPin(ticketId);
+      const locker = await isLockerModeEnabled();
+      const pin = byPost || !locker ? null : await ensurePickupPin(ticketId);
       const pinLine = pin
         ? `Hentepin til locker: ${pin}. Skriv den på kiosken når du henter — etter at du har betalt.`
         : null;
@@ -341,8 +343,11 @@ export async function notifyReadyForPickup(ticketId: string) {
                 `Jobben på ${ctx.ticketNumber}${deviceBit(ctx)} er ferdig.`,
                 checkout.ok && checkout.paid
                   ? "Betalingen er registrert."
-                  : "Betal via lenken før du henter. Lockeren åpner ikke før det er betalt.",
-                pinLine ?? "Ta med legitimasjon. Si fra om saksnummeret i skranken.",
+                  : locker
+                    ? "Betal via lenken før du henter. Lockeren åpner ikke før det er betalt."
+                    : "Betal via lenken før du henter.",
+                pinLine ??
+                  "Hent i skranken. Ta med legitimasjon og si fra om saksnummeret.",
                 `Hent hos oss: ${workshopAddressOneLine()}. Åpent ${WORKSHOP.hoursLabel}.`,
                 ...calibrateLines,
                 googleReviewParagraph,
@@ -387,7 +392,9 @@ export async function notifyPaymentReceived(
               : "",
             ctx.outboundMethod === "POST"
               ? "Vi sender telefonen når returen er klar."
-              : "Du kan hente i locker med PIN-koden du har fått, eller i skranken.",
+              : (await isLockerModeEnabled())
+                ? "Du kan hente i locker med PIN-koden du har fått, eller i skranken."
+                : "Du kan hente i skranken. Ta med legitimasjon og si fra om saksnummeret.",
           ].filter(Boolean),
           files: [invoice, calibrate].filter((file): file is NonNullable<typeof file> => Boolean(file)),
         }),

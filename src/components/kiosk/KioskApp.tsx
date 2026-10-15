@@ -162,6 +162,7 @@ export function KioskApp() {
   const [signaturePng, setSignaturePng] = useState<string | null>(null);
   const [liveTickets, setLiveTickets] = useState<RepairRow[]>([]);
   const [chargeVat, setChargeVat] = useState(false);
+  const [lockerEnabled, setLockerEnabled] = useState(true);
   const [thanksLeft, setThanksLeft] = useState(5);
   const lookupGen = useRef(0);
   const lastLookup = useRef("");
@@ -657,7 +658,10 @@ export function KioskApp() {
   }, [postalCode, model.screen]);
 
   useEffect(() => {
-    void fetchKioskBoard().then((board) => setChargeVat(board.chargeVat));
+    void fetchKioskBoard().then((board) => {
+      setChargeVat(board.chargeVat);
+      setLockerEnabled(board.lockerEnabled);
+    });
   }, []);
 
   useEffect(() => {
@@ -670,6 +674,7 @@ export function KioskApp() {
       if (model.screen === "ADMIN") {
         void fetchKioskBoard().then((board) => {
           setChargeVat(board.chargeVat);
+          setLockerEnabled(board.lockerEnabled);
           setLiveTickets([...board.dropoffs, ...board.pickups]);
         });
         return;
@@ -858,24 +863,31 @@ export function KioskApp() {
             {model.screen === "HOME" ? (
               <div className="flex h-full flex-col items-center justify-center px-10 pb-8">
                 <h1 className="mb-8 text-center text-[40px] font-bold tracking-tight">
-                  Hva vil du gjøre?
+                  {lockerEnabled ? "Hva vil du gjøre?" : "Locker er av"}
                 </h1>
-                <div className="grid w-full max-w-[680px] gap-4">
-                  <KioskButton
-                    variant="home"
-                    onClick={() =>
-                      dispatch({ type: "GO", screen: "DELIVERY_PHONE" })
-                    }
-                  >
-                    Lever inn enhet
-                  </KioskButton>
-                  <KioskButton
-                    variant="homeAlt"
-                    onClick={() => dispatch({ type: "GO", screen: "PICKUP_PIN" })}
-                  >
-                    Hent enhet
-                  </KioskButton>
-                </div>
+                {lockerEnabled ? (
+                  <div className="grid w-full max-w-[680px] gap-4">
+                    <KioskButton
+                      variant="home"
+                      onClick={() =>
+                        dispatch({ type: "GO", screen: "DELIVERY_PHONE" })
+                      }
+                    >
+                      Lever inn enhet
+                    </KioskButton>
+                    <KioskButton
+                      variant="homeAlt"
+                      onClick={() => dispatch({ type: "GO", screen: "PICKUP_PIN" })}
+                    >
+                      Hent enhet
+                    </KioskButton>
+                  </div>
+                ) : (
+                  <p className="max-w-[640px] text-center text-[22px] font-semibold text-[#3d4454]">
+                    Innlevering og henting skjer i skranken. Ingen PIN. Åpent
+                    mandag–lørdag 12–18.
+                  </p>
+                )}
               </div>
             ) : null}
 

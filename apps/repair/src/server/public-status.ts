@@ -22,7 +22,7 @@ import { PAYMENT_STATUS_LABELS } from "@/lib/labels";
 import { publicTicketLinkFilter } from "@/lib/public-link";
 import { customerPriceSuffix } from "@/lib/vat";
 import { ticketIsBatteryJob } from "@/server/battery-calibrate";
-import { isCustomerVatCharged } from "@/server/settings";
+import { isCustomerVatCharged, isLockerModeEnabled } from "@/server/settings";
 
 /**
  * Public, unauthenticated customer status payload.
@@ -70,6 +70,7 @@ export async function getPublicRepairByToken(token: string) {
   if (!row) return null;
 
   const chargeVat = await isCustomerVatCharged();
+  const lockerMode = await isLockerModeEnabled();
   const [updates, photos, ticketServices] = await Promise.all([
     db
       .select({
@@ -201,6 +202,7 @@ export async function getPublicRepairByToken(token: string) {
         : null,
     returnTrackingNumber: row.returnTrackingNumber?.trim() || null,
     pickupPin:
+      lockerMode &&
       row.status === "READY_FOR_PICKUP" &&
       row.outboundMethod !== "POST" &&
       row.pickupPin &&

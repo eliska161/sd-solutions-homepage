@@ -30,6 +30,7 @@ import { nextRepairTicketNumber, ensurePickupPin } from "@/lib/sequences";
 import { requireSession } from "@/lib/session";
 import { resolveUploadAbsolutePath } from "@/lib/uploads";
 import { notifyDeviceReceived, notifyReadyForPickup, notifyRepairCompleted, notifyStaffUpdate, notifyWaitingForCustomer } from "@/server/customer-mail";
+import { isLockerModeEnabled } from "@/server/settings";
 
 const repairStatusSchema = z.enum([
   "NEW",
@@ -473,7 +474,7 @@ export async function updateRepairStatus(
     if (nextStatus === "WAITING_FOR_CUSTOMER") {
       await notifyWaitingForCustomer(ticketId);
     } else if (nextStatus === "READY_FOR_PICKUP") {
-      if (row.outboundMethod !== "POST") {
+      if (row.outboundMethod !== "POST" && (await isLockerModeEnabled())) {
         await ensurePickupPin(ticketId);
       }
       await notifyReadyForPickup(ticketId);

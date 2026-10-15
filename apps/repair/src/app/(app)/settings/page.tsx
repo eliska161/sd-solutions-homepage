@@ -5,8 +5,14 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
-import { getSetting, isCustomerVatCharged, setSetting } from "@/server/settings";
+import {
+  getSetting,
+  isCustomerVatCharged,
+  isLockerModeEnabled,
+  setSetting,
+} from "@/server/settings";
 import { BILLING_CHARGE_VAT_KEY, VAT_NOT_COLLECTED } from "@/lib/vat";
+import { OPS_LOCKER_MODE_KEY } from "@/lib/ops";
 import {
   elksAlphaSender,
   elksIsConfigured,
@@ -41,6 +47,12 @@ async function saveVatAction(formData: FormData) {
   redirect("/settings");
 }
 
+async function saveLockerAction(formData: FormData) {
+  "use server";
+  await setSetting(OPS_LOCKER_MODE_KEY, formData.get("lockerMode") === "on");
+  redirect("/settings");
+}
+
 export default async function SettingsPage() {
   const company =
     (await getSetting<CompanyInfo>("company.info")) ?? {
@@ -53,6 +65,7 @@ export default async function SettingsPage() {
   const sender = elksAlphaSender();
   const smsReady = elksIsConfigured();
   const chargeVat = await isCustomerVatCharged();
+  const lockerMode = await isLockerModeEnabled();
 
   return (
     <div>
@@ -158,6 +171,41 @@ export default async function SettingsPage() {
                   </span>
                 </p>
                 <Button type="submit">Lagre MVA</Button>
+              </form>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Locker" />
+            <CardBody>
+              <form action={saveLockerAction} className="space-y-3">
+                <label className="flex items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    name="lockerMode"
+                    className="mt-0.5"
+                    defaultChecked={lockerMode}
+                  />
+                  <span>
+                    <span className="block font-medium text-foreground">
+                      Locker-modus
+                    </span>
+                    <span className="mt-1 block text-muted">
+                      På: innlevering og henting via kiosk med hentepin i
+                      SMS og på statussiden. Av: vanlig innlevering i
+                      skranken, uten pin-melding.
+                    </span>
+                  </span>
+                </label>
+                <p className="text-[13px] text-muted">
+                  Nå:{" "}
+                  <span className="text-foreground">
+                    {lockerMode
+                      ? "locker med PIN"
+                      : "vanlig innlevering uten PIN"}
+                  </span>
+                </p>
+                <Button type="submit">Lagre locker</Button>
               </form>
             </CardBody>
           </Card>
