@@ -20,12 +20,12 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
     try {
       await connectUsbPrinter();
       setLink(printerLinkLabel());
-      setNote("Skriver klar. Velg POS80 i listen (USB eller serial).");
+      setNote("Skriver klar. Velg USB-serial / COM-porten, ikke WebUSB-listen.");
     } catch (err) {
       setNote(
         err instanceof Error
           ? err.message
-          : "Fant ingen skriver. Velg POS80 i USB-listen, eller serial hvis den ikke vises der.",
+          : "Fant ingen skriver. Velg COM-porten i serial-listen.",
       );
     } finally {
       setBusy(null);
@@ -49,7 +49,7 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
       const result = await printWorkshopReceipt(kind === "purchase" ? data.purchase : data.repair);
       if (!result.ok) {
         throw new Error(
-          "Skriveren svarte ikke. Koble til USB og velg POS80 (WebUSB eller serial).",
+          "Skriveren svarte ikke. Koble til og velg USB-serial / COM-porten.",
         );
       }
       setLink(printerLinkLabel());
@@ -70,7 +70,7 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
         onClick={() => void connect()}
         disabled={busy !== null}
       >
-        {busy === "connect" ? "Kobler til…" : "Koble til USB"}
+        {busy === "connect" ? "Kobler til…" : "Koble til skriver"}
       </Button>
       <Button
         type="button"

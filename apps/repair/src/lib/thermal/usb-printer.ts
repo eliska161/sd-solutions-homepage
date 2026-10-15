@@ -385,6 +385,17 @@ export async function connectUsbPrinter() {
   if (handle?.kind === "usb" && handle.device.opened) return handle;
   if (handle?.kind === "serial" && serialIsOpen(handle.port)) return handle;
 
+  if (serialApi()) {
+    try {
+      return await connectSerialPrinter();
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : "";
+      if (name !== "NotFoundError" && name !== "NotAllowedError") {
+        throw err instanceof Error ? err : new Error(serialFailMessage(err));
+      }
+    }
+  }
+
   const granted = await pickGrantedUsb();
   if (granted) {
     handle = granted;
@@ -398,16 +409,13 @@ export async function connectUsbPrinter() {
       handle = claimed;
       return claimed;
     } catch {
-      /* POS80 is often USB-CDC; WebUSB sees no compatible device. Use serial. */
+      /* ignore, throw below */
     }
   }
 
-  if (!serialApi()) {
-    throw new Error(
-      "Fant ingen USB-skriver. POS80 vises ofte som serial, ikke WebUSB. Prøv Opera/Chrome og velg skriveren i serial-listen.",
-    );
-  }
-  return connectSerialPrinter();
+  throw new Error(
+    "Fant ingen skriver. USB-kabelen skal gi en COM-port (ikke en Windows-skriver). Velg den i serial-listen. Ikke installer vanlig skriverdriver.",
+  );
 }
 
 export async function setSerialBaud(baudRate: number) {
