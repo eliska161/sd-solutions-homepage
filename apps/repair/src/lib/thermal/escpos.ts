@@ -340,33 +340,27 @@ function feedDots(n: number) {
   return parts.length ? concat(...parts) : new Uint8Array();
 }
 
-/**
- * Skip only large empty gaps (ESC J). Never slice a band — that cuts the QR
- * and leftover GS v bytes print as garbage on top of it.
- */
-function gsRasterPacked(map: Bitmap) {
-  const mergeGap = 96;
-  const bands: [number, number][] = [];
+/** POS80 firmware drops the rest of a GS v 0 taller than ~256 dots. */
+const RASTER_SLICE = 192;
+
+function gsRasterLimited(map: Bitmap) {
+  const parts: Uint8Array[] = [];
   let y = 0;
   while (y < map.height) {
-    while (y < map.height && !map.hasRow(y)) y += 1;
-    if (y >= map.height) break;
+    if (!map.hasRow(y)) {
+      let n = 0;
+      while (y < map.height && !map.hasRow(y) && n < 255) {
+        y += 1;
+        n += 1;
+      }
+      parts.push(feedDots(n));
+      continue;
+    }
     const start = y;
-    while (y < map.height && map.hasRow(y)) y += 1;
-    const prev = bands[bands.length - 1];
-    if (prev && start - prev[1] < mergeGap) prev[1] = y;
-    else bands.push([start, y]);
+    y = Math.min(map.height, start + RASTER_SLICE);
+    parts.push(gsRaster(map.copyRows(start, y)));
   }
-  if (!bands.length) return gsRaster(map);
-
-  const parts: Uint8Array[] = [];
-  let cursor = 0;
-  for (const [start, end] of bands) {
-    if (start > cursor) parts.push(feedDots(start - cursor));
-    parts.push(gsRaster(map.copyRows(start, end)));
-    cursor = end;
-  }
-  return concat(...parts);
+  return parts.length ? concat(...parts) : gsRaster(map);
 }
 
 function canvasToBitmap(canvas: HTMLCanvasElement, rotate180: boolean) {
@@ -467,7 +461,7 @@ function fitText(
 }
 
 function partialCut() {
-  return concat(cmd(ESC, 0x4a, 40), cmd(GS, 0x56, 0x41, 0x10));
+  return concat(cmd(ESC, 0x4a, 96), cmd(GS, 0x56, 0x41, 0x18));
 }
 
 function labelGrade(parts?: string[]) {
@@ -773,7 +767,7 @@ function drawKv(
   return y + 26;
 }
 
-function printerWrap(map: Bitmap) {
+function printerInit() {
   const w = LABEL_WIDTH_DOTS;
   return concat(
     cmd(ESC, 0x40),
@@ -782,9 +776,22 @@ function printerWrap(map: Bitmap) {
     cmd(GS, 0x4c, 0, 0),
     cmd(GS, 0x57, w & 0xff, (w >> 8) & 0xff),
     cmd(ESC, 0x33, 0),
-    gsRasterPacked(map),
-    partialCut(),
   );
+}
+
+function printerWrap(map: Bitmap, qr?: { start: number; end: number }) {
+  const parts: Uint8Array[] = [printerInit()];
+  if (qr) {
+    const start = Math.max(0, qr.start - 8);
+    const end = Math.min(map.height, qr.end + 8);
+    if (start > 0) parts.push(gsRasterLimited(map.copyRows(0, start)));
+    if (end > start) parts.push(gsRaster(map.copyRows(start, end)));
+    if (end < map.height) parts.push(gsRasterLimited(map.copyRows(end, map.height)));
+  } else {
+    parts.push(gsRasterLimited(map));
+  }
+  parts.push(feedDots(80), partialCut());
+  return concat(...parts);
 }
 
 export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
@@ -822,13 +829,13 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
 
   const w = LABEL_WIDTH_DOTS;
   const h =
-    560 +
-    lines.length * 28 +
-    payRows.length * 26 +
-    notes.length * 26 +
-    footer.length * 24 +
-    (input.kind === "repair" ? 280 : 40) +
-    (input.statusQr ? 230 : 20);
+    900 +
+    lines.length * 36 +
+    payRows.length * 32 +
+    notes.length * 32 +
+    footer.length * 28 +
+    (input.kind === "repair" ? 400 : 80) +
+    (input.statusQr ? 360 : 40);
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
@@ -969,13 +976,16 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   ctx.fillRect(pad, y, inner, 3);
   y += 16;
 
+  let qrCanvas: { start: number; end: number } | undefined;
   if (input.statusQr) {
     ctx.font = "600 18px sans-serif";
     fitText(ctx, "Status", pad, y, inner, "center");
     y += 26;
     const qr = 176;
+    const qrY = y;
     await paintDataUrl(ctx, input.statusQr, (w - qr) / 2, y, qr);
     y += qr + 16;
+    qrCanvas = { start: qrY, end: qrY + qr };
     const statusLabel = (input.statusUrl || "").replace(/^https:\/\//, "");
     if (statusLabel) fitText(ctx, statusLabel, pad, y, inner, "center");
     y += 28;
@@ -990,5 +1000,14 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
     y += 22;
   }
 
-  return printerWrap(canvasToBitmap(canvas, true).cropBottom(8));
+  const canvasH = canvas.height;
+  const map = canvasToBitmap(canvas, true).cropBottom(16);
+  let qrMap: { start: number; end: number } | undefined;
+  if (qrCanvas) {
+    qrMap = {
+      start: canvasH - qrCanvas.end,
+      end: canvasH - qrCanvas.start,
+    };
+  }
+  return printerWrap(map, qrMap);
 }
