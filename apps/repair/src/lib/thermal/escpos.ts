@@ -163,6 +163,28 @@ class Bitmap {
     return this.text(value, Math.max(0, right - w), y, scale);
   }
 
+  hasRow(y: number) {
+    if (y < 0 || y >= this.height) return false;
+    const row = y * this.width;
+    for (let x = 0; x < this.width; x++) {
+      if (this.bits[row + x]) return true;
+    }
+    return false;
+  }
+
+  copyRows(y0: number, y1: number) {
+    const height = Math.max(0, y1 - y0);
+    const next = new Bitmap(this.width, height);
+    for (let y = 0; y < height; y++) {
+      const srcY = y0 + y;
+      if (srcY < 0 || srcY >= this.height) continue;
+      for (let x = 0; x < this.width; x++) {
+        if (this.bits[srcY * this.width + x]) next.set(x, y);
+      }
+    }
+    return next;
+  }
+
   cropBottom(pad = 8) {
     let last = this.height - 1;
     while (last > 0) {
@@ -271,6 +293,29 @@ function gsRaster(map: Bitmap) {
     ),
     data,
   );
+}
+
+/** Skip white rows with feed so a full-page look does not print like a fax. */
+function gsRasterFast(map: Bitmap) {
+  const parts: Uint8Array[] = [];
+  let y = 0;
+  while (y < map.height) {
+    if (!map.hasRow(y)) {
+      let n = 0;
+      while (y < map.height && !map.hasRow(y) && n < 255) {
+        y += 1;
+        n += 1;
+      }
+      if (n === 17 || n === 19) n += 1;
+      parts.push(cmd(ESC, 0x4a, n));
+      continue;
+    }
+    const start = y;
+    while (y < map.height && map.hasRow(y)) y += 1;
+    const pad = (y - start) % 8 === 0 ? 0 : 8 - ((y - start) % 8);
+    parts.push(gsRaster(map.copyRows(start, y + pad)));
+  }
+  return parts.length ? concat(...parts) : gsRaster(map);
 }
 
 function canvasToBitmap(canvas: HTMLCanvasElement, rotate180: boolean) {
@@ -680,172 +725,32 @@ export async function buildLockerReceipt(input: ReceiptPrintInput) {
   );
 }
 
-/** Font A on 80 mm. 42 columns so the printer never wraps a line. */
-const RECEIPT_COLS = 42;
-
-const PC850: Record<string, number> = {
-  æ: 0x91,
-  ø: 0x9b,
-  å: 0x86,
-  Æ: 0x92,
-  Ø: 0x9d,
-  Å: 0x8f,
-  ä: 0x84,
-  ö: 0x94,
-  ü: 0x81,
-  Ä: 0x8e,
-  Ö: 0x99,
-  Ü: 0x9a,
-  é: 0x82,
-  è: 0x8a,
-  ê: 0x88,
-  É: 0x90,
-  ñ: 0xa4,
-  Ñ: 0xa5,
-  ß: 0xe1,
-  "°": 0xf8,
-  "·": 0xfa,
-  "•": 0xfa,
-  "×": 0x78,
-  "—": 0x2d,
-  "–": 0x2d,
-  "−": 0x2d,
-  "’": 0x27,
-  "‘": 0x27,
-  "“": 0x22,
-  "”": 0x22,
-  "…": 0x2e,
-  "\u00a0": 0x20,
-};
-
-function encodePc850(text: string) {
-  const out = new Uint8Array(text.length);
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    const code = ch.charCodeAt(0);
-    out[i] = code < 128 ? code : (PC850[ch] ?? 0x3f);
-  }
-  return out;
+function drawKv(
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  value: string,
+  pad: number,
+  y: number,
+  inner: number,
+) {
+  ctx.font = "600 18px sans-serif";
+  fitText(ctx, label, pad, y, 150);
+  fitText(ctx, value, pad + 156, y, inner - 156, "right");
+  return y + 26;
 }
 
-function fitCols(text: string, width = RECEIPT_COLS) {
-  const src = text.replace(/\s+/g, " ").trim();
-  if (src.length <= width) return src;
-  return `${src.slice(0, Math.max(1, width - 1))}.`;
-}
-
-function oneLine(left: string, right?: string) {
-  if (right == null || right === "") return fitCols(left);
-  const amount = right.trim();
-  const room = Math.max(4, RECEIPT_COLS - amount.length - 1);
-  const l = fitCols(left, room);
-  const gap = Math.max(1, RECEIPT_COLS - l.length - amount.length);
-  return `${l}${" ".repeat(gap)}${amount}`;
-}
-
-function rule() {
-  return "-".repeat(RECEIPT_COLS);
-}
-
-async function logoStrip() {
+function printerWrap(map: Bitmap) {
   const w = LABEL_WIDTH_DOTS;
-  const h = 120;
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return new Uint8Array();
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, w, h);
-  await paintLogo(ctx, (w - 96) / 2, 12, 96, 96);
-  return gsRaster(canvasToBitmap(canvas, true));
-}
-
-async function barcodeStrip(ticket: string) {
-  const w = LABEL_WIDTH_DOTS;
-  const h = 80;
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return new Uint8Array();
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, w, h);
-  paintBarcode(ctx, ticket, 16, 8, w - 32, 64);
-  return gsRaster(canvasToBitmap(canvas, true));
-}
-
-async function qrStrip(dataUrl: string) {
-  const w = LABEL_WIDTH_DOTS;
-  const qr = 160;
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = qr;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return new Uint8Array();
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, w, qr);
-  await paintDataUrl(ctx, dataUrl, (w - qr) / 2, 0, qr);
-  return gsRaster(canvasToBitmap(canvas, true));
-}
-
-class ReceiptEscPos {
-  private chunks: Uint8Array[] = [];
-
-  raw(...bytes: number[]) {
-    this.chunks.push(cmd(...bytes));
-    return this;
-  }
-
-  bytes(data: Uint8Array) {
-    if (data.length) this.chunks.push(data);
-    return this;
-  }
-
-  text(value: string) {
-    this.chunks.push(encodePc850(value));
-    return this;
-  }
-
-  nl(n = 1) {
-    this.chunks.push(Uint8Array.from(Array(n).fill(0x0a)));
-    return this;
-  }
-
-  align(mode: "left" | "center" | "right") {
-    return this.raw(ESC, 0x61, mode === "center" ? 1 : mode === "right" ? 2 : 0);
-  }
-
-  bold(on: boolean) {
-    return this.raw(ESC, 0x45, on ? 1 : 0);
-  }
-
-  wide(on: boolean) {
-    return this.raw(GS, 0x21, on ? 0x11 : 0);
-  }
-
-  line(value = "") {
-    return this.text(fitCols(value)).nl();
-  }
-
-  wrap(value: string) {
-    return this.line(fitCols(value));
-  }
-
-  pair(label: string, value: string | null | undefined) {
-    if (!value) return this;
-    return this.line(oneLine(label, value));
-  }
-
-  block(title?: string) {
-    this.align("left").bold(false).wide(false).line(rule());
-    if (title) this.bold(true).line(title).bold(false);
-    return this;
-  }
-
-  done() {
-    return concat(...this.chunks);
-  }
+  return concat(
+    cmd(ESC, 0x40),
+    cmd(ESC, 0x7b, 0),
+    cmd(ESC, 0x61, 0),
+    cmd(GS, 0x4c, 0, 0),
+    cmd(GS, 0x57, w & 0xff, (w >> 8) & 0xff),
+    cmd(ESC, 0x33, 0),
+    gsRasterFast(map),
+    partialCut(),
+  );
 }
 
 export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
@@ -865,7 +770,7 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
         hour: "2-digit",
         minute: "2-digit",
       });
-  const tx = input.transactionId?.replace(/\s+/g, "") ?? "";
+  const tx = (input.transactionId || "").replace(/\s+/g, "");
   const payRows = [
     input.paymentDetail,
     input.cardLast4 && input.cardBrand
@@ -879,98 +784,177 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   ].filter((row, i, all): row is string => Boolean(row) && all.indexOf(row) === i);
   const notes = (input.workNotes ?? []).filter(Boolean);
   const footer = input.footer.filter(Boolean);
-  const out = new ReceiptEscPos();
+  const lines = input.lines;
 
-  out
-    .raw(ESC, 0x40)
-    .raw(ESC, 0x7b, 0)
-    .raw(ESC, 0x74, 2)
-    .raw(ESC, 0x4d, 0)
-    .raw(GS, 0x21, 0)
-    .raw(ESC, 0x33, 24)
-    .raw(GS, 0x4c, 0, 0)
-    .align("center")
-    .bytes(await logoStrip())
-    .nl()
-    .bold(true)
-    .line(fitCols(LEGAL_PARTY.brandName.toUpperCase()))
-    .bold(false)
-    .line(fitCols(LEGAL_PARTY.legalName))
-    .line(fitCols(LEGAL_PARTY.address))
-    .line(fitCols(LEGAL_PARTY.phone))
-    .line(fitCols(LEGAL_PARTY.email))
-    .line(fitCols(LEGAL_PARTY.hours))
-    .line(rule())
-    .bold(true)
-    .line(fitCols(input.heading))
-    .bold(false);
-  if (when) out.line(fitCols(when));
-  out.nl().bytes(await barcodeStrip(ticket)).nl().bold(true).line(fitCols(ticket)).bold(false).nl();
+  const w = LABEL_WIDTH_DOTS;
+  const h =
+    560 +
+    lines.length * 28 +
+    payRows.length * 26 +
+    notes.length * 26 +
+    footer.length * 24 +
+    (input.kind === "repair" ? 280 : 40) +
+    (input.statusQr ? 230 : 20);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Kunne ikke tegne kvittering");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "#000000";
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
 
-  out
-    .align("left")
-    .pair("Kunde", input.customerName || "—")
-    .pair("Telefon", input.customerPhone)
-    .pair("E-post", input.customerEmail)
-    .pair("Adresse", input.customerAddress)
-    .pair("Enhet", input.device);
-  if (input.kind === "repair") {
-    out.pair("IMEI", input.imei).pair("Serienr", input.serialNumber);
+  const pad = 16;
+  const inner = w - pad * 2;
+  await paintLogo(ctx, (w - 108) / 2, pad, 108, 108);
+
+  let y = pad + 116;
+  ctx.font = "700 28px sans-serif";
+  fitText(ctx, LEGAL_PARTY.brandName.toUpperCase(), pad, y, inner, "center");
+  y += 32;
+  ctx.font = "600 18px sans-serif";
+  fitText(ctx, LEGAL_PARTY.legalName, pad, y, inner, "center");
+  y += 24;
+  fitText(ctx, LEGAL_PARTY.address, pad, y, inner, "center");
+  y += 24;
+  fitText(ctx, LEGAL_PARTY.phone, pad, y, inner, "center");
+  y += 24;
+  fitText(ctx, LEGAL_PARTY.email, pad, y, inner, "center");
+  y += 24;
+  fitText(ctx, LEGAL_PARTY.hours, pad, y, inner, "center");
+  y += 28;
+  ctx.fillRect(pad, y, inner, 3);
+  y += 16;
+  ctx.font = "700 26px sans-serif";
+  fitText(ctx, input.heading, pad, y, inner, "center");
+  y += 32;
+  ctx.font = "600 20px sans-serif";
+  if (when) {
+    fitText(ctx, when, pad, y, inner, "center");
+    y += 26;
   }
-  if (input.kind === "purchase" && input.cashier) {
-    out.pair("Ekspeditør", input.cashier);
+  paintBarcode(ctx, ticket, pad, y, inner, 64);
+  y += 72;
+  ctx.font = "700 22px sans-serif";
+  fitText(ctx, ticket, pad, y, inner, "center");
+  y += 30;
+  ctx.fillRect(pad, y, inner, 3);
+  y += 16;
+
+  y = drawKv(ctx, "Kunde", input.customerName || "—", pad, y, inner);
+  if (input.customerPhone) y = drawKv(ctx, "Telefon", input.customerPhone, pad, y, inner);
+  if (input.customerEmail) y = drawKv(ctx, "E-post", input.customerEmail, pad, y, inner);
+  if (input.customerAddress) y = drawKv(ctx, "Adresse", input.customerAddress, pad, y, inner);
+  y = drawKv(ctx, "Enhet", input.device || "—", pad, y, inner);
+  if (input.kind === "repair") {
+    if (input.imei) y = drawKv(ctx, "IMEI", input.imei, pad, y, inner);
+    if (input.serialNumber) y = drawKv(ctx, "Serienr", input.serialNumber, pad, y, inner);
+  } else if (input.cashier) {
+    y = drawKv(ctx, "Ekspeditør", input.cashier, pad, y, inner);
   }
+  y += 8;
+  ctx.fillRect(pad, y, inner, 3);
+  y += 16;
 
   if (input.kind === "repair") {
-    out.block("Reparasjon");
-    out
-      .pair("Status", input.status)
-      .pair("Tekniker", input.technician)
-      .pair("Mottatt", input.receivedAt)
-      .pair("Ferdig", input.completedAt)
-      .pair("Innlevering", input.inbound)
-      .pair("Henting", input.outbound)
-      .pair("Garanti", input.warranty);
+    ctx.font = "700 22px sans-serif";
+    fitText(ctx, "Reparasjon", pad, y, inner);
+    y += 28;
+    if (input.status) y = drawKv(ctx, "Status", input.status, pad, y, inner);
+    if (input.technician) y = drawKv(ctx, "Tekniker", input.technician, pad, y, inner);
+    if (input.receivedAt) y = drawKv(ctx, "Mottatt", input.receivedAt, pad, y, inner);
+    if (input.completedAt) y = drawKv(ctx, "Ferdig", input.completedAt, pad, y, inner);
+    if (input.inbound) y = drawKv(ctx, "Inn", input.inbound, pad, y, inner);
+    if (input.outbound) y = drawKv(ctx, "Ut", input.outbound, pad, y, inner);
+    if (input.warranty) y = drawKv(ctx, "Garanti", input.warranty, pad, y, inner);
     if (input.problem) {
-      out.bold(true).line("Feil beskrevet").bold(false).line(fitCols(input.problem));
+      ctx.font = "600 18px sans-serif";
+      fitText(ctx, "Feil beskrevet", pad, y, inner);
+      y += 24;
+      ctx.font = "600 20px sans-serif";
+      fitText(ctx, input.problem, pad, y, inner);
+      y += 26;
     }
     if (notes.length) {
-      out.bold(true).line("Arbeid utført").bold(false);
-      for (const note of notes) out.line(fitCols(`- ${note}`));
+      ctx.font = "700 20px sans-serif";
+      fitText(ctx, "Arbeid utført", pad, y, inner);
+      y += 26;
+      ctx.font = "600 18px sans-serif";
+      for (const note of notes) {
+        fitText(ctx, note, pad, y, inner);
+        y += 24;
+      }
     }
+    y += 8;
+    ctx.fillRect(pad, y, inner, 3);
+    y += 16;
   }
 
-  out.block(input.kind === "repair" ? "Tjenester" : "Kjøp");
-  if (input.lines.length) {
-    for (const line of input.lines) out.line(oneLine(line.name, line.amountLabel));
+  ctx.font = "700 22px sans-serif";
+  fitText(ctx, input.kind === "repair" ? "Tjenester" : "Kjøp", pad, y, inner);
+  y += 28;
+  ctx.font = "600 20px sans-serif";
+  if (lines.length) {
+    for (const line of lines) {
+      fitText(ctx, line.name, pad, y, 360);
+      fitText(ctx, line.amountLabel, pad + 360, y, inner - 360, "right");
+      y += 28;
+    }
   } else {
-    out.line("Ingen linjer");
+    fitText(ctx, "Ingen linjer", pad, y, inner);
+    y += 28;
   }
-  out.line(rule());
-  if (input.netLabel) out.pair("Sum eks. mva", input.netLabel);
-  if (input.vatLabel) out.pair("Mva 25 %", input.vatLabel);
-  if (input.vatNote) out.line(fitCols(input.vatNote));
-  out.bold(true).line(oneLine("TOTAL", input.totalLabel)).bold(false);
-
-  out.block("Betaling").line(fitCols(input.paymentLabel || "Betaling"));
-  for (const row of payRows) out.line(fitCols(row));
+  ctx.fillRect(pad, y, inner, 3);
+  y += 14;
+  if (input.netLabel) y = drawKv(ctx, "Sum eks. mva", input.netLabel, pad, y, inner);
+  if (input.vatLabel) y = drawKv(ctx, "Mva 25 %", input.vatLabel, pad, y, inner);
+  if (input.vatNote) {
+    ctx.font = "600 16px sans-serif";
+    fitText(ctx, input.vatNote, pad, y, inner);
+    y += 24;
+  }
+  ctx.font = "700 30px sans-serif";
+  fitText(ctx, "TOTAL", pad, y, 240);
+  fitText(ctx, input.totalLabel, pad + 240, y, inner - 240, "right");
+  y += 40;
+  ctx.fillRect(pad, y, inner, 3);
+  y += 16;
+  ctx.font = "700 22px sans-serif";
+  fitText(ctx, "Betaling", pad, y, inner);
+  y += 28;
+  ctx.font = "600 20px sans-serif";
+  fitText(ctx, input.paymentLabel || "Betaling", pad, y, inner);
+  y += 26;
+  for (const row of payRows) {
+    fitText(ctx, row, pad, y, inner);
+    y += 24;
+  }
+  y += 8;
+  ctx.fillRect(pad, y, inner, 3);
+  y += 16;
 
   if (input.statusQr) {
-    out
-      .nl()
-      .align("center")
-      .bold(true)
-      .line("Status")
-      .bold(false)
-      .bytes(await qrStrip(input.statusQr))
-      .nl();
+    ctx.font = "600 18px sans-serif";
+    fitText(ctx, "Status", pad, y, inner, "center");
+    y += 26;
+    const qr = 160;
+    await paintDataUrl(ctx, input.statusQr, (w - qr) / 2, y, qr);
+    y += qr + 10;
     const statusLabel = (input.statusUrl || "").replace(/^https:\/\//, "");
-    if (statusLabel) out.line(fitCols(statusLabel));
+    if (statusLabel) fitText(ctx, statusLabel, pad, y, inner, "center");
+    y += 28;
   }
 
-  out.nl().align("center").bold(true).line(fitCols(input.thanks)).bold(false);
-  for (const line of footer) out.line(fitCols(line));
-  out.nl(2).raw(ESC, 0x40);
+  ctx.font = "700 24px sans-serif";
+  fitText(ctx, input.thanks, pad, y, inner, "center");
+  y += 30;
+  ctx.font = "600 16px sans-serif";
+  for (const line of footer) {
+    fitText(ctx, line, pad, y, inner, "center");
+    y += 22;
+  }
 
-  return concat(out.done(), partialCut(), cmd(ESC, 0x40));
+  return printerWrap(canvasToBitmap(canvas, true).cropBottom(8));
 }
