@@ -676,22 +676,173 @@ export async function buildLockerReceipt(input: ReceiptPrintInput) {
   );
 }
 
-function drawKv(
-  ctx: CanvasRenderingContext2D,
-  label: string,
-  value: string,
-  pad: number,
-  y: number,
-  inner: number,
-) {
-  ctx.font = "600 18px sans-serif";
-  fitText(ctx, label, pad, y, 168);
-  const lines = wrapText(ctx, value, inner - 176, 3);
-  const used = lines.length ? lines : ["—"];
-  for (let i = 0; i < used.length; i++) {
-    fitText(ctx, used[i], pad + 176, y + i * 24, inner - 176, "right");
+/** Font A on 80 mm: 48 columns. Wrap instead of clipping. */
+const RECEIPT_COLS = 48;
+
+const PC850: Record<string, number> = {
+  æ: 0x91,
+  ø: 0x9b,
+  å: 0x86,
+  Æ: 0x92,
+  Ø: 0x9d,
+  Å: 0x8f,
+  ä: 0x84,
+  ö: 0x94,
+  ü: 0x81,
+  Ä: 0x8e,
+  Ö: 0x99,
+  Ü: 0x9a,
+  é: 0x82,
+  è: 0x8a,
+  ê: 0x88,
+  É: 0x90,
+  ñ: 0xa4,
+  Ñ: 0xa5,
+  ß: 0xe1,
+  "°": 0xf8,
+  "·": 0xfa,
+  "•": 0xfa,
+  "×": 0x78,
+  "—": 0x2d,
+  "–": 0x2d,
+  "−": 0x2d,
+  "’": 0x27,
+  "‘": 0x27,
+  "“": 0x22,
+  "”": 0x22,
+  "…": 0x2e,
+  "\u00a0": 0x20,
+};
+
+function encodePc850(text: string) {
+  const out = new Uint8Array(text.length);
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const code = ch.charCodeAt(0);
+    out[i] = code < 128 ? code : (PC850[ch] ?? 0x3f);
   }
-  return y + used.length * 24;
+  return out;
+}
+
+function wrapCols(text: string, width = RECEIPT_COLS): string[] {
+  const src = text.replace(/\s+/g, " ").trim();
+  if (!src) return [];
+  const lines: string[] = [];
+  let rest = src;
+  while (rest.length) {
+    if (rest.length <= width) {
+      lines.push(rest);
+      break;
+    }
+    let cut = rest.lastIndexOf(" ", width);
+    if (cut < 1) cut = width;
+    lines.push(rest.slice(0, cut).trimEnd());
+    rest = rest.slice(cut).trimStart();
+  }
+  return lines;
+}
+
+function moneyCols(left: string, right: string): string[] {
+  const amount = right.trim();
+  const room = Math.max(12, RECEIPT_COLS - amount.length - 1);
+  const wrapped = wrapCols(left, room);
+  const rows = wrapped.length ? wrapped : [""];
+  const gap = Math.max(1, RECEIPT_COLS - rows[0].length - amount.length);
+  rows[0] = `${rows[0]}${" ".repeat(gap)}${amount}`;
+  return rows;
+}
+
+function rule() {
+  return "-".repeat(RECEIPT_COLS);
+}
+
+async function barcodeStrip(ticket: string) {
+  const w = LABEL_WIDTH_DOTS;
+  const h = 80;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return new Uint8Array();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+  paintBarcode(ctx, ticket, 16, 8, w - 32, 64);
+  return gsRaster(canvasToBitmap(canvas, false));
+}
+
+async function qrStrip(dataUrl: string) {
+  const w = LABEL_WIDTH_DOTS;
+  const qr = 192;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = qr;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return new Uint8Array();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, qr);
+  await paintDataUrl(ctx, dataUrl, (w - qr) / 2, 0, qr);
+  return gsRaster(canvasToBitmap(canvas, false));
+}
+
+class ReceiptEscPos {
+  private chunks: Uint8Array[] = [];
+
+  raw(...bytes: number[]) {
+    this.chunks.push(cmd(...bytes));
+    return this;
+  }
+
+  bytes(data: Uint8Array) {
+    if (data.length) this.chunks.push(data);
+    return this;
+  }
+
+  text(value: string) {
+    this.chunks.push(encodePc850(value));
+    return this;
+  }
+
+  nl(n = 1) {
+    this.chunks.push(Uint8Array.from(Array(n).fill(0x0a)));
+    return this;
+  }
+
+  align(mode: "left" | "center" | "right") {
+    return this.raw(ESC, 0x61, mode === "center" ? 1 : mode === "right" ? 2 : 0);
+  }
+
+  bold(on: boolean) {
+    return this.raw(ESC, 0x45, on ? 1 : 0);
+  }
+
+  wide(on: boolean) {
+    return this.raw(GS, 0x21, on ? 0x11 : 0);
+  }
+
+  line(value = "") {
+    return this.text(value).nl();
+  }
+
+  wrap(value: string) {
+    for (const row of wrapCols(value)) this.line(row);
+    return this;
+  }
+
+  pair(label: string, value: string | null | undefined) {
+    if (!value) return this;
+    for (const row of moneyCols(label, value)) this.line(row);
+    return this;
+  }
+
+  block(title?: string) {
+    this.align("left").bold(false).wide(false).line(rule());
+    if (title) this.bold(true).line(title).bold(false);
+    return this;
+  }
+
+  done() {
+    return concat(...this.chunks);
+  }
 }
 
 export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
@@ -705,14 +856,12 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   const when = Number.isNaN(issued.getTime())
     ? ""
     : issued.toLocaleString("nb-NO", {
-        weekday: "short",
         day: "numeric",
         month: "short",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
       });
-  const lines = input.lines.slice(0, 18);
   const payRows = [
     input.paymentDetail,
     input.cardLast4 && input.cardBrand
@@ -724,224 +873,103 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
     input.transactionId ? `Transaksjon ${input.transactionId}` : null,
     input.paidAt ? `Betalt ${input.paidAt}` : null,
   ].filter((row, i, all): row is string => Boolean(row) && all.indexOf(row) === i);
-  const parts = (input.parts ?? []).filter(Boolean).slice(0, 10);
-  const notes = (input.workNotes ?? []).filter(Boolean).slice(0, 6);
-  const footer = input.footer.filter(Boolean).slice(0, 8);
-  const hasQr = Boolean(input.statusQr);
-  const w = LABEL_WIDTH_DOTS;
-  const h =
-    620 +
-    lines.length * 34 +
-    payRows.length * 26 +
-    parts.length * 26 +
-    notes.length * 44 +
-    footer.length * 24 +
-    (input.kind === "repair" ? 360 : 80) +
-    (hasQr ? 250 : 40) +
-    90;
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Kunne ikke tegne kvittering");
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "#000000";
-  ctx.textBaseline = "top";
-  ctx.textAlign = "left";
+  const notes = (input.workNotes ?? []).filter(Boolean);
+  const footer = input.footer.filter(Boolean);
+  const out = new ReceiptEscPos();
 
-  const pad = 16;
-  const inner = w - pad * 2;
-  await paintLogo(ctx, (w - 108) / 2, pad, 108, 108);
+  out
+    .raw(ESC, 0x40)
+    .raw(ESC, 0x7b, 1)
+    .raw(ESC, 0x74, 2)
+    .raw(ESC, 0x33, 28)
+    .raw(GS, 0x4c, 0, 0)
+    .align("center")
+    .wide(true)
+    .bold(true)
+    .line(LEGAL_PARTY.brandName.toUpperCase())
+    .wide(false)
+    .bold(false)
+    .wrap(LEGAL_PARTY.legalName)
+    .wrap(LEGAL_PARTY.address)
+    .wrap(`${LEGAL_PARTY.phone}  ${LEGAL_PARTY.email}`)
+    .wrap(LEGAL_PARTY.hours)
+    .nl()
+    .bold(true)
+    .wide(true)
+    .wrap(input.heading)
+    .wide(false)
+    .bold(false);
+  if (when) out.wrap(when);
+  out.nl().bytes(await barcodeStrip(ticket)).nl().bold(true).line(ticket).bold(false).nl();
 
-  let y = pad + 116;
-  ctx.font = "700 28px sans-serif";
-  fitText(ctx, LEGAL_PARTY.brandName.toUpperCase(), pad, y, inner, "center");
-  y += 32;
-  ctx.font = "600 18px sans-serif";
-  fitText(ctx, LEGAL_PARTY.legalName, pad, y, inner, "center");
-  y += 24;
-  fitText(ctx, LEGAL_PARTY.address, pad, y, inner, "center");
-  y += 24;
-  fitText(ctx, `${LEGAL_PARTY.phone}  ·  ${LEGAL_PARTY.email}`, pad, y, inner, "center");
-  y += 24;
-  fitText(ctx, LEGAL_PARTY.hours, pad, y, inner, "center");
-  y += 28;
-  ctx.fillRect(pad, y, inner, 3);
-  y += 16;
-  ctx.font = "700 26px sans-serif";
-  fitText(ctx, input.heading, pad, y, inner, "center");
-  y += 32;
-  ctx.font = "600 20px sans-serif";
-  if (when) {
-    fitText(ctx, when, pad, y, inner, "center");
-    y += 26;
+  out
+    .align("left")
+    .pair("Kunde", input.customerName || "—")
+    .pair("Telefon", input.customerPhone)
+    .pair("E-post", input.customerEmail)
+    .pair("Adresse", input.customerAddress)
+    .pair("Enhet", input.device);
+  if (input.kind === "repair") {
+    out.pair("IMEI", input.imei).pair("Serienr", input.serialNumber);
   }
-  paintBarcode(ctx, ticket, pad, y, inner, 64);
-  y += 72;
-  ctx.font = "700 22px sans-serif";
-  fitText(ctx, ticket, pad, y, inner, "center");
-  y += 30;
-  ctx.fillRect(pad, y, inner, 3);
-  y += 16;
-
-  y = drawKv(ctx, "Kunde", input.customerName || "—", pad, y, inner);
-  if (input.customerPhone) y = drawKv(ctx, "Telefon", input.customerPhone, pad, y, inner);
-  if (input.customerEmail) y = drawKv(ctx, "E-post", input.customerEmail, pad, y, inner);
-  if (input.customerAddress) y = drawKv(ctx, "Adresse", input.customerAddress, pad, y, inner);
-  y = drawKv(ctx, "Enhet", input.device || "—", pad, y, inner);
-  if (input.imei) y = drawKv(ctx, "IMEI", input.imei, pad, y, inner);
-  if (input.serialNumber) y = drawKv(ctx, "Serienr", input.serialNumber, pad, y, inner);
-  if (input.cashier) y = drawKv(ctx, "Ekspeditør", input.cashier, pad, y, inner);
-  y += 8;
-  ctx.fillRect(pad, y, inner, 3);
-  y += 16;
+  if (input.kind === "purchase" && input.cashier) {
+    out.pair("Ekspeditør", input.cashier);
+  }
 
   if (input.kind === "repair") {
-    ctx.font = "700 22px sans-serif";
-    fitText(ctx, "Reparasjon", pad, y, inner);
-    y += 28;
-    if (input.status) y = drawKv(ctx, "Status", input.status, pad, y, inner);
-    if (input.technician) y = drawKv(ctx, "Tekniker", input.technician, pad, y, inner);
-    if (input.receivedAt) y = drawKv(ctx, "Mottatt", input.receivedAt, pad, y, inner);
-    if (input.completedAt) y = drawKv(ctx, "Ferdig", input.completedAt, pad, y, inner);
-    if (input.inbound) y = drawKv(ctx, "Inn", input.inbound, pad, y, inner);
-    if (input.outbound) y = drawKv(ctx, "Ut", input.outbound, pad, y, inner);
-    if (input.warranty) y = drawKv(ctx, "Garanti", input.warranty, pad, y, inner);
+    out.block("Reparasjon");
+    out
+      .pair("Status", input.status)
+      .pair("Tekniker", input.technician)
+      .pair("Mottatt", input.receivedAt)
+      .pair("Ferdig", input.completedAt)
+      .pair("Innlevering", input.inbound)
+      .pair("Henting", input.outbound)
+      .pair("Garanti", input.warranty);
     if (input.problem) {
-      ctx.font = "600 18px sans-serif";
-      fitText(ctx, "Feil beskrevet", pad, y, inner);
-      y += 24;
-      ctx.font = "600 20px sans-serif";
-      for (const row of wrapText(ctx, input.problem, inner, 5)) {
-        fitText(ctx, row, pad, y, inner);
-        y += 24;
-      }
-    }
-    if (parts.length) {
-      y += 6;
-      ctx.font = "700 20px sans-serif";
-      fitText(ctx, "Deler brukt", pad, y, inner);
-      y += 26;
-      ctx.font = "600 18px sans-serif";
-      for (const part of parts) {
-        for (const row of wrapText(ctx, `• ${part}`, inner, 2)) {
-          fitText(ctx, row, pad, y, inner);
-          y += 24;
-        }
-      }
+      out.bold(true).line("Feil beskrevet").bold(false).wrap(input.problem);
     }
     if (notes.length) {
-      y += 6;
-      ctx.font = "700 20px sans-serif";
-      fitText(ctx, "Arbeid utført", pad, y, inner);
-      y += 26;
-      ctx.font = "600 18px sans-serif";
-      for (const note of notes) {
-        for (const row of wrapText(ctx, `• ${note}`, inner, 3)) {
-          fitText(ctx, row, pad, y, inner);
-          y += 24;
-        }
-      }
+      out.bold(true).line("Arbeid utført").bold(false);
+      for (const note of notes) out.wrap(`- ${note}`);
     }
-    y += 8;
-    ctx.fillRect(pad, y, inner, 3);
-    y += 16;
   }
 
-  ctx.font = "700 22px sans-serif";
-  fitText(ctx, "Salg", pad, y, inner);
-  y += 28;
-  ctx.font = "600 20px sans-serif";
-  for (const line of lines) {
-    const nameLines = wrapText(ctx, line.name, 360, 2);
-    const used = nameLines.length ? nameLines : [line.name];
-    fitText(ctx, line.amountLabel, pad + 360, y, inner - 360, "right");
-    for (const row of used) {
-      fitText(ctx, row, pad, y, 360);
-      y += 26;
+  out.block(input.kind === "repair" ? "Tjenester" : "Kjøp");
+  if (input.lines.length) {
+    for (const line of input.lines) {
+      for (const row of moneyCols(line.name, line.amountLabel)) out.line(row);
     }
+  } else {
+    out.line("Ingen linjer");
   }
-  if (!lines.length) {
-    fitText(ctx, "Ingen linjer", pad, y, inner);
-    y += 26;
-  }
-  ctx.fillRect(pad, y, inner, 3);
-  y += 14;
-  if (input.netLabel) {
-    ctx.font = "600 18px sans-serif";
-    fitText(ctx, "Sum eks. mva", pad, y, 300);
-    fitText(ctx, input.netLabel, pad + 300, y, inner - 300, "right");
-    y += 24;
-  }
-  if (input.vatLabel) {
-    ctx.font = "600 18px sans-serif";
-    fitText(ctx, "Herav mva 25 %", pad, y, 300);
-    fitText(ctx, input.vatLabel, pad + 300, y, inner - 300, "right");
-    y += 24;
-  }
-  if (input.vatNote) {
-    ctx.font = "600 16px sans-serif";
-    for (const row of wrapText(ctx, input.vatNote, inner, 3)) {
-      fitText(ctx, row, pad, y, inner);
-      y += 22;
-    }
-  }
-  ctx.font = "700 30px sans-serif";
-  fitText(ctx, "TOTAL", pad, y, 240);
-  fitText(ctx, input.totalLabel, pad + 240, y, inner - 240, "right");
-  y += 40;
-  ctx.fillRect(pad, y, inner, 3);
-  y += 16;
-  ctx.font = "700 22px sans-serif";
-  fitText(ctx, "Betaling", pad, y, inner);
-  y += 28;
-  ctx.font = "600 20px sans-serif";
-  fitText(ctx, input.paymentLabel || "Betaling", pad, y, inner);
-  y += 26;
-  for (const row of payRows) {
-    fitText(ctx, row, pad, y, inner);
-    y += 24;
-  }
-  y += 8;
-  ctx.fillRect(pad, y, inner, 3);
-  y += 16;
+  out.line(rule());
+  if (input.netLabel) out.pair("Sum eks. mva", input.netLabel);
+  if (input.vatLabel) out.pair("Herav mva 25 %", input.vatLabel);
+  if (input.vatNote) out.wrap(input.vatNote);
+  out.bold(true);
+  for (const row of moneyCols("TOTAL", input.totalLabel)) out.line(row);
+  out.bold(false);
 
-  if (hasQr && input.statusQr) {
-    ctx.font = "600 18px sans-serif";
-    fitText(ctx, "Status og kvittering", pad, y, inner, "center");
-    y += 26;
-    const qr = 176;
-    await paintDataUrl(ctx, input.statusQr, (w - qr) / 2, y, qr);
-    y += qr + 10;
+  out.block("Betaling").wrap(input.paymentLabel || "Betaling");
+  for (const row of payRows) out.wrap(row);
+
+  if (input.statusQr) {
+    out
+      .nl()
+      .align("center")
+      .bold(true)
+      .line("Status")
+      .bold(false)
+      .bytes(await qrStrip(input.statusQr))
+      .nl();
     const statusLabel = (input.statusUrl || "").replace(/^https:\/\//, "");
-    if (statusLabel) fitText(ctx, statusLabel, pad, y, inner, "center");
-    y += 28;
+    if (statusLabel) out.wrap(statusLabel);
   }
 
-  ctx.font = "700 24px sans-serif";
-  for (const row of wrapText(ctx, input.thanks, inner, 3)) {
-    fitText(ctx, row, pad, y, inner, "center");
-    y += 28;
-  }
-  y += 6;
-  ctx.font = "600 16px sans-serif";
-  for (const line of footer) {
-    for (const row of wrapText(ctx, line, inner, 2)) {
-      fitText(ctx, row, pad, y, inner, "center");
-      y += 22;
-    }
-  }
+  out.nl().align("center").bold(true).wrap(input.thanks).bold(false);
+  for (const line of footer) out.wrap(line);
+  out.nl(2);
 
-  const map = canvasToBitmap(canvas, true).cropBottom(8);
-  return concat(
-    cmd(ESC, 0x40),
-    cmd(ESC, 0x7b, 0),
-    cmd(ESC, 0x61, 0),
-    cmd(GS, 0x4c, 0, 0),
-    cmd(GS, 0x57, w & 0xff, (w >> 8) & 0xff),
-    cmd(ESC, 0x33, 0),
-    gsRaster(map),
-    partialCut(),
-  );
+  return concat(out.done(), partialCut());
 }
