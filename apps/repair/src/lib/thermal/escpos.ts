@@ -185,6 +185,39 @@ class Bitmap {
     return next;
   }
 
+  inkX(y0: number, y1: number) {
+    let x0 = this.width;
+    let x1 = 0;
+    for (let y = y0; y < y1 && y < this.height; y++) {
+      const row = y * this.width;
+      for (let x = 0; x < this.width; x++) {
+        if (!this.bits[row + x]) continue;
+        if (x < x0) x0 = x;
+        if (x + 1 > x1) x1 = x + 1;
+      }
+    }
+    if (x1 <= x0) return { x0: 0, x1: this.width };
+    x0 = x0 & ~7;
+    x1 = Math.min(this.width, (x1 + 7) & ~7);
+    return { x0, x1 };
+  }
+
+  copyRect(x0: number, y0: number, x1: number, y1: number) {
+    const width = Math.max(0, x1 - x0);
+    const height = Math.max(0, y1 - y0);
+    const next = new Bitmap(width, height);
+    for (let y = 0; y < height; y++) {
+      const srcY = y0 + y;
+      if (srcY < 0 || srcY >= this.height) continue;
+      for (let x = 0; x < width; x++) {
+        const srcX = x0 + x;
+        if (srcX < 0 || srcX >= this.width) continue;
+        if (this.bits[srcY * this.width + srcX]) next.set(x, y);
+      }
+    }
+    return next;
+  }
+
   cropBottom(pad = 8) {
     let last = this.height - 1;
     while (last > 0) {
@@ -312,8 +345,10 @@ function gsRasterFast(map: Bitmap) {
     }
     const start = y;
     while (y < map.height && map.hasRow(y)) y += 1;
-    const pad = (y - start) % 8 === 0 ? 0 : 8 - ((y - start) % 8);
-    parts.push(gsRaster(map.copyRows(start, y + pad)));
+    const { x0, x1 } = map.inkX(start, y);
+    if (x0 > 0) parts.push(cmd(GS, 0x4c, x0 & 0xff, (x0 >> 8) & 0xff));
+    parts.push(gsRaster(map.copyRect(x0, start, x1, y)));
+    if (x0 > 0) parts.push(cmd(GS, 0x4c, 0, 0));
   }
   return parts.length ? concat(...parts) : gsRaster(map);
 }
