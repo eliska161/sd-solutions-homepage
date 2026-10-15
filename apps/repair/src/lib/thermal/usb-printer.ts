@@ -123,8 +123,13 @@ async function writeSerial(port: SerialPort, bytes: Uint8Array) {
   const writable = port.writable;
   if (!writable) throw new Error("Bluetooth-serial er lukket. Koble til Bluetooth på nytt.");
   const writer = writable.getWriter();
+  const payload = copyBytes(bytes);
+  const chunk = 256;
   try {
-    await writer.write(copyBytes(bytes));
+    for (let i = 0; i < payload.length; i += chunk) {
+      await writer.write(payload.subarray(i, i + chunk));
+      if (i + chunk < payload.length) await wait(12);
+    }
   } finally {
     try {
       writer.releaseLock();
@@ -205,11 +210,6 @@ async function openSerialPort(port: SerialPort, baudRate: number) {
         flowControl: "none",
       });
       lastSerialBaud = baud;
-      try {
-        await port.setSignals({ dataTerminalReady: true, requestToSend: true });
-      } catch {
-        /* some adapters have no control lines */
-      }
       drainSerialInput(port);
       return;
     } catch (err) {
