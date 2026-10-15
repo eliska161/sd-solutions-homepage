@@ -159,6 +159,7 @@ export async function fetchKioskBoard(): Promise<{
   dropoffs: RepairRow[];
   pickups: RepairRow[];
   chargeVat: boolean;
+  lockerEnabled: boolean;
 }> {
   try {
     const res = await fetch("/api/kiosk", { cache: "no-store" });
@@ -167,8 +168,9 @@ export async function fetchKioskBoard(): Promise<{
       dropoffs: data.dropoffs ?? [],
       pickups: data.pickups ?? [],
       chargeVat: data.chargeVat === true,
+      lockerEnabled: data.lockerEnabled !== false,
     };
   } catch {
-    return { dropoffs: [], pickups: [], chargeVat: false };
+    return { dropoffs: [], pickups: [], chargeVat: false, lockerEnabled: true };
   }
 }

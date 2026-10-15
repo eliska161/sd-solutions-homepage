@@ -27,7 +27,7 @@ import { storeCustomerPdf } from "@/lib/store-customer-pdf";
 import { estimatedCompletionAt, formatOsloDateLabel, nextDayOffer } from "@/lib/next-day";
 import { notifyDeviceReceived, notifyServiceOrderCreated } from "@/server/customer-mail";
 import { kioskPaymentForTicket } from "@/server/payments";
-import { isCustomerVatCharged } from "@/server/settings";
+import { isCustomerVatCharged, isLockerModeEnabled } from "@/server/settings";
 
 const CLOSED = ["CANCELLED", "COMPLETED", "RETURNED"] as const;
 
@@ -266,6 +266,7 @@ export async function lookupKioskDropoffs(queryRaw: string): Promise<KioskRepair
 }
 
 export async function lookupKioskPickup(pinRaw: string): Promise<KioskRepair | null> {
+  if (!(await isLockerModeEnabled())) return null;
   const pin = pinRaw.replace(/\D/g, "");
   if (pin.length !== 6 || pin === "999999") return null;
   const db = getDb();
@@ -376,6 +377,15 @@ export async function kioskBoard() {
     dropoffs: await withParts(dropoffRows),
     pickups: await withParts(pickupRows),
     chargeVat: await isCustomerVatCharged(),
+    lockerEnabled: await isLockerModeEnabled(),
+  };
+}
+
+export async function requireLockerMode() {
+  if (await isLockerModeEnabled()) return { ok: true as const };
+  return {
+    ok: false as const,
+    error: "Locker er av. Bruk vanlig innlevering i skranken.",
   };
 }
 
@@ -397,6 +407,8 @@ export async function createKioskLockerOrder(input: {
   signaturePng?: string;
   termsSignerName?: string;
 }): Promise<{ ok: true; repair: KioskRepair } | { ok: false; error: string }> {
+  const locker = await requireLockerMode();
+  if (!locker.ok) return locker;
   const phone = toE164Phone(input.phone);
   if (!phone || !isSendablePhone(phone)) {
     return { ok: false, error: "Ugyldig telefonnummer." };
@@ -638,6 +650,8 @@ export async function createKioskLockerOrder(input: {
 }
 
 export async function receiveKioskTicket(ticketNumber: string) {
+  const locker = await requireLockerMode();
+  if (!locker.ok) return locker;
   const db = getDb();
   const [ticket] = await db
     .select({
@@ -674,6 +688,8 @@ export async function receiveKioskTicket(ticketNumber: string) {
 }
 
 export async function completeKioskTicket(ticketNumber: string) {
+  const locker = await requireLockerMode();
+  if (!locker.ok) return locker;
   const db = getDb();
   const [ticket] = await db
     .select({

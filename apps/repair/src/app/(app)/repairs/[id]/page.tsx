@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { DownloadSummaryLink, PrintCalibrateLink, PrintReceiptLink } from "@/components/DownloadSummaryLink";
+import { ThermalPrintBar } from "@/components/ThermalPrintBar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -32,6 +33,7 @@ import {
 } from "@/server/diagnostics";
 import { getIntakeInspection } from "@/server/intake";
 import { ticketIsBatteryJob } from "@/server/battery-calibrate";
+import { isLockerModeEnabled } from "@/server/settings";
 import { listParts } from "@/server/parts";
 import {
   addRepairNote,
@@ -220,6 +222,7 @@ export default async function RepairDetailPage({
     assigneeName,
     intake,
     batteryJob,
+    lockerMode,
   ] = await Promise.all([
     getCustomer(ticket.customerId),
     getDevice(ticket.deviceId),
@@ -237,6 +240,7 @@ export default async function RepairDetailPage({
     getRepairAssigneeName(ticket.assigneeId),
     getIntakeInspection(id),
     ticketIsBatteryJob(id),
+    isLockerModeEnabled(),
   ]);
 
   const customerPrice = ticket.customerPriceOre ?? 0;
@@ -282,6 +286,10 @@ export default async function RepairDetailPage({
         }
       />
 
+      <div className="mb-4">
+        <ThermalPrintBar ticketId={ticket.id} />
+      </div>
+
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <RepairStatusForm
           ticketId={ticket.id}
@@ -299,7 +307,7 @@ export default async function RepairDetailPage({
         <p className="text-[13px] text-muted">
           Opprettet {formatDate(ticket.createdAt)}
         </p>
-        {ticket.pickupPin && ticket.status === "READY_FOR_PICKUP" ? (
+        {lockerMode && ticket.pickupPin && ticket.status === "READY_FOR_PICKUP" ? (
           <p className="text-[13px] font-medium">
             Hentepin {ticket.pickupPin}
           </p>
