@@ -3,7 +3,6 @@ import { LEGAL_PARTY } from "@/lib/legal-catalog";
 import {
   DELIVERY_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
-  REPAIR_PART_STATUS_LABELS,
   REPAIR_STATUS_LABELS,
   formatDate,
 } from "@/lib/labels";
@@ -22,7 +21,6 @@ import {
   getRepair,
   getRepairAssigneeName,
   listRepairNotes,
-  listRepairParts,
 } from "@/server/repairs";
 import { getSetting, isCustomerVatCharged } from "@/server/settings";
 import { loadTicketCharge } from "@/lib/ticket-totals";
@@ -48,13 +46,12 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
 } | null> {
   const ticket = await getRepair(ticketId);
   if (!ticket) return null;
-  const [customer, device, charge, warranty, parts, notes, technician, chargeVat, company] =
+  const [customer, device, charge, warranty, notes, technician, chargeVat, company] =
     await Promise.all([
       getCustomer(ticket.customerId),
       getDevice(ticket.deviceId),
       loadTicketCharge(ticketId),
       getWarrantyForTicket(ticketId),
-      listRepairParts(ticketId),
       listRepairNotes(ticketId),
       getRepairAssigneeName(ticket.assigneeId),
       isCustomerVatCharged(),
@@ -136,16 +133,8 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
   const warrantyLabel = warranty
     ? `${warranty.days} dager, til ${formatDate(warranty.endsAt).split(",")[0] || formatDate(warranty.endsAt)}`
     : ticket.warrantyDays
-      ? `${ticket.warrantyDays} dager på utført arbeid og monterte deler`
-      : "90 dager på utført arbeid og monterte deler";
-
-  const partLines = parts
-    .filter((part) => part.status !== "CANCELLED")
-    .map((part) => {
-      const grade = REPAIR_PART_STATUS_LABELS[part.status] || part.status;
-      const qty = part.quantity > 1 ? ` ×${part.quantity}` : "";
-      return `${part.partName || "Del"}${qty} (${grade})`;
-    });
+      ? `${ticket.warrantyDays} dager på utført arbeid`
+      : "90 dager på utført arbeid";
 
   const workNotes = notes
     .filter((note) => note.visibility === "CUSTOMER")
@@ -198,7 +187,7 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
     ...shared,
     kind: "purchase",
     heading: "KJØPSKVITTERING",
-    thanks: "Takk for handelen — velkommen tilbake.",
+    thanks: "Takk for handelen. Velkommen tilbake.",
   };
 
   const repair: WorkshopReceiptInput = {
@@ -213,7 +202,6 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
     status: REPAIR_STATUS_LABELS[ticket.status] || ticket.status,
     technician,
     warranty: warrantyLabel,
-    parts: partLines,
     workNotes,
     thanks: "Takk for at du lot oss fikse den. Velkommen tilbake.",
   };
