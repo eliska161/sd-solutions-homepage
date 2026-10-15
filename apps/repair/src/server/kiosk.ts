@@ -14,7 +14,6 @@ import { matchIphoneModel } from "@/lib/apple-models";
 import { getDb } from "@/lib/db";
 import { lookupImeiCatalog, normalizeImei } from "@/lib/imei-lookup";
 import { REPAIR_STATUS_LABELS } from "@/lib/labels";
-import { WORKSHOP } from "@/lib/workshop";
 import { isSendablePhone, toE164Phone } from "@/lib/phone";
 import { isSendableCustomerEmail } from "@/lib/mail";
 import { allocatePublicShortCode } from "@/lib/public-link";
