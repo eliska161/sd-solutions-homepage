@@ -124,11 +124,10 @@ async function writeSerial(port: SerialPort, bytes: Uint8Array) {
   if (!writable) throw new Error("Bluetooth-serial er lukket. Koble til Bluetooth på nytt.");
   const writer = writable.getWriter();
   const payload = copyBytes(bytes);
-  const chunk = 256;
+  const chunk = 2048;
   try {
     for (let i = 0; i < payload.length; i += chunk) {
       await writer.write(payload.subarray(i, i + chunk));
-      if (i + chunk < payload.length) await wait(12);
     }
   } finally {
     try {
