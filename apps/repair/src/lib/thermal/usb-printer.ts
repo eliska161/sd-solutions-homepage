@@ -126,7 +126,7 @@ async function writeSerial(port: SerialPort, bytes: Uint8Array) {
   if (!writable) throw new Error("USB-serial er lukket. Koble til USB på nytt.");
   const writer = writable.getWriter();
   const payload = copyBytes(bytes);
-  const chunk = 2048;
+  const chunk = 16_384;
   try {
     for (let i = 0; i < payload.length; i += chunk) {
       await writer.write(payload.subarray(i, i + chunk));
