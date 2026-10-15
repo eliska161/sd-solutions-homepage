@@ -364,6 +364,7 @@ function gsRasterPacked(map: Bitmap) {
   for (const [start, end] of bands) {
     if (start > cursor) parts.push(feedDots(start - cursor));
     parts.push(gsRaster(map.copyRows(start, end)));
+    cursor = end;
   }
   return concat(...parts);
 }
@@ -463,37 +464,6 @@ function fitText(
   ctx.textAlign = align;
   ctx.fillText(t, px, y);
   ctx.textAlign = "left";
-}
-
-function wrapText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-  maxLines = 4,
-) {
-  const words = text.trim().split(/\s+/).filter(Boolean);
-  if (!words.length) return [];
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (ctx.measureText(next).width <= maxWidth) {
-      current = next;
-      continue;
-    }
-    if (current) lines.push(current);
-    current = word;
-    if (lines.length >= maxLines) break;
-  }
-  if (current && lines.length < maxLines) lines.push(current);
-  if (lines.length === maxLines && words.join(" ").length > lines.join(" ").length) {
-    let last = lines[maxLines - 1];
-    while (last.length > 1 && ctx.measureText(`${last}…`).width > maxWidth) {
-      last = last.slice(0, -1);
-    }
-    lines[maxLines - 1] = `${last}…`;
-  }
-  return lines;
 }
 
 function partialCut() {

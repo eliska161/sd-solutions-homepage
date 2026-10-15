@@ -1,5 +1,4 @@
 import bwipjs from "bwip-js/node";
-import { LEGAL_PARTY } from "@/lib/legal-catalog";
 import {
   DELIVERY_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
