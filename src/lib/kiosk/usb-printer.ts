@@ -325,31 +325,50 @@ export async function connectBluetoothPrinter(baudRate = lastSerialBaud) {
   return connectSerialPrinter(baudRate);
 }
 
+function usbChooserFailed(err: unknown) {
+  const name = err instanceof DOMException ? err.name : "";
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /NotFoundError|NotAllowedError|no device|not found|chooser|cancel|abort/i.test(`${name} ${msg}`);
+}
+
+async function requestAnyUsbDevice() {
+  const api = usbApi();
+  if (!api) throw new Error("Denne nettleseren støtter ikke WebUSB.");
+  try {
+    return await api.requestDevice({ filters: [{ vendorId: STM_VENDOR_ID }] });
+  } catch (err) {
+    if (!usbChooserFailed(err)) throw err;
+    return api.requestDevice({ filters: [] });
+  }
+}
+
 export async function connectUsbPrinter() {
   if (handle?.kind === "usb" && handle.device.opened) return handle;
-  handle = null;
+  if (handle?.kind === "serial" && serialIsOpen(handle.port)) return handle;
+
   const granted = await pickGrantedUsb();
   if (granted) {
     handle = granted;
     return granted;
   }
-  const api = usbApi();
-  if (!api) throw new Error("Chrome WebUSB kreves. Åpne i Chrome og koble til USB.");
-  let device: USBDevice;
-  try {
-    device = await api.requestDevice({
-      filters: [{ vendorId: STM_VENDOR_ID }],
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err ?? "");
-    if (/not found|no device|chooser/i.test(msg)) {
-      throw new Error("Ingen STMicroelectronics POS80 (0x0483) valgt. Koble til USB og velg den i listen.");
+
+  if (usbApi()) {
+    try {
+      const device = await requestAnyUsbDevice();
+      const claimed = await claimStmPrinter(device);
+      handle = claimed;
+      return claimed;
+    } catch {
+      /* POS80 is often USB-CDC; WebUSB sees no compatible device. Use serial. */
     }
-    throw err instanceof Error ? err : new Error(msg || "WebUSB avbrutt");
   }
-  const claimed = await claimStmPrinter(device);
-  handle = claimed;
-  return claimed;
+
+  if (!serialApi()) {
+    throw new Error(
+      "Fant ingen USB-skriver. POS80 vises ofte som serial, ikke WebUSB. Velg den i serial-listen.",
+    );
+  }
+  return connectSerialPrinter();
 }
 
 export async function setSerialBaud(baudRate: number) {

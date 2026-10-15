@@ -20,12 +20,12 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
     try {
       await connectUsbPrinter();
       setLink(printerLinkLabel());
-      setNote("WebUSB klar. Velg STMicroelectronics POS80 (0x0483).");
+      setNote("Skriver klar. Velg POS80 i listen (USB eller serial).");
     } catch (err) {
       setNote(
         err instanceof Error
           ? err.message
-          : "Klarte ikke åpne WebUSB. Bruk Chrome og velg STMicroelectronics POS80.",
+          : "Fant ingen skriver. Velg POS80 i USB-listen, eller serial hvis den ikke vises der.",
       );
     } finally {
       setBusy(null);
@@ -49,7 +49,7 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
       const result = await printWorkshopReceipt(kind === "purchase" ? data.purchase : data.repair);
       if (!result.ok) {
         throw new Error(
-          "Skriveren svarte ikke. Koble til USB og velg STMicroelectronics POS80.",
+          "Skriveren svarte ikke. Koble til USB og velg POS80 (WebUSB eller serial).",
         );
       }
       setLink(printerLinkLabel());
@@ -91,7 +91,7 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
         {busy === "repair" ? "Skriver…" : "Reparasjonskvittering"}
       </Button>
       <p className="text-[13px] text-muted">
-        Termisk 80 mm WebUSB · {link}
+        Termisk 80 mm · {link}
         {note ? ` · ${note}` : ""}
       </p>
     </div>
