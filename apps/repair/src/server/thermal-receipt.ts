@@ -145,12 +145,10 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
   const org = company?.orgNumber?.trim();
   const footer = [
     org ? `Org.nr ${org}` : "",
-    "Kvitteringen er gyldig som kjøpsbevis. Ta den med ved reklamasjon.",
-    `Garanti: ${warrantyLabel}.`,
-    chargeVat
-      ? "Priser inkl. 25 % merverdiavgift."
-      : "Merverdiavgift er ikke beregnet (vi samler ikke dette inn).",
-    `${LEGAL_PARTY.web}  ·  ${LEGAL_PARTY.phone}`,
+    "Kjopsbevis. Ta med ved reklamasjon.",
+    `Garanti: ${warrantyLabel}`,
+    chargeVat ? "Priser inkl. 25 % mva." : "Mva samles ikke inn.",
+    "sd-solutions.org",
   ].filter(Boolean);
 
   const shared = {

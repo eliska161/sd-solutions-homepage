@@ -16,7 +16,8 @@ type Handle = UsbHandle | SerialHandle;
 export const SERIAL_BAUDS = [9600, 19200, 38400, 115200] as const;
 
 let handle: Handle | null = null;
-let lastSerialBaud = 115200;
+let lastSerialBaud = 9600;
+let serialInFlight: Promise<void> | null = null;
 
 function usbApi(): USB | null {
   if (typeof navigator === "undefined") return null;
@@ -162,16 +163,54 @@ function serialFailMessage(err: unknown) {
   return `Klarte ikke åpne serial${name ? ` (${name})` : ""}: ${msg || "ukjent feil"}`;
 }
 
+function drainSerialInput(port: SerialPort) {
+  if (serialInFlight) return;
+  serialInFlight = (async () => {
+    while (port.readable) {
+      const reader = port.readable.getReader();
+      try {
+        while (true) {
+          const { done } = await reader.read();
+          if (done) return;
+        }
+      } catch {
+        return;
+      } finally {
+        try {
+          reader.releaseLock();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  })().finally(() => {
+    serialInFlight = null;
+  });
+}
+
 async function openSerialPort(port: SerialPort, baudRate: number) {
   if (serialIsOpen(port)) return;
   await wait(300);
   if (serialIsOpen(port)) return;
-  const bauds = [baudRate, 9600, 115200, 19200].filter((value, i, all) => all.indexOf(value) === i);
+  const bauds = [baudRate, 9600, 19200, 115200].filter((value, i, all) => all.indexOf(value) === i);
   let lastErr: unknown;
   for (const baud of bauds) {
     try {
-      await port.open({ baudRate: baud });
+      await port.open({
+        baudRate: baud,
+        dataBits: 8,
+        stopBits: 1,
+        parity: "none",
+        bufferSize: 16_384,
+        flowControl: "none",
+      });
       lastSerialBaud = baud;
+      try {
+        await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+      } catch {
+        /* some adapters have no control lines */
+      }
+      drainSerialInput(port);
       return;
     } catch (err) {
       lastErr = err;
@@ -195,14 +234,14 @@ function isBluetoothSerial(port: SerialPort) {
 
 async function armSerial(port: SerialPort, baudRate: number): Promise<SerialHandle> {
   await openSerialPort(port, baudRate);
+  drainSerialInput(port);
   const next: SerialHandle = {
     kind: "serial",
     port,
-    baudRate,
+    baudRate: lastSerialBaud || baudRate,
     bluetooth: isBluetoothSerial(port),
   };
   handle = next;
-  lastSerialBaud = baudRate;
   return next;
 }
 
@@ -320,11 +359,13 @@ export async function printEscpos(payload: Uint8Array) {
       else await connectBluetoothPrinter();
     }
     await writeAll(payload);
+    if (handle?.kind === "serial") drainSerialInput(handle.port);
     return { ok: true as const };
   } catch {
     try {
       if (handle?.kind === "serial" && serialIsOpen(handle.port)) {
         await writeAll(payload);
+        drainSerialInput(handle.port);
         return { ok: true as const };
       }
     } catch {
@@ -333,6 +374,7 @@ export async function printEscpos(payload: Uint8Array) {
     try {
       await connectBluetoothPrinter();
       await writeAll(payload);
+      if (handle?.kind === "serial") drainSerialInput(handle.port);
       return { ok: true as const };
     } catch {
       return { ok: false as const, reason: "printer" as const };
