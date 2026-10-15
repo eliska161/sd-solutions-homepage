@@ -252,8 +252,12 @@ function barcodePixelWidth(data: string, maxWidth: number) {
 }
 
 function gsRaster(map: Bitmap) {
-  const data = map.toRaster();
   const byteWidth = Math.ceil(map.width / 8);
+  const raw = map.toRaster();
+  const pad = map.height % 8 === 0 ? 0 : 8 - (map.height % 8);
+  const height = map.height + pad;
+  const data = pad ? new Uint8Array(byteWidth * height) : raw;
+  if (pad) data.set(raw);
   return concat(
     cmd(
       GS,
@@ -262,8 +266,8 @@ function gsRaster(map: Bitmap) {
       0,
       byteWidth & 0xff,
       (byteWidth >> 8) & 0xff,
-      map.height & 0xff,
-      (map.height >> 8) & 0xff,
+      height & 0xff,
+      (height >> 8) & 0xff,
     ),
     data,
   );
@@ -676,8 +680,8 @@ export async function buildLockerReceipt(input: ReceiptPrintInput) {
   );
 }
 
-/** Font A on 80 mm: 48 columns. Wrap instead of clipping. */
-const RECEIPT_COLS = 48;
+/** Font A on 80 mm. 42 columns so the printer never wraps a line. */
+const RECEIPT_COLS = 42;
 
 const PC850: Record<string, number> = {
   æ: 0x91,
@@ -724,36 +728,37 @@ function encodePc850(text: string) {
   return out;
 }
 
-function wrapCols(text: string, width = RECEIPT_COLS): string[] {
+function fitCols(text: string, width = RECEIPT_COLS) {
   const src = text.replace(/\s+/g, " ").trim();
-  if (!src) return [];
-  const lines: string[] = [];
-  let rest = src;
-  while (rest.length) {
-    if (rest.length <= width) {
-      lines.push(rest);
-      break;
-    }
-    let cut = rest.lastIndexOf(" ", width);
-    if (cut < 1) cut = width;
-    lines.push(rest.slice(0, cut).trimEnd());
-    rest = rest.slice(cut).trimStart();
-  }
-  return lines;
+  if (src.length <= width) return src;
+  return `${src.slice(0, Math.max(1, width - 1))}.`;
 }
 
-function moneyCols(left: string, right: string): string[] {
+function oneLine(left: string, right?: string) {
+  if (right == null || right === "") return fitCols(left);
   const amount = right.trim();
-  const room = Math.max(12, RECEIPT_COLS - amount.length - 1);
-  const wrapped = wrapCols(left, room);
-  const rows = wrapped.length ? wrapped : [""];
-  const gap = Math.max(1, RECEIPT_COLS - rows[0].length - amount.length);
-  rows[0] = `${rows[0]}${" ".repeat(gap)}${amount}`;
-  return rows;
+  const room = Math.max(4, RECEIPT_COLS - amount.length - 1);
+  const l = fitCols(left, room);
+  const gap = Math.max(1, RECEIPT_COLS - l.length - amount.length);
+  return `${l}${" ".repeat(gap)}${amount}`;
 }
 
 function rule() {
   return "-".repeat(RECEIPT_COLS);
+}
+
+async function logoStrip() {
+  const w = LABEL_WIDTH_DOTS;
+  const h = 120;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return new Uint8Array();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+  await paintLogo(ctx, (w - 96) / 2, 12, 96, 96);
+  return gsRaster(canvasToBitmap(canvas, true));
 }
 
 async function barcodeStrip(ticket: string) {
@@ -767,12 +772,12 @@ async function barcodeStrip(ticket: string) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, h);
   paintBarcode(ctx, ticket, 16, 8, w - 32, 64);
-  return gsRaster(canvasToBitmap(canvas, false));
+  return gsRaster(canvasToBitmap(canvas, true));
 }
 
 async function qrStrip(dataUrl: string) {
   const w = LABEL_WIDTH_DOTS;
-  const qr = 192;
+  const qr = 160;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = qr;
@@ -781,7 +786,7 @@ async function qrStrip(dataUrl: string) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, qr);
   await paintDataUrl(ctx, dataUrl, (w - qr) / 2, 0, qr);
-  return gsRaster(canvasToBitmap(canvas, false));
+  return gsRaster(canvasToBitmap(canvas, true));
 }
 
 class ReceiptEscPos {
@@ -820,18 +825,16 @@ class ReceiptEscPos {
   }
 
   line(value = "") {
-    return this.text(value).nl();
+    return this.text(fitCols(value)).nl();
   }
 
   wrap(value: string) {
-    for (const row of wrapCols(value)) this.line(row);
-    return this;
+    return this.line(fitCols(value));
   }
 
   pair(label: string, value: string | null | undefined) {
     if (!value) return this;
-    for (const row of moneyCols(label, value)) this.line(row);
-    return this;
+    return this.line(oneLine(label, value));
   }
 
   block(title?: string) {
@@ -862,6 +865,7 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
         hour: "2-digit",
         minute: "2-digit",
       });
+  const tx = input.transactionId?.replace(/\s+/g, "") ?? "";
   const payRows = [
     input.paymentDetail,
     input.cardLast4 && input.cardBrand
@@ -869,8 +873,8 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
       : input.cardLast4
         ? `Kort **** ${input.cardLast4}`
         : null,
-    input.authCode ? `Aut.id ${input.authCode}` : null,
-    input.transactionId ? `Transaksjon ${input.transactionId}` : null,
+    input.authCode ? `Aut ${input.authCode}` : null,
+    tx ? `Trans ${tx.slice(-12)}` : null,
     input.paidAt ? `Betalt ${input.paidAt}` : null,
   ].filter((row, i, all): row is string => Boolean(row) && all.indexOf(row) === i);
   const notes = (input.workNotes ?? []).filter(Boolean);
@@ -879,28 +883,29 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
 
   out
     .raw(ESC, 0x40)
-    .raw(ESC, 0x7b, 1)
+    .raw(ESC, 0x7b, 0)
     .raw(ESC, 0x74, 2)
-    .raw(ESC, 0x33, 28)
+    .raw(ESC, 0x4d, 0)
+    .raw(GS, 0x21, 0)
+    .raw(ESC, 0x33, 24)
     .raw(GS, 0x4c, 0, 0)
     .align("center")
-    .wide(true)
-    .bold(true)
-    .line(LEGAL_PARTY.brandName.toUpperCase())
-    .wide(false)
-    .bold(false)
-    .wrap(LEGAL_PARTY.legalName)
-    .wrap(LEGAL_PARTY.address)
-    .wrap(`${LEGAL_PARTY.phone}  ${LEGAL_PARTY.email}`)
-    .wrap(LEGAL_PARTY.hours)
+    .bytes(await logoStrip())
     .nl()
     .bold(true)
-    .wide(true)
-    .wrap(input.heading)
-    .wide(false)
+    .line(fitCols(LEGAL_PARTY.brandName.toUpperCase()))
+    .bold(false)
+    .line(fitCols(LEGAL_PARTY.legalName))
+    .line(fitCols(LEGAL_PARTY.address))
+    .line(fitCols(LEGAL_PARTY.phone))
+    .line(fitCols(LEGAL_PARTY.email))
+    .line(fitCols(LEGAL_PARTY.hours))
+    .line(rule())
+    .bold(true)
+    .line(fitCols(input.heading))
     .bold(false);
-  if (when) out.wrap(when);
-  out.nl().bytes(await barcodeStrip(ticket)).nl().bold(true).line(ticket).bold(false).nl();
+  if (when) out.line(fitCols(when));
+  out.nl().bytes(await barcodeStrip(ticket)).nl().bold(true).line(fitCols(ticket)).bold(false).nl();
 
   out
     .align("left")
@@ -927,32 +932,28 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
       .pair("Henting", input.outbound)
       .pair("Garanti", input.warranty);
     if (input.problem) {
-      out.bold(true).line("Feil beskrevet").bold(false).wrap(input.problem);
+      out.bold(true).line("Feil beskrevet").bold(false).line(fitCols(input.problem));
     }
     if (notes.length) {
       out.bold(true).line("Arbeid utført").bold(false);
-      for (const note of notes) out.wrap(`- ${note}`);
+      for (const note of notes) out.line(fitCols(`- ${note}`));
     }
   }
 
   out.block(input.kind === "repair" ? "Tjenester" : "Kjøp");
   if (input.lines.length) {
-    for (const line of input.lines) {
-      for (const row of moneyCols(line.name, line.amountLabel)) out.line(row);
-    }
+    for (const line of input.lines) out.line(oneLine(line.name, line.amountLabel));
   } else {
     out.line("Ingen linjer");
   }
   out.line(rule());
   if (input.netLabel) out.pair("Sum eks. mva", input.netLabel);
-  if (input.vatLabel) out.pair("Herav mva 25 %", input.vatLabel);
-  if (input.vatNote) out.wrap(input.vatNote);
-  out.bold(true);
-  for (const row of moneyCols("TOTAL", input.totalLabel)) out.line(row);
-  out.bold(false);
+  if (input.vatLabel) out.pair("Mva 25 %", input.vatLabel);
+  if (input.vatNote) out.line(fitCols(input.vatNote));
+  out.bold(true).line(oneLine("TOTAL", input.totalLabel)).bold(false);
 
-  out.block("Betaling").wrap(input.paymentLabel || "Betaling");
-  for (const row of payRows) out.wrap(row);
+  out.block("Betaling").line(fitCols(input.paymentLabel || "Betaling"));
+  for (const row of payRows) out.line(fitCols(row));
 
   if (input.statusQr) {
     out
@@ -964,12 +965,12 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
       .bytes(await qrStrip(input.statusQr))
       .nl();
     const statusLabel = (input.statusUrl || "").replace(/^https:\/\//, "");
-    if (statusLabel) out.wrap(statusLabel);
+    if (statusLabel) out.line(fitCols(statusLabel));
   }
 
-  out.nl().align("center").bold(true).wrap(input.thanks).bold(false);
-  for (const line of footer) out.wrap(line);
-  out.nl(2);
+  out.nl().align("center").bold(true).line(fitCols(input.thanks)).bold(false);
+  for (const line of footer) out.line(fitCols(line));
+  out.nl(2).raw(ESC, 0x40);
 
-  return concat(out.done(), partialCut());
+  return concat(out.done(), partialCut(), cmd(ESC, 0x40));
 }
