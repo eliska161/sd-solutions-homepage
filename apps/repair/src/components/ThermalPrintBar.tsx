@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
-  connectSerialPrinter,
+  connectUsbPrinter,
   printerLinkLabel,
   printWorkshopReceipt,
 } from "@/lib/thermal/usb-printer";
@@ -18,14 +18,14 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
     setBusy("connect");
     setNote("");
     try {
-      await connectSerialPrinter();
+      await connectUsbPrinter();
       setLink(printerLinkLabel());
-      setNote("USB-skriver klar (115200). Velg POS-8360-L i serial-listen.");
+      setNote("WebUSB klar. Velg STMicroelectronics POS80 (0x0483).");
     } catch (err) {
       setNote(
         err instanceof Error
           ? err.message
-          : "Klarte ikke åpne USB-serial. Start Chrome med --disable-serial-blocklist.",
+          : "Klarte ikke åpne WebUSB. Bruk Chrome og velg STMicroelectronics POS80.",
       );
     } finally {
       setBusy(null);
@@ -49,7 +49,7 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
       const result = await printWorkshopReceipt(kind === "purchase" ? data.purchase : data.repair);
       if (!result.ok) {
         throw new Error(
-          "Skriveren svarte ikke. Koble til USB og velg POS-8360-L (115200).",
+          "Skriveren svarte ikke. Koble til USB og velg STMicroelectronics POS80.",
         );
       }
       setLink(printerLinkLabel());
@@ -91,7 +91,7 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
         {busy === "repair" ? "Skriver…" : "Reparasjonskvittering"}
       </Button>
       <p className="text-[13px] text-muted">
-        Termisk 80 mm USB 115200 · {link}
+        Termisk 80 mm WebUSB · {link}
         {note ? ` · ${note}` : ""}
       </p>
     </div>

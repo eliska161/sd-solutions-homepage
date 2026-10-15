@@ -6,6 +6,10 @@ type UsbHandle = { kind: "usb"; device: USBDevice; endpoint: number };
 type SerialHandle = { kind: "serial"; port: SerialPort; baudRate: number; bluetooth: boolean };
 type Handle = UsbHandle | SerialHandle;
 
+/** STMicroelectronics USB ID used by POS80 / POS-8360-L. */
+export const STM_VENDOR_ID = 0x0483;
+const STM_ENDPOINTS = [1, 2] as const;
+
 export const USB_SERIAL_BAUD = 115200;
 export const BT_SERIAL_BAUD = 9600;
 export const SERIAL_BAUDS = [115200, 9600, 19200, 38400] as const;
@@ -97,15 +101,49 @@ function copyBytes(bytes: Uint8Array) {
   return out;
 }
 
-async function writeUsb(device: USBDevice, endpoint: number, bytes: Uint8Array) {
+async function transferOutChunked(device: USBDevice, endpoint: number, bytes: Uint8Array) {
   const payload = copyBytes(bytes);
-  const result = await device.transferOut(endpoint, payload);
-  if (result.status && result.status !== "ok") {
-    throw new Error(`USB ${result.status}`);
+  const chunk = 4096;
+  for (let i = 0; i < payload.length; i += chunk) {
+    const slice = payload.subarray(i, i + chunk);
+    const result = await device.transferOut(endpoint, slice);
+    if (result.status && result.status !== "ok") {
+      throw new Error(`USB ${result.status}`);
+    }
+    const written = result.bytesWritten ?? slice.length;
+    if (written < slice.length) {
+      await transferOutChunked(device, endpoint, slice.subarray(written));
+    }
   }
-  const written = result.bytesWritten ?? payload.length;
-  if (written < payload.length) {
-    await writeUsb(device, endpoint, payload.subarray(written));
+}
+
+async function writeUsb(device: USBDevice, endpoint: number, bytes: Uint8Array) {
+  const order = [endpoint, ...STM_ENDPOINTS.filter((n) => n !== endpoint)];
+  let lastErr: unknown;
+  for (const ep of order) {
+    try {
+      await transferOutChunked(device, ep, bytes);
+      if (handle?.kind === "usb") handle = { ...handle, endpoint: ep };
+      return;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("USB transferOut feilet på endepunkt 1 og 2.");
+}
+
+async function claimStmPrinter(device: USBDevice): Promise<UsbHandle> {
+  if (!device.opened) await device.open();
+  try {
+    await device.selectConfiguration(1);
+  } catch {
+    /* already selected */
+  }
+  try {
+    await device.claimInterface(0);
+    return { kind: "usb", device, endpoint: 1 };
+  } catch {
+    return claimUsb(device);
   }
 }
 
@@ -208,12 +246,14 @@ async function armSerial(port: SerialPort, baudRate: number): Promise<SerialHand
 async function pickGrantedUsb() {
   const api = usbApi();
   if (!api) return null;
-  const devices = [...(await api.getDevices())].sort(
-    (a, b) => printerScore(b) - printerScore(a),
-  );
+  const devices = [...(await api.getDevices())].sort((a, b) => {
+    const stm = Number(b.vendorId === STM_VENDOR_ID) - Number(a.vendorId === STM_VENDOR_ID);
+    if (stm) return stm;
+    return printerScore(b) - printerScore(a);
+  });
   for (const device of devices) {
     try {
-      return await claimUsb(device);
+      return await claimStmPrinter(device);
     } catch {
       try {
         if (device.opened) await device.close();
@@ -237,7 +277,10 @@ async function pickOpenSerial() {
 
 export function printerLinkLabel() {
   if (!handle) return "Ingen skriver";
-  if (handle.kind === "usb") return "USB-skriver";
+  if (handle.kind === "usb") {
+    const name = handle.device.productName || handle.device.manufacturerName || "STMicroelectronics POS80";
+    return `WebUSB ${name}`;
+  }
   if (handle.bluetooth) return `Bluetooth ${handle.baudRate}`;
   return `TTY ${handle.baudRate}`;
 }
@@ -283,18 +326,28 @@ export async function connectBluetoothPrinter(baudRate = lastSerialBaud) {
 }
 
 export async function connectUsbPrinter() {
-  if (handle?.kind === "serial" && serialIsOpen(handle.port)) {
-    throw new Error("Serial-porten er allerede åpen. Bruk den, ikke WebUSB.");
-  }
+  if (handle?.kind === "usb" && handle.device.opened) return handle;
+  handle = null;
   const granted = await pickGrantedUsb();
   if (granted) {
     handle = granted;
     return granted;
   }
   const api = usbApi();
-  if (!api) throw new Error("Denne nettleseren støtter ikke WebUSB.");
-  const device = await api.requestDevice({ filters: [] });
-  const claimed = await claimUsb(device);
+  if (!api) throw new Error("Chrome WebUSB kreves. Åpne i Chrome og koble til USB.");
+  let device: USBDevice;
+  try {
+    device = await api.requestDevice({
+      filters: [{ vendorId: STM_VENDOR_ID }],
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err ?? "");
+    if (/not found|no device|chooser/i.test(msg)) {
+      throw new Error("Ingen STMicroelectronics POS80 (0x0483) valgt. Koble til USB og velg den i listen.");
+    }
+    throw err instanceof Error ? err : new Error(msg || "WebUSB avbrutt");
+  }
+  const claimed = await claimStmPrinter(device);
   handle = claimed;
   return claimed;
 }
@@ -308,30 +361,28 @@ export async function setSerialBaud(baudRate: number) {
   await connectSerialPrinter(baudRate);
 }
 
+async function ensurePrinter() {
+  if (handle?.kind === "usb" && handle.device.opened) return;
+  if (handle?.kind === "serial" && serialIsOpen(handle.port)) return;
+  try {
+    await connectUsbPrinter();
+  } catch {
+    await connectSerialPrinter();
+  }
+}
+
 export async function printUsbReceipt(input: ReceiptPrintInput) {
   if (!usbApi() && !serialApi()) {
     return { ok: false as const, reason: "printer" as const };
   }
   const payload = await buildLockerReceipt(input);
   try {
-    if (!(handle?.kind === "serial" && serialIsOpen(handle.port))) {
-      const open = await pickOpenSerial();
-      if (open) handle = open;
-      else await connectSerialPrinter();
-    }
+    await ensurePrinter();
     await writeAll(payload);
     return { ok: true as const };
   } catch {
     try {
-      if (handle?.kind === "serial" && serialIsOpen(handle.port)) {
-        await writeAll(payload);
-        return { ok: true as const };
-      }
-    } catch {
-      /* picker below */
-    }
-    try {
-      await connectSerialPrinter();
+      await connectUsbPrinter();
       await writeAll(payload);
       return { ok: true as const };
     } catch {
@@ -346,24 +397,12 @@ export async function printUsbSticker(input: StickerInput) {
   }
   const payload = await buildLockerSticker(input);
   try {
-    if (!(handle?.kind === "serial" && serialIsOpen(handle.port))) {
-      const open = await pickOpenSerial();
-      if (open) handle = open;
-      else await connectSerialPrinter();
-    }
+    await ensurePrinter();
     await writeAll(payload);
     return { ok: true as const };
   } catch {
     try {
-      if (handle?.kind === "serial" && serialIsOpen(handle.port)) {
-        await writeAll(payload);
-        return { ok: true as const };
-      }
-    } catch {
-      /* picker below */
-    }
-    try {
-      await connectSerialPrinter();
+      await connectUsbPrinter();
       await writeAll(payload);
       return { ok: true as const };
     } catch {
