@@ -20,12 +20,12 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
     try {
       await connectSerialPrinter();
       setLink(printerLinkLabel());
-      setNote("Skriver klar. Velg OTID i serial-listen hvis du ikke har koblet til.");
+      setNote("USB-skriver klar (115200). Velg POS-8360-L i serial-listen.");
     } catch (err) {
       setNote(
         err instanceof Error
           ? err.message
-          : "Klarte ikke åpne serial. Start Chrome med --disable-serial-blocklist.",
+          : "Klarte ikke åpne USB-serial. Start Chrome med --disable-serial-blocklist.",
       );
     } finally {
       setBusy(null);
@@ -49,7 +49,7 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
       const result = await printWorkshopReceipt(kind === "purchase" ? data.purchase : data.repair);
       if (!result.ok) {
         throw new Error(
-          "Skriveren svarte ikke. Koble til serial og velg OTID. Start Chrome med --disable-serial-blocklist.",
+          "Skriveren svarte ikke. Koble til USB og velg POS-8360-L (115200).",
         );
       }
       setLink(printerLinkLabel());
@@ -70,7 +70,7 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
         onClick={() => void connect()}
         disabled={busy !== null}
       >
-        {busy === "connect" ? "Kobler til…" : "Koble til serial"}
+        {busy === "connect" ? "Kobler til…" : "Koble til USB"}
       </Button>
       <Button
         type="button"
@@ -91,7 +91,7 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
         {busy === "repair" ? "Skriver…" : "Reparasjonskvittering"}
       </Button>
       <p className="text-[13px] text-muted">
-        Termisk 80 mm · {link}
+        Termisk 80 mm USB 115200 · {link}
         {note ? ` · ${note}` : ""}
       </p>
     </div>

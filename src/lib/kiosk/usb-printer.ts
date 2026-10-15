@@ -6,10 +6,12 @@ type UsbHandle = { kind: "usb"; device: USBDevice; endpoint: number };
 type SerialHandle = { kind: "serial"; port: SerialPort; baudRate: number; bluetooth: boolean };
 type Handle = UsbHandle | SerialHandle;
 
-export const SERIAL_BAUDS = [9600, 19200, 38400, 115200] as const;
+export const USB_SERIAL_BAUD = 115200;
+export const BT_SERIAL_BAUD = 9600;
+export const SERIAL_BAUDS = [115200, 9600, 19200, 38400] as const;
 
 let handle: Handle | null = null;
-let lastSerialBaud = 115200;
+let lastSerialBaud = USB_SERIAL_BAUD;
 
 function usbApi(): USB | null {
   if (typeof navigator === "undefined") return null;
@@ -113,7 +115,7 @@ function serialIsOpen(port: SerialPort) {
 
 async function writeSerial(port: SerialPort, bytes: Uint8Array) {
   const writable = port.writable;
-  if (!writable) throw new Error("Bluetooth-serial er lukket. Koble til Bluetooth på nytt.");
+  if (!writable) throw new Error("USB-serial er lukket. Koble til USB på nytt.");
   const writer = writable.getWriter();
   try {
     await writer.write(copyBytes(bytes));
@@ -135,47 +137,20 @@ async function writeAll(bytes: Uint8Array) {
   await writeSerial(handle.port, bytes);
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function serialFailMessage(err: unknown) {
   const name = err instanceof DOMException ? err.name : "";
   const msg = err instanceof Error ? err.message : String(err ?? "");
   const blob = `${name} ${msg}`.toLowerCase();
   if (/security|not allowed|blocklist|permission/i.test(blob)) {
-    return "Chrome blocklist. Lukk Chrome og start: google-chrome --disable-serial-blocklist — så Koble til serial og velg OTID. Ikke Bluetooth-innstillinger.";
+    return "Chrome blocklist. Lukk Chrome og start: google-chrome --disable-serial-blocklist — så Koble til USB og velg POS-8360-L.";
   }
   if (/network|failed to open|open serial/i.test(blob)) {
-    return "Serial-porten åpnet ikke. Start Chrome med --disable-serial-blocklist og velg den i serial-listen (ikke Settings).";
+    return "USB-serial åpnet ikke. Start Chrome med --disable-serial-blocklist og velg POS-8360-L i serial-listen.";
   }
   if (/already open|invalidstate/i.test(blob)) {
     return msg || "Serial-porten er allerede åpen.";
   }
   return `Klarte ikke åpne serial${name ? ` (${name})` : ""}: ${msg || "ukjent feil"}`;
-}
-
-async function openSerialPort(port: SerialPort, baudRate: number) {
-  if (serialIsOpen(port)) return;
-  await wait(300);
-  if (serialIsOpen(port)) return;
-  const bauds = [baudRate, 9600, 115200, 19200].filter((value, i, all) => all.indexOf(value) === i);
-  let lastErr: unknown;
-  for (const baud of bauds) {
-    try {
-      await port.open({ baudRate: baud });
-      lastSerialBaud = baud;
-      return;
-    } catch (err) {
-      lastErr = err;
-      if (serialIsOpen(port)) return;
-      const blob = `${err instanceof DOMException ? err.name : ""} ${err instanceof Error ? err.message : ""}`;
-      if (/already open|invalidstate/i.test(blob)) return;
-      await wait(500);
-      if (serialIsOpen(port)) return;
-    }
-  }
-  throw new Error(serialFailMessage(lastErr));
 }
 
 function isBluetoothSerial(port: SerialPort) {
@@ -186,16 +161,47 @@ function isBluetoothSerial(port: SerialPort) {
   }
 }
 
+function serialOpenOptions(baudRate: number) {
+  return {
+    baudRate,
+    dataBits: 8 as const,
+    stopBits: 1 as const,
+    parity: "none" as const,
+    flowControl: "none" as const,
+    bufferSize: 16_384,
+  };
+}
+
+function baudForPort(port: SerialPort, requested: number) {
+  if (isBluetoothSerial(port)) {
+    return requested === USB_SERIAL_BAUD ? BT_SERIAL_BAUD : requested;
+  }
+  return requested || USB_SERIAL_BAUD;
+}
+
+async function openSerialPort(port: SerialPort, baudRate: number) {
+  if (serialIsOpen(port)) return;
+  const baud = baudForPort(port, baudRate);
+  try {
+    await port.open(serialOpenOptions(baud));
+  } catch (err) {
+    if (serialIsOpen(port)) return;
+    const blob = `${err instanceof DOMException ? err.name : ""} ${err instanceof Error ? err.message : ""}`;
+    if (/already open|invalidstate/i.test(blob)) return;
+    throw new Error(serialFailMessage(err));
+  }
+  lastSerialBaud = baud;
+}
+
 async function armSerial(port: SerialPort, baudRate: number): Promise<SerialHandle> {
   await openSerialPort(port, baudRate);
   const next: SerialHandle = {
     kind: "serial",
     port,
-    baudRate,
+    baudRate: lastSerialBaud || baudRate,
     bluetooth: isBluetoothSerial(port),
   };
   handle = next;
-  lastSerialBaud = baudRate;
   return next;
 }
 
@@ -278,7 +284,7 @@ export async function connectBluetoothPrinter(baudRate = lastSerialBaud) {
 
 export async function connectUsbPrinter() {
   if (handle?.kind === "serial" && serialIsOpen(handle.port)) {
-    throw new Error("Bluetooth-serial er allerede åpen. Bruk den, ikke USB.");
+    throw new Error("Serial-porten er allerede åpen. Bruk den, ikke WebUSB.");
   }
   const granted = await pickGrantedUsb();
   if (granted) {
@@ -311,7 +317,7 @@ export async function printUsbReceipt(input: ReceiptPrintInput) {
     if (!(handle?.kind === "serial" && serialIsOpen(handle.port))) {
       const open = await pickOpenSerial();
       if (open) handle = open;
-      else await connectBluetoothPrinter();
+      else await connectSerialPrinter();
     }
     await writeAll(payload);
     return { ok: true as const };
@@ -325,7 +331,7 @@ export async function printUsbReceipt(input: ReceiptPrintInput) {
       /* picker below */
     }
     try {
-      await connectBluetoothPrinter();
+      await connectSerialPrinter();
       await writeAll(payload);
       return { ok: true as const };
     } catch {
@@ -343,7 +349,7 @@ export async function printUsbSticker(input: StickerInput) {
     if (!(handle?.kind === "serial" && serialIsOpen(handle.port))) {
       const open = await pickOpenSerial();
       if (open) handle = open;
-      else await connectBluetoothPrinter();
+      else await connectSerialPrinter();
     }
     await writeAll(payload);
     return { ok: true as const };
@@ -357,7 +363,7 @@ export async function printUsbSticker(input: StickerInput) {
       /* picker below */
     }
     try {
-      await connectBluetoothPrinter();
+      await connectSerialPrinter();
       await writeAll(payload);
       return { ok: true as const };
     } catch {

@@ -765,7 +765,7 @@ export function KioskApp() {
     try {
       const { connectSerialPrinter, printerLinkLabel } = await import("@/lib/kiosk/usb-printer");
       await connectSerialPrinter();
-      dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}. Velg OTID i serial-listen.` });
+      dispatch({ type: "LOG", message: `Skriver: ${printerLinkLabel()}. Velg POS-8360-L USB (115200).` });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Serial-skriveren svarte ikke";
       dispatch({ type: "LOG", message });
@@ -812,7 +812,7 @@ export function KioskApp() {
       dispatch({ type: "LOG", message: "Testetikett sendt til skriveren" });
       return;
     }
-    dispatch({ type: "LOG", message: "Utskrift feilet. Koble til serial og velg OTID. Start Chrome med --disable-serial-blocklist." });
+    dispatch({ type: "LOG", message: "Utskrift feilet. Koble til USB serial og velg POS-8360-L (115200)." });
   }
 
   const errorCopy: Record<ErrorKind, { title: string; body: string }> = {
@@ -838,7 +838,7 @@ export function KioskApp() {
     },
     printer: {
       title: "Skriveren svarer ikke",
-      body: "Skriveren vises i Chrome serial, ikke i Bluetooth-innstillinger. Lukk Chrome og start: google-chrome --disable-serial-blocklist. Deretter Koble til serial.",
+      body: "Koble POS-8360-L med USB og velg den i Chrome serial (115200, 8N1, uten flytkontroll). Lukk Chrome og start: google-chrome --disable-serial-blocklist. Deretter USB serial.",
     },
   };
 
@@ -1933,7 +1933,7 @@ function AdminScreen({
             ))}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <MiniAction onClick={onConnectSerial}>Koble til serial</MiniAction>
+            <MiniAction onClick={onConnectSerial}>USB serial 115200</MiniAction>
             <MiniAction onClick={onConnectUsb}>Koble til USB</MiniAction>
             <MiniAction onClick={() => onSetBaud(9600)}>Baud 9600</MiniAction>
             <MiniAction onClick={() => onSetBaud(19200)}>Baud 19200</MiniAction>
@@ -1942,7 +1942,7 @@ function AdminScreen({
             <MiniAction onClick={onTestPin}>Test PIN</MiniAction>
           </div>
           <p className="mt-2 text-[13px] font-semibold leading-snug text-[#3d4454]">
-            Bluetooth er valgfritt på denne skriveren. Den vises i Chrome serial, ikke i Settings. Start: google-chrome --disable-serial-blocklist — så «Koble til serial».
+            POS-8360-L over USB: Chrome serial 115200, 8 databits, ingen paritet, flowControl none. Bluetooth 9600 er reserve.
           </p>
         </div>
         <div className="min-h-0 overflow-auto border-[3px] border-[#1f2430] bg-white p-3">
