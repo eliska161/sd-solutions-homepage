@@ -463,12 +463,74 @@ function fitText(
   align: "left" | "right" | "center" = "left",
 ) {
   if (!text) return;
-  let t = text;
-  while (t.length > 1 && ctx.measureText(t).width > maxWidth) t = t.slice(0, -1);
+  const lines = wrapLines(ctx, text, maxWidth);
+  const t = lines[0] || "";
   const px = align === "right" ? x + maxWidth : align === "center" ? x + maxWidth / 2 : x;
   ctx.textAlign = align;
   ctx.fillText(t, px, y);
   ctx.textAlign = "left";
+}
+
+function wrapLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string[] {
+  const raw = text.replace(/\s+/g, " ").trim();
+  if (!raw) return [];
+  if (maxWidth <= 0) return [raw];
+  if (ctx.measureText(raw).width <= maxWidth) return [raw];
+  const lines: string[] = [];
+  let current = "";
+  const takeWord = (word: string) => {
+    if (ctx.measureText(word).width <= maxWidth) {
+      current = word;
+      return;
+    }
+    let chunk = "";
+    for (const ch of word) {
+      const next = chunk + ch;
+      if (chunk && ctx.measureText(next).width > maxWidth) {
+        lines.push(chunk);
+        chunk = ch;
+      } else {
+        chunk = next;
+      }
+    }
+    current = chunk;
+  };
+  for (const word of raw.split(" ")) {
+    const next = current ? `${current} ${word}` : word;
+    if (ctx.measureText(next).width <= maxWidth) {
+      current = next;
+    } else {
+      if (current) lines.push(current);
+      takeWord(word);
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function paintText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  align: "left" | "right" | "center" = "left",
+): number {
+  const lines = wrapLines(ctx, text, maxWidth);
+  if (!lines.length) return y;
+  const px = align === "right" ? x + maxWidth : align === "center" ? x + maxWidth / 2 : x;
+  ctx.textAlign = align;
+  for (const line of lines) {
+    ctx.fillText(line, px, y);
+    y += lineHeight;
+  }
+  ctx.textAlign = "left";
+  return y;
 }
 
 function partialCut() {
@@ -660,11 +722,10 @@ export async function buildLockerReceipt(input: ReceiptPrintInput) {
   const hasQr = Boolean(input.statusQr);
   const w = LABEL_WIDTH_DOTS;
   const h =
-    430 +
-    lines.length * 34 +
-    payRows.length * 26 +
-    (hasQr ? 250 : 40) +
-    70;
+    700 +
+    lines.length * 48 +
+    payRows.length * 40 +
+    (hasQr ? 280 : 40);
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
@@ -682,15 +743,11 @@ export async function buildLockerReceipt(input: ReceiptPrintInput) {
 
   let y = pad + 128;
   ctx.font = "700 28px sans-serif";
-  fitText(ctx, LEGAL_PARTY.brandName.toUpperCase(), pad, y, inner, "center");
-  y += 34;
+  y = paintText(ctx, LEGAL_PARTY.brandName.toUpperCase(), pad, y, inner, 34, "center");
   ctx.font = "600 20px sans-serif";
-  fitText(ctx, LEGAL_PARTY.legalName, pad, y, inner, "center");
-  y += 26;
-  fitText(ctx, LEGAL_PARTY.address, pad, y, inner, "center");
-  y += 26;
-  fitText(ctx, LEGAL_PARTY.email, pad, y, inner, "center");
-  y += 32;
+  y = paintText(ctx, LEGAL_PARTY.legalName, pad, y, inner, 26, "center");
+  y = paintText(ctx, LEGAL_PARTY.address, pad, y, inner, 26, "center");
+  y = paintText(ctx, LEGAL_PARTY.email, pad, y, inner, 32, "center");
   ctx.fillRect(pad, y, inner, 3);
   y += 16;
   ctx.font = "700 26px sans-serif";
@@ -712,9 +769,7 @@ export async function buildLockerReceipt(input: ReceiptPrintInput) {
   ].filter(Boolean) as [string, string][];
   ctx.font = "600 20px sans-serif";
   for (const [label, value] of meta) {
-    fitText(ctx, label, pad, y, 150);
-    fitText(ctx, value, pad + 150, y, inner - 150, "right");
-    y += 26;
+    y = drawKv(ctx, label, value, pad, y, inner, 20, 26);
   }
   y += 8;
   ctx.fillRect(pad, y, inner, 3);
@@ -722,9 +777,7 @@ export async function buildLockerReceipt(input: ReceiptPrintInput) {
 
   ctx.font = "600 22px sans-serif";
   for (const line of lines) {
-    fitText(ctx, line.name, pad, y, 340);
-    fitText(ctx, line.amountLabel, pad + 340, y, inner - 340, "right");
-    y += 32;
+    y = drawAmountRow(ctx, line.name, line.amountLabel, pad, y, inner, 32, 340);
   }
   ctx.fillRect(pad, y, inner, 3);
   y += 14;
@@ -750,11 +803,9 @@ export async function buildLockerReceipt(input: ReceiptPrintInput) {
   fitText(ctx, "Betaling", pad, y, inner);
   y += 28;
   ctx.font = "600 20px sans-serif";
-  fitText(ctx, input.paymentLabel || "Betalt", pad, y, inner);
-  y += 26;
+  y = paintText(ctx, input.paymentLabel || "Betalt", pad, y, inner, 26);
   for (const row of payRows) {
-    fitText(ctx, row, pad, y, inner);
-    y += 26;
+    y = paintText(ctx, row, pad, y, inner, 26);
   }
   y += 10;
   ctx.fillRect(pad, y, inner, 3);
@@ -768,12 +819,16 @@ export async function buildLockerReceipt(input: ReceiptPrintInput) {
     await paintDataUrl(ctx, input.statusQr, (w - qr) / 2, y, qr);
     y += qr + 12;
     const statusLabel = (input.statusUrl || "").replace(/^https:\/\//, "");
-    if (statusLabel) fitText(ctx, statusLabel, pad, y, inner, "center");
-    y += 30;
+    if (statusLabel) {
+      ctx.font = "600 16px sans-serif";
+      y = paintText(ctx, statusLabel, pad, y, inner, 22, "center");
+    } else {
+      y += 12;
+    }
   }
 
   ctx.font = "700 24px sans-serif";
-  fitText(ctx, "Takk for handelen", pad, y, inner, "center");
+  paintText(ctx, "Takk for handelen", pad, y, inner, 30, "center");
 
   const map = canvasToBitmap(canvas, true).cropBottom(8);
   return concat(
@@ -795,11 +850,23 @@ function drawKv(
   pad: number,
   y: number,
   inner: number,
+  valueSize = 18,
+  lineHeight = 26,
 ) {
-  ctx.font = "600 18px sans-serif";
+  ctx.font = `600 ${valueSize}px sans-serif`;
+  const gap = 156;
+  const valueW = inner - gap;
+  const lines = wrapLines(ctx, value, valueW);
   fitText(ctx, label, pad, y, 150);
-  fitText(ctx, value, pad + 156, y, inner - 156, "right");
-  return y + 26;
+  if (!lines.length) return y + lineHeight;
+  ctx.textAlign = "right";
+  let yy = y;
+  for (const line of lines) {
+    ctx.fillText(line, pad + inner, yy);
+    yy += lineHeight;
+  }
+  ctx.textAlign = "left";
+  return yy;
 }
 
 function drawPayKv(
@@ -811,9 +878,35 @@ function drawPayKv(
   inner: number,
 ) {
   ctx.font = "600 16px sans-serif";
+  const gap = 174;
+  const valueW = inner - gap;
+  const lines = wrapLines(ctx, value, valueW);
   fitText(ctx, label, pad, y, 168);
-  fitText(ctx, value, pad + 174, y, inner - 174, "right");
-  return y + 24;
+  if (!lines.length) return y + 24;
+  ctx.textAlign = "right";
+  let yy = y;
+  for (const line of lines) {
+    ctx.fillText(line, pad + inner, yy);
+    yy += 24;
+  }
+  ctx.textAlign = "left";
+  return yy;
+}
+
+function drawAmountRow(
+  ctx: CanvasRenderingContext2D,
+  name: string,
+  amount: string,
+  pad: number,
+  y: number,
+  inner: number,
+  lineHeight: number,
+  nameWidth: number,
+) {
+  const amountW = inner - nameWidth;
+  fitText(ctx, amount, pad + nameWidth, y, amountW, "right");
+  const next = paintText(ctx, name, pad, y, nameWidth - 8, lineHeight);
+  return Math.max(next, y + lineHeight);
 }
 
 function purchaseTxPairs(input: WorkshopReceiptInput): [string, string][] {
@@ -885,8 +978,14 @@ function paintPenSignatureBox(
   ctx.fillRect(pad + 48, y + 74, inner - 72, 2);
   y += 104;
   ctx.font = "600 16px sans-serif";
-  fitText(ctx, signerName ? `Navn  ${signerName}` : "Navn  ________________", pad, y, inner);
-  y += 24;
+  y = paintText(
+    ctx,
+    signerName ? `Navn  ${signerName}` : "Navn  ________________",
+    pad,
+    y,
+    inner,
+    24,
+  );
   fitText(ctx, "Dato  ________________", pad, y, inner);
   y += 26;
   return y;
@@ -947,16 +1046,16 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
 
   const w = LABEL_WIDTH_DOTS;
   const h =
-    900 +
-    lines.length * 36 +
-    payRows.length * 32 +
-    txPairs.length * 28 +
-    notes.length * 32 +
-    footer.length * 28 +
-    (input.kind === "repair" ? 400 : input.kind === "warranty" ? 200 : 120) +
+    1400 +
+    lines.length * 56 +
+    payRows.length * 40 +
+    txPairs.length * 40 +
+    notes.length * 56 +
+    footer.length * 44 +
+    (input.kind === "repair" ? 500 : input.kind === "warranty" ? 280 : 160) +
     (input.copyLabel ? 40 : 0) +
     (input.signatureBox ? 200 : input.signaturePng ? 140 : 0) +
-    (input.kind === "warranty" && input.problem ? 80 : 0) +
+    (input.problem ? Math.ceil(input.problem.length / 24) * 28 : 0) +
     (input.statusQr ? 360 : 40);
   const canvas = document.createElement("canvas");
   canvas.width = w;
@@ -975,33 +1074,24 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
 
   let y = pad + 116;
   ctx.font = "700 28px sans-serif";
-  fitText(ctx, LEGAL_PARTY.brandName.toUpperCase(), pad, y, inner, "center");
-  y += 32;
+  y = paintText(ctx, LEGAL_PARTY.brandName.toUpperCase(), pad, y, inner, 32, "center");
   ctx.font = "600 18px sans-serif";
-  fitText(ctx, LEGAL_PARTY.legalName, pad, y, inner, "center");
-  y += 24;
-  fitText(ctx, LEGAL_PARTY.address, pad, y, inner, "center");
-  y += 24;
-  fitText(ctx, LEGAL_PARTY.phone, pad, y, inner, "center");
-  y += 24;
-  fitText(ctx, LEGAL_PARTY.email, pad, y, inner, "center");
-  y += 24;
-  fitText(ctx, LEGAL_PARTY.hours, pad, y, inner, "center");
-  y += 28;
+  y = paintText(ctx, LEGAL_PARTY.legalName, pad, y, inner, 24, "center");
+  y = paintText(ctx, LEGAL_PARTY.address, pad, y, inner, 24, "center");
+  y = paintText(ctx, LEGAL_PARTY.phone, pad, y, inner, 24, "center");
+  y = paintText(ctx, LEGAL_PARTY.email, pad, y, inner, 24, "center");
+  y = paintText(ctx, LEGAL_PARTY.hours, pad, y, inner, 28, "center");
   ctx.fillRect(pad, y, inner, 3);
   y += 16;
   ctx.font = "700 26px sans-serif";
-  fitText(ctx, input.heading, pad, y, inner, "center");
-  y += 32;
+  y = paintText(ctx, input.heading, pad, y, inner, 32, "center");
   if (input.copyLabel) {
     ctx.font = "700 18px sans-serif";
-    fitText(ctx, input.copyLabel, pad, y, inner, "center");
-    y += 26;
+    y = paintText(ctx, input.copyLabel, pad, y, inner, 26, "center");
   }
   ctx.font = "600 20px sans-serif";
   if (when) {
-    fitText(ctx, when, pad, y, inner, "center");
-    y += 26;
+    y = paintText(ctx, when, pad, y, inner, 26, "center");
   }
   paintBarcode(ctx, ticket, pad, y, inner, 64);
   y += 72;
@@ -1028,11 +1118,9 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
 
   if (input.kind === "warranty" && input.problem) {
     ctx.font = "700 22px sans-serif";
-    fitText(ctx, "Krav", pad, y, inner);
-    y += 28;
+    y = paintText(ctx, "Krav", pad, y, inner, 28);
     ctx.font = "600 18px sans-serif";
-    fitText(ctx, input.problem, pad, y, inner);
-    y += 28;
+    y = paintText(ctx, input.problem, pad, y, inner, 24);
     y += 4;
     ctx.fillRect(pad, y, inner, 3);
     y += 16;
@@ -1051,20 +1139,16 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
     if (input.warranty) y = drawKv(ctx, "Garanti", input.warranty, pad, y, inner);
     if (input.problem) {
       ctx.font = "600 18px sans-serif";
-      fitText(ctx, "Feil beskrevet", pad, y, inner);
-      y += 24;
+      y = paintText(ctx, "Feil beskrevet", pad, y, inner, 24);
       ctx.font = "600 20px sans-serif";
-      fitText(ctx, input.problem, pad, y, inner);
-      y += 26;
+      y = paintText(ctx, input.problem, pad, y, inner, 26);
     }
     if (notes.length) {
       ctx.font = "700 20px sans-serif";
-      fitText(ctx, "Arbeid utført", pad, y, inner);
-      y += 26;
+      y = paintText(ctx, "Arbeid utført", pad, y, inner, 26);
       ctx.font = "600 18px sans-serif";
       for (const note of notes) {
-        fitText(ctx, note, pad, y, inner);
-        y += 24;
+        y = paintText(ctx, note, pad, y, inner, 24);
       }
     }
     y += 8;
@@ -1084,13 +1168,10 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   ctx.font = "600 20px sans-serif";
   if (lines.length) {
     for (const line of lines) {
-      fitText(ctx, line.name, pad, y, 360);
-      fitText(ctx, line.amountLabel, pad + 360, y, inner - 360, "right");
-      y += 28;
+      y = drawAmountRow(ctx, line.name, line.amountLabel, pad, y, inner, 28, 360);
     }
   } else {
-    fitText(ctx, "Ingen linjer", pad, y, inner);
-    y += 28;
+    y = paintText(ctx, "Ingen linjer", pad, y, inner, 28);
   }
   ctx.fillRect(pad, y, inner, 3);
   y += 14;
@@ -1098,8 +1179,7 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   if (input.vatLabel) y = drawKv(ctx, "Mva 25 %", input.vatLabel, pad, y, inner);
   if (input.vatNote) {
     ctx.font = "600 16px sans-serif";
-    fitText(ctx, input.vatNote, pad, y, inner);
-    y += 24;
+    y = paintText(ctx, input.vatNote, pad, y, inner, 24);
   }
   ctx.font = "700 30px sans-serif";
   fitText(ctx, "TOTAL", pad, y, 240);
@@ -1117,11 +1197,9 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
     }
   } else {
     ctx.font = "600 20px sans-serif";
-    fitText(ctx, input.paymentLabel || "Betaling", pad, y, inner);
-    y += 26;
+    y = paintText(ctx, input.paymentLabel || "Betaling", pad, y, inner, 26);
     for (const row of payRows) {
-      fitText(ctx, row, pad, y, inner);
-      y += 24;
+      y = paintText(ctx, row, pad, y, inner, 24);
     }
   }
   y += 8;
@@ -1158,17 +1236,19 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
     y += qr + 16;
     qrCanvas = { start: qrY, end: qrY + qr };
     const statusLabel = (input.statusUrl || "").replace(/^https:\/\//, "");
-    if (statusLabel) fitText(ctx, statusLabel, pad, y, inner, "center");
-    y += 28;
+    if (statusLabel) {
+      ctx.font = "600 16px sans-serif";
+      y = paintText(ctx, statusLabel, pad, y, inner, 22, "center");
+    } else {
+      y += 8;
+    }
   }
 
-  ctx.font = "700 24px sans-serif";
-  fitText(ctx, input.thanks, pad, y, inner, "center");
-  y += 30;
+  ctx.font = "700 22px sans-serif";
+  y = paintText(ctx, input.thanks, pad, y, inner, 28, "center");
   ctx.font = "600 16px sans-serif";
   for (const line of footer) {
-    fitText(ctx, line, pad, y, inner, "center");
-    y += 22;
+    y = paintText(ctx, line, pad, y, inner, 22, "center");
   }
 
   const canvasH = canvas.height;
