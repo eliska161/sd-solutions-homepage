@@ -496,6 +496,16 @@ export async function markRepairPaidInShop(ticketId: string) {
   return result;
 }
 
+export async function startRepairTapToPay(ticketId: string) {
+  const session = await requireSession();
+  assertCanWrite(session.user.role);
+  const { startInPersonPayment } = await import("@/server/payments");
+  const result = await startInPersonPayment(ticketId);
+  revalidatePath(`/repairs/${ticketId}`);
+  revalidatePath("/repairs");
+  return result;
+}
+
 export async function updateReturnTracking(
   ticketId: string,
   trackingNumber: string,
