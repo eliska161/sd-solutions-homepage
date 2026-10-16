@@ -1,7 +1,5 @@
 "use server";
 
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import { desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -10,15 +8,11 @@ import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { formatNokFromOre } from "@/lib/money";
-import {
-  parsePngDataUrl,
-  renderWarrantySlipPdf,
-} from "@/lib/pdf/customer-document";
+import { renderWarrantySlipPdf } from "@/lib/pdf/customer-document";
 import { assertCanWrite } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
 import { storeCustomerPdf } from "@/lib/store-customer-pdf";
 import { loadTicketCharge } from "@/lib/ticket-totals";
-import { getUploadsRoot } from "@/lib/uploads";
 import {
   markTicketRefunded,
   refundStripeForTicket,
@@ -211,7 +205,7 @@ const completeSchema = z.object({
   outcome: z.enum(["repair", "refund", "reject"]),
   refundOre: z.number().int().min(0).optional(),
   signerName: z.string().optional(),
-  signaturePng: z.string().optional(),
+  signedOnPaper: z.boolean().optional(),
 });
 
 export async function completeWarrantyCase(input: {
@@ -220,7 +214,7 @@ export async function completeWarrantyCase(input: {
   outcome: "repair" | "refund" | "reject";
   refundOre?: number;
   signerName?: string;
-  signaturePng?: string;
+  signedOnPaper?: boolean;
 }) {
   const session = await requireSession();
   assertCanWrite(session.user.role);
@@ -248,19 +242,9 @@ export async function completeWarrantyCase(input: {
   }
 
   const needsSign = data.outcome !== "reject";
-  const signaturePng = data.signaturePng ? parsePngDataUrl(data.signaturePng) : null;
   const signerName = (data.signerName || customer?.name || "").trim();
-  if (needsSign && (!signaturePng || signerName.length < 2)) {
-    return { ok: false as const, error: "Kunde må signere" };
-  }
-
-  let signaturePath: string | null = null;
-  if (signaturePng) {
-    const dir = path.join(getUploadsRoot(), "repair_ticket", data.ticketId);
-    await mkdir(dir, { recursive: true });
-    const file = `${Date.now()}-garanti-sign.png`;
-    await writeFile(path.join(dir, file), signaturePng);
-    signaturePath = `/uploads/repair_ticket/${data.ticketId}/${file}`;
+  if (needsSign && (!data.signedOnPaper || signerName.length < 2)) {
+    return { ok: false as const, error: "Skriv ut butikkeksemplaret og la kunden signere med penn" };
   }
 
   let stripeRefundId: string | null = null;
@@ -305,7 +289,7 @@ export async function completeWarrantyCase(input: {
       refundOre,
       signerName: signerName || null,
       signedAt: needsSign ? new Date() : null,
-      signaturePath,
+      signaturePath: null,
       stripeRefundId,
       createdById: session.user.id,
     })
@@ -342,7 +326,7 @@ export async function completeWarrantyCase(input: {
     refundLabel: data.outcome === "refund" ? formatNokFromOre(refundOre) : null,
     originalTotalLabel: formatNokFromOre(charge.totalOre),
     signerName: signerName || "—",
-    signaturePng,
+    signaturePng: null,
   });
   await storeCustomerPdf({
     ticketId: data.ticketId,

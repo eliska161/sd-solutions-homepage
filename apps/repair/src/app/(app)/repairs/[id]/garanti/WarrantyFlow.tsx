@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
-import { SignaturePad } from "@/components/forms/SignaturePad";
-import { ThermalPrintBar } from "@/components/ThermalPrintBar";
 import { parseKrToOre } from "@/lib/labels";
 import { completeWarrantyCase } from "@/server/warranty";
-import { printWorkshopReceipt } from "@/lib/thermal/usb-printer";
+import {
+  connectUsbPrinter,
+  printerLinkLabel,
+  printWorkshopReceipt,
+} from "@/lib/thermal/usb-printer";
 import type { WorkshopReceiptInput } from "@/lib/thermal/types";
 
 const STEPS = [
@@ -24,6 +26,7 @@ const STEPS = [
 
 type Step = (typeof STEPS)[number]["id"];
 type Outcome = "repair" | "refund" | "reject";
+type Copy = "store" | "customer";
 
 export function WarrantyFlow(input: {
   ticketId: string;
@@ -41,10 +44,11 @@ export function WarrantyFlow(input: {
   const [outcome, setOutcome] = useState<Outcome>("repair");
   const [refundKr, setRefundKr] = useState(input.defaultRefundKr);
   const [signerName, setSignerName] = useState(input.customerName);
-  const [signature, setSignature] = useState<string | null>(null);
+  const [printedStore, setPrintedStore] = useState(false);
   const [error, setError] = useState("");
   const [stripeNote, setStripeNote] = useState("");
   const [printNote, setPrintNote] = useState("");
+  const [link, setLink] = useState("Ingen skriver");
   const [pending, start] = useTransition();
 
   const current = STEPS.findIndex((row) => row.id === step);
@@ -53,6 +57,38 @@ export function WarrantyFlow(input: {
   function go(next: Step) {
     setError("");
     setStep(next);
+  }
+
+  async function printCopy(copy: Copy) {
+    setPrintNote("");
+    const res = await fetch(`/api/repairs/${input.ticketId}/thermal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        copy,
+        outcome,
+        description,
+        refundOre: outcome === "refund" ? parseKrToOre(refundKr) : 0,
+        signerName,
+      }),
+    });
+    const data = (await res.json()) as {
+      ok?: boolean;
+      error?: string;
+      warranty?: WorkshopReceiptInput | null;
+    };
+    if (!res.ok || !data.ok || !data.warranty) {
+      throw new Error(data.error || "Fant ingen kvittering");
+    }
+    const printed = await printWorkshopReceipt(data.warranty);
+    if (!printed.ok) throw new Error("Koble til skriveren først (USB-serial / COM).");
+    setLink(printerLinkLabel());
+    if (copy === "store") setPrintedStore(true);
+    setPrintNote(
+      copy === "store"
+        ? "Butikkeksemplar skrevet ut. La kunden signere med penn."
+        : "Kundeeksemplar skrevet ut. Gi denne til kunden.",
+    );
   }
 
   function finish() {
@@ -64,7 +100,7 @@ export function WarrantyFlow(input: {
         outcome,
         refundOre: outcome === "refund" ? parseKrToOre(refundKr) : 0,
         signerName,
-        signaturePng: signature || undefined,
+        signedOnPaper: needsSign ? printedStore : false,
       });
       if (!result.ok) {
         setError(result.error || "Kunne ikke lagre garantisaken");
@@ -77,29 +113,12 @@ export function WarrantyFlow(input: {
       }
       setStep("kvittering");
       router.refresh();
-    });
-  }
-
-  async function printSlip() {
-    setPrintNote("");
-    try {
-      const res = await fetch(`/api/repairs/${input.ticketId}/thermal`, {
-        cache: "no-store",
-      });
-      const data = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-        warranty?: WorkshopReceiptInput | null;
-      };
-      if (!res.ok || !data.ok || !data.warranty) {
-        throw new Error(data.error || "Fant ingen garantikvittering");
+      try {
+        await printCopy("customer");
+      } catch (err) {
+        setPrintNote(err instanceof Error ? err.message : "Kundeeksemplar feilet.");
       }
-      const printed = await printWorkshopReceipt(data.warranty);
-      if (!printed.ok) throw new Error("Koble til skriveren først (USB-serial / COM).");
-      setPrintNote("Garantikvittering skrevet ut.");
-    } catch (err) {
-      setPrintNote(err instanceof Error ? err.message : "Utskrift feilet.");
-    }
+    });
   }
 
   return (
@@ -241,9 +260,13 @@ export function WarrantyFlow(input: {
 
       {step === "signatur" ? (
         <div className="rounded border border-border bg-white px-5 py-5">
-          <p className="text-sm font-medium">Kunden signerer kvitteringen</p>
+          <p className="text-sm font-medium">Butikkens eksemplar</p>
+          <p className="mt-1 text-sm text-muted">
+            Skriv ut slippen, la kunden signere med penn i feltet, og behold den i kassen.
+            Kunden får kvittering etterpå.
+          </p>
           <div className="mt-3">
-            <Label htmlFor="signer">Navn</Label>
+            <Label htmlFor="signer">Navn på slippen</Label>
             <Input
               id="signer"
               className="mt-1.5"
@@ -251,13 +274,45 @@ export function WarrantyFlow(input: {
               onChange={(e) => setSignerName(e.target.value)}
             />
           </div>
-          <div className="mt-3">
-            <SignaturePad onChange={setSignature} />
-          </div>
+          <p className="mt-3 text-[13px] text-muted">Termisk 80 mm · {link}</p>
+          {printNote ? <p className="mt-2 text-sm text-muted">{printNote}</p> : null}
           {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
-          <div className="mt-5 flex gap-2">
-            <Button type="button" onClick={finish} disabled={pending}>
-              {pending ? "Lagrer…" : "Lagre og kvittering"}
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setError("");
+                start(async () => {
+                  try {
+                    await connectUsbPrinter();
+                    setLink(printerLinkLabel());
+                    await printCopy("store");
+                  } catch (err) {
+                    setPrintNote(err instanceof Error ? err.message : "Utskrift feilet.");
+                  }
+                });
+              }}
+              disabled={pending}
+            >
+              {pending ? "Skriver…" : "Skriv butikkeksemplar"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (signerName.trim().length < 2) {
+                  setError("Oppgi navn");
+                  return;
+                }
+                if (!printedStore) {
+                  setError("Skriv ut butikkeksemplaret først, så kunden kan signere med penn");
+                  return;
+                }
+                finish();
+              }}
+              disabled={pending}
+            >
+              {pending ? "Lagrer…" : "Kunden har signert"}
             </Button>
             <Button type="button" variant="ghost" onClick={() => go("losning")}>
               Tilbake
@@ -268,24 +323,50 @@ export function WarrantyFlow(input: {
 
       {step === "kvittering" ? (
         <div className="rounded border border-border bg-white px-5 py-5">
-          <p className="text-lg font-semibold">Garantisak lagret</p>
+          <p className="text-lg font-semibold">Kundeeksemplar</p>
           <p className="mt-1 text-sm text-muted">
             {outcome === "refund"
               ? `Tilbakebetaling ${refundKr} kr`
               : outcome === "repair"
                 ? "Garantiarbeid uten kostnad"
                 : "Krav avvist"}
-            . {input.ticketNumber}
+            . {input.ticketNumber}. Gi denne kvitteringen til kunden.
           </p>
           {stripeNote ? <p className="mt-2 text-sm text-warning">{stripeNote}</p> : null}
-          <div className="mt-4">
-            <ThermalPrintBar ticketId={input.ticketId} />
-          </div>
-          <div className="mt-3">
-            <Button type="button" variant="secondary" onClick={() => void printSlip()}>
-              Skriv garantikvittering
+          {printNote ? <p className="mt-2 text-[13px] text-muted">{printNote}</p> : null}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                start(async () => {
+                  try {
+                    await printCopy("customer");
+                  } catch (err) {
+                    setPrintNote(err instanceof Error ? err.message : "Utskrift feilet.");
+                  }
+                });
+              }}
+              disabled={pending}
+            >
+              {pending ? "Skriver…" : "Skriv kundeeksemplar"}
             </Button>
-            {printNote ? <p className="mt-2 text-[13px] text-muted">{printNote}</p> : null}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                start(async () => {
+                  try {
+                    await printCopy("store");
+                  } catch (err) {
+                    setPrintNote(err instanceof Error ? err.message : "Utskrift feilet.");
+                  }
+                });
+              }}
+              disabled={pending}
+            >
+              Skriv butikkeksemplar på nytt
+            </Button>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link

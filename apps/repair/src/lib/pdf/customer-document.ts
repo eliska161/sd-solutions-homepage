@@ -547,6 +547,9 @@ export async function renderWarrantySlipPdf(input: {
       /* ignore */
     }
     y += 72;
+  } else {
+    doc.rect(left, y, 260, 72).strokeColor("#111111").lineWidth(0.8).stroke();
+    y += 80;
   }
   doc
     .moveTo(left, y)
@@ -555,7 +558,14 @@ export async function renderWarrantySlipPdf(input: {
     .stroke();
   y += 6;
   doc.font(fonts.regular).fontSize(8).fillColor(muted);
-  doc.text("Kundes signatur", left, y, { width: 220 });
+  doc.text(
+    input.signaturePng
+      ? "Kundes signatur"
+      : "Kundes signatur (signert med penn på butikkens eksemplar)",
+    left,
+    y,
+    { width: 320 },
+  );
   y += 12;
   doc.font(fonts.bold).fontSize(10).fillColor(ink);
   doc.text(input.signerName, left, y, { width });

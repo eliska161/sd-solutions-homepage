@@ -866,6 +866,32 @@ function printerInit() {
   );
 }
 
+function paintPenSignatureBox(
+  ctx: CanvasRenderingContext2D,
+  pad: number,
+  y: number,
+  inner: number,
+  signerName?: string | null,
+) {
+  ctx.font = "700 18px sans-serif";
+  fitText(ctx, "Signer med penn", pad, y, inner);
+  y += 24;
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(pad + 1, y, inner - 2, 92);
+  ctx.font = "700 28px sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("X", pad + 12, y + 30);
+  ctx.fillRect(pad + 48, y + 74, inner - 72, 2);
+  y += 104;
+  ctx.font = "600 16px sans-serif";
+  fitText(ctx, signerName ? `Navn  ${signerName}` : "Navn  ________________", pad, y, inner);
+  y += 24;
+  fitText(ctx, "Dato  ________________", pad, y, inner);
+  y += 26;
+  return y;
+}
+
 function printerWrap(map: Bitmap, qr?: { start: number; end: number }) {
   const parts: Uint8Array[] = [printerInit()];
   if (qr) {
@@ -928,7 +954,9 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
     notes.length * 32 +
     footer.length * 28 +
     (input.kind === "repair" ? 400 : input.kind === "warranty" ? 200 : 120) +
-    (input.signaturePng ? 140 : 0) +
+    (input.copyLabel ? 40 : 0) +
+    (input.signatureBox ? 200 : input.signaturePng ? 140 : 0) +
+    (input.kind === "warranty" && input.problem ? 80 : 0) +
     (input.statusQr ? 360 : 40);
   const canvas = document.createElement("canvas");
   canvas.width = w;
@@ -965,6 +993,11 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   ctx.font = "700 26px sans-serif";
   fitText(ctx, input.heading, pad, y, inner, "center");
   y += 32;
+  if (input.copyLabel) {
+    ctx.font = "700 18px sans-serif";
+    fitText(ctx, input.copyLabel, pad, y, inner, "center");
+    y += 26;
+  }
   ctx.font = "600 20px sans-serif";
   if (when) {
     fitText(ctx, when, pad, y, inner, "center");
@@ -992,6 +1025,18 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   y += 8;
   ctx.fillRect(pad, y, inner, 3);
   y += 16;
+
+  if (input.kind === "warranty" && input.problem) {
+    ctx.font = "700 22px sans-serif";
+    fitText(ctx, "Krav", pad, y, inner);
+    y += 28;
+    ctx.font = "600 18px sans-serif";
+    fitText(ctx, input.problem, pad, y, inner);
+    y += 28;
+    y += 4;
+    ctx.fillRect(pad, y, inner, 3);
+    y += 16;
+  }
 
   if (input.kind === "repair") {
     ctx.font = "700 22px sans-serif";
@@ -1083,7 +1128,11 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   ctx.fillRect(pad, y, inner, 3);
   y += 16;
 
-  if (input.signaturePng) {
+  if (input.signatureBox) {
+    y = paintPenSignatureBox(ctx, pad, y, inner, input.signerName);
+    ctx.fillRect(pad, y, inner, 3);
+    y += 16;
+  } else if (input.signaturePng) {
     ctx.font = "600 16px sans-serif";
     fitText(ctx, "Signatur", pad, y, inner);
     y += 22;

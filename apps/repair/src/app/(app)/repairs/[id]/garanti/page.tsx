@@ -45,7 +45,7 @@ export default async function WarrantyCasePage({
     <div>
       <PageHeader
         title="Garantisak"
-        description={`${ticket.ticketNumber} · reklamasjon og refusjon`}
+        description={`${ticket.ticketNumber} · butikkeksemplar med penn, deretter kvittering`}
         actions={
           <Link href={`/repairs/${id}`} className="text-sm text-muted underline">
             Tilbake til saken
