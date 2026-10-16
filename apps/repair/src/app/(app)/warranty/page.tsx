@@ -36,7 +36,7 @@ export default async function WarrantyPage() {
       {claims.length === 0 ? (
         <EmptyState
           title="Ingen garantikrav"
-          description="Åpne en sak og velg Garantisak for reklamasjon, signatur og refusjon."
+          description="Åpne en sak og velg Garantisak. Kunden signerer butikkeksemplaret med penn."
           action={
             <Link href="/repairs">
               <Button type="button" variant="secondary">

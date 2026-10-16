@@ -49,6 +49,9 @@ export type WorkshopReceiptInput = {
   statusQr?: string | null;
   thanks: string;
   footer: string[];
+  copyLabel?: string | null;
   signerName?: string | null;
   signaturePng?: string | null;
+  /** Blank box so the customer can sign the thermal slip with a pen. */
+  signatureBox?: boolean;
 };

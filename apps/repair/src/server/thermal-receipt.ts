@@ -1,4 +1,3 @@
-import { readFile } from "fs/promises";
 import bwipjs from "bwip-js/node";
 import {
   DELIVERY_METHOD_LABELS,
@@ -24,7 +23,6 @@ import {
 } from "@/server/repairs";
 import { getSetting, isCustomerVatCharged } from "@/server/settings";
 import { loadTicketCharge } from "@/lib/ticket-totals";
-import { resolveUploadAbsolutePath } from "@/lib/uploads";
 import { getLatestWarrantyClaim, getWarrantyForTicket } from "@/server/warranty";
 
 type CompanyInfo = {
@@ -41,10 +39,77 @@ async function statusQr(url: string) {
   return `data:image/png;base64,${png.toString("base64")}`;
 }
 
+export type WarrantyThermalDraft = {
+  copy: "store" | "customer";
+  outcome: "repair" | "refund" | "reject";
+  description: string;
+  refundOre?: number;
+  signerName?: string | null;
+};
+
+function warrantySlip(
+  shared: WorkshopReceiptInput,
+  opts: {
+    copy: "store" | "customer";
+    outcome: "repair" | "refund" | "reject";
+    description: string;
+    refundOre: number;
+    signerName?: string | null;
+  },
+): WorkshopReceiptInput {
+  const refund = opts.outcome === "refund" && opts.refundOre > 0;
+  const kindLabel =
+    opts.outcome === "refund"
+      ? "Tilbakebetaling"
+      : opts.outcome === "reject"
+        ? "Avvist"
+        : "Garantiarbeid";
+  const store = opts.copy === "store";
+  const needsSign = opts.outcome !== "reject";
+  return {
+    ...shared,
+    kind: "warranty",
+    heading: refund ? "KREDITNOTA" : "GARANTIKVITTERING",
+    copyLabel: store ? "BUTIKKENS EKSEMPLAR" : "KUNDEEKSEMPLAR",
+    paymentLabel: kindLabel,
+    paymentDetail: opts.description,
+    problem: opts.description,
+    lines: refund
+      ? [
+          {
+            name: kindLabel,
+            amountLabel: `−${formatNokFromOre(opts.refundOre)}`,
+          },
+        ]
+      : [
+          {
+            name: kindLabel,
+            amountLabel: formatNokFromOre(0),
+          },
+        ],
+    netLabel: null,
+    vatLabel: null,
+    totalLabel: refund ? `−${formatNokFromOre(opts.refundOre)}` : formatNokFromOre(0),
+    thanks: store
+      ? needsSign
+        ? "Signer med penn i feltet. Behold i kassen."
+        : "Behold i kassen."
+      : refund
+        ? "Beløpet tilbakebetales. Ta vare på denne kvitteringen."
+        : "Garantiarbeid. Ta vare på denne kvitteringen.",
+    signerName: opts.signerName || shared.customerName,
+    signaturePng: null,
+    signatureBox: store && needsSign,
+    statusQr: store ? null : shared.statusQr,
+    statusUrl: store ? null : shared.statusUrl,
+  };
+}
+
 export async function workshopReceiptPayloads(ticketId: string): Promise<{
   purchase: WorkshopReceiptInput;
   repair: WorkshopReceiptInput;
   warranty: WorkshopReceiptInput | null;
+  warrantyStore: WorkshopReceiptInput | null;
 } | null> {
   const ticket = await getRepair(ticketId);
   if (!ticket) return null;
@@ -211,56 +276,50 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
     thanks: "Takk for at du lot oss fikse den. Velkommen tilbake.",
   };
 
-  let warrantySlip: WorkshopReceiptInput | null = null;
-  if (claim) {
-    let signaturePng: string | null = null;
-    if (claim.signaturePath) {
-      const abs = resolveUploadAbsolutePath(claim.signaturePath);
-      if (abs) {
-        try {
-          const buf = await readFile(abs);
-          signaturePng = `data:image/png;base64,${buf.toString("base64")}`;
-        } catch {
-          signaturePng = null;
-        }
-      }
-    }
-    const refund = claim.refundOre > 0;
-    const kindLabel =
-      claim.resolutionKind === "REFUND"
-        ? "Tilbakebetaling"
-        : claim.resolutionKind === "REJECT"
-          ? "Avvist"
-          : "Garantiarbeid";
-    warrantySlip = {
-      ...shared,
-      kind: "warranty",
-      heading: refund ? "KREDITNOTA" : "GARANTIKVITTERING",
-      paymentLabel: claim.resolution || kindLabel,
-      paymentDetail: claim.description,
-      lines: refund
-        ? [
-            {
-              name: claim.resolution || "Tilbakebetaling",
-              amountLabel: `−${formatNokFromOre(claim.refundOre)}`,
-            },
-          ]
-        : [
-            {
-              name: claim.resolution || "Garantiarbeid",
-              amountLabel: formatNokFromOre(0),
-            },
-          ],
-      netLabel: null,
-      vatLabel: null,
-      totalLabel: refund ? `−${formatNokFromOre(claim.refundOre)}` : formatNokFromOre(0),
-      thanks: refund
-        ? "Beløpet tilbakebetales. Ta vare på denne kvitteringen."
-        : "Garantiarbeid. Ta vare på denne kvitteringen.",
-      signerName: claim.signerName,
-      signaturePng,
-    };
-  }
+  const claimOutcome =
+    claim?.resolutionKind === "REFUND"
+      ? "refund"
+      : claim?.resolutionKind === "REJECT"
+        ? "reject"
+        : "repair";
+  const warrantyCustomer = claim
+    ? warrantySlip(purchase, {
+        copy: "customer",
+        outcome: claimOutcome,
+        description: claim.description,
+        refundOre: claim.refundOre,
+        signerName: claim.signerName,
+      })
+    : null;
+  const warrantyStore = claim
+    ? warrantySlip(purchase, {
+        copy: "store",
+        outcome: claimOutcome,
+        description: claim.description,
+        refundOre: claim.refundOre,
+        signerName: claim.signerName,
+      })
+    : null;
 
-  return { purchase, repair, warranty: warrantySlip };
+  return {
+    purchase,
+    repair,
+    warranty: warrantyCustomer,
+    warrantyStore,
+  };
+}
+
+export async function warrantyThermalPayload(
+  ticketId: string,
+  draft: WarrantyThermalDraft,
+): Promise<WorkshopReceiptInput | null> {
+  const payload = await workshopReceiptPayloads(ticketId);
+  if (!payload) return null;
+  return warrantySlip(payload.purchase, {
+    copy: draft.copy,
+    outcome: draft.outcome,
+    description: draft.description.trim(),
+    refundOre: Math.max(0, draft.refundOre ?? 0),
+    signerName: draft.signerName ?? payload.purchase.customerName,
+  });
 }
