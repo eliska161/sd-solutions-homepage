@@ -1,3 +1,4 @@
+import { readFile } from "fs/promises";
 import bwipjs from "bwip-js/node";
 import {
   DELIVERY_METHOD_LABELS,
@@ -23,7 +24,8 @@ import {
 } from "@/server/repairs";
 import { getSetting, isCustomerVatCharged } from "@/server/settings";
 import { loadTicketCharge } from "@/lib/ticket-totals";
-import { getWarrantyForTicket } from "@/server/warranty";
+import { resolveUploadAbsolutePath } from "@/lib/uploads";
+import { getLatestWarrantyClaim, getWarrantyForTicket } from "@/server/warranty";
 
 type CompanyInfo = {
   orgNumber?: string;
@@ -42,10 +44,11 @@ async function statusQr(url: string) {
 export async function workshopReceiptPayloads(ticketId: string): Promise<{
   purchase: WorkshopReceiptInput;
   repair: WorkshopReceiptInput;
+  warranty: WorkshopReceiptInput | null;
 } | null> {
   const ticket = await getRepair(ticketId);
   if (!ticket) return null;
-  const [customer, device, charge, warranty, notes, technician, chargeVat, company] =
+  const [customer, device, charge, warranty, notes, technician, chargeVat, company, claim] =
     await Promise.all([
       getCustomer(ticket.customerId),
       getDevice(ticket.deviceId),
@@ -55,6 +58,7 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
       getRepairAssigneeName(ticket.assigneeId),
       isCustomerVatCharged(),
       getSetting<CompanyInfo>("company.info"),
+      getLatestWarrantyClaim(ticketId),
     ]);
 
   const db = getDb();
@@ -207,5 +211,56 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
     thanks: "Takk for at du lot oss fikse den. Velkommen tilbake.",
   };
 
-  return { purchase, repair };
+  let warrantySlip: WorkshopReceiptInput | null = null;
+  if (claim) {
+    let signaturePng: string | null = null;
+    if (claim.signaturePath) {
+      const abs = resolveUploadAbsolutePath(claim.signaturePath);
+      if (abs) {
+        try {
+          const buf = await readFile(abs);
+          signaturePng = `data:image/png;base64,${buf.toString("base64")}`;
+        } catch {
+          signaturePng = null;
+        }
+      }
+    }
+    const refund = claim.refundOre > 0;
+    const kindLabel =
+      claim.resolutionKind === "REFUND"
+        ? "Tilbakebetaling"
+        : claim.resolutionKind === "REJECT"
+          ? "Avvist"
+          : "Garantiarbeid";
+    warrantySlip = {
+      ...shared,
+      kind: "warranty",
+      heading: refund ? "KREDITNOTA" : "GARANTIKVITTERING",
+      paymentLabel: claim.resolution || kindLabel,
+      paymentDetail: claim.description,
+      lines: refund
+        ? [
+            {
+              name: claim.resolution || "Tilbakebetaling",
+              amountLabel: `−${formatNokFromOre(claim.refundOre)}`,
+            },
+          ]
+        : [
+            {
+              name: claim.resolution || "Garantiarbeid",
+              amountLabel: formatNokFromOre(0),
+            },
+          ],
+      netLabel: null,
+      vatLabel: null,
+      totalLabel: refund ? `−${formatNokFromOre(claim.refundOre)}` : formatNokFromOre(0),
+      thanks: refund
+        ? "Beløpet tilbakebetales. Ta vare på denne kvitteringen."
+        : "Garantiarbeid. Ta vare på denne kvitteringen.",
+      signerName: claim.signerName,
+      signaturePng,
+    };
+  }
+
+  return { purchase, repair, warranty: warrantySlip };
 }

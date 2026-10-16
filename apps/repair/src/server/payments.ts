@@ -102,6 +102,74 @@ export async function markTicketPaid(input: {
   return { ok: true as const, already: false };
 }
 
+export async function markTicketRefunded(input: {
+  ticketId: string;
+  refundOre: number;
+  refundId?: string | null;
+  full: boolean;
+}) {
+  const db = getDb();
+  const [before] = await db
+    .select({
+      id: repairTickets.id,
+      paymentStatus: repairTickets.paymentStatus,
+    })
+    .from(repairTickets)
+    .where(eq(repairTickets.id, input.ticketId))
+    .limit(1);
+  if (!before) return { ok: false as const, error: "Saken ble ikke funnet" };
+  const nextStatus = input.full ? "REFUNDED" : "PARTIAL";
+  await db
+    .update(repairTickets)
+    .set({
+      paymentStatus: nextStatus,
+      updatedAt: new Date(),
+    })
+    .where(eq(repairTickets.id, input.ticketId));
+  await writeAuditLog({
+    actorId: null,
+    entityType: "repair_ticket",
+    entityId: input.ticketId,
+    action: "payment_refund",
+    before: { paymentStatus: before.paymentStatus },
+    after: { paymentStatus: nextStatus, refundOre: input.refundOre },
+  });
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: input.ticketId,
+    type: "repair.refund",
+    message: input.full
+      ? `Refundert ${formatNokFromOre(input.refundOre)}`
+      : `Delvis refundert ${formatNokFromOre(input.refundOre)}`,
+    meta: { refundOre: input.refundOre, refundId: input.refundId ?? null },
+  });
+  return { ok: true as const };
+}
+
+export async function refundStripeForTicket(input: {
+  ticketId: string;
+  paymentIntentId: string | null;
+  amountOre: number;
+}): Promise<{ refundId: string | null; error?: string }> {
+  const stripe = getStripe();
+  if (!stripe || !input.paymentIntentId || input.amountOre <= 0) {
+    return { refundId: null };
+  }
+  try {
+    const refund = await stripe.refunds.create({
+      payment_intent: input.paymentIntentId,
+      amount: input.amountOre,
+      reason: "requested_by_customer",
+      metadata: { ticketId: input.ticketId },
+    });
+    return { refundId: refund.id };
+  } catch (err) {
+    console.error("==> Stripe refund", err);
+    const message = err instanceof Error ? err.message : "Stripe-refusjon feilet";
+    return { refundId: null, error: message };
+  }
+}
+
 export async function ensurePickupCheckout(ticketId: string) {
   const charge = await loadTicketCharge(ticketId);
   const db = getDb();

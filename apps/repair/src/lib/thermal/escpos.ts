@@ -610,6 +610,30 @@ async function paintDataUrl(
   ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
 }
 
+async function paintPng(
+  ctx: CanvasRenderingContext2D,
+  dataUrl: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  const img = new Image();
+  img.decoding = "sync";
+  img.src = dataUrl;
+  try {
+    await img.decode();
+  } catch {
+    return;
+  }
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(x, y, w, h);
+  ctx.drawImage(img, x, y, w, h);
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+}
+
 export async function buildLockerReceipt(input: ReceiptPrintInput) {
   const ticket = input.ticket.replace(/[^A-Za-z0-9-]/g, "") || "SD";
   const phone = formatStickerPhone(input.phone);
@@ -875,9 +899,10 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
         minute: "2-digit",
       });
   const tx = (input.transactionId || "").replace(/\s+/g, "");
-  const txPairs = input.kind === "purchase" ? purchaseTxPairs(input) : [];
+  const txPairs =
+    input.kind === "purchase" || input.kind === "warranty" ? purchaseTxPairs(input) : [];
   const payRows =
-    input.kind === "purchase"
+    input.kind === "purchase" || input.kind === "warranty"
       ? []
       : [
           input.paymentDetail,
@@ -902,7 +927,8 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
     txPairs.length * 28 +
     notes.length * 32 +
     footer.length * 28 +
-    (input.kind === "repair" ? 400 : 120) +
+    (input.kind === "repair" ? 400 : input.kind === "warranty" ? 200 : 120) +
+    (input.signaturePng ? 140 : 0) +
     (input.statusQr ? 360 : 40);
   const canvas = document.createElement("canvas");
   canvas.width = w;
@@ -1002,7 +1028,13 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   }
 
   ctx.font = "700 22px sans-serif";
-  fitText(ctx, input.kind === "repair" ? "Tjenester" : "Kjøp", pad, y, inner);
+  fitText(
+    ctx,
+    input.kind === "repair" ? "Tjenester" : input.kind === "warranty" ? "Garanti" : "Kjøp",
+    pad,
+    y,
+    inner,
+  );
   y += 28;
   ctx.font = "600 20px sans-serif";
   if (lines.length) {
@@ -1033,7 +1065,7 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   ctx.font = "700 22px sans-serif";
   fitText(ctx, "Betaling", pad, y, inner);
   y += 28;
-  if (input.kind === "purchase") {
+  if (input.kind === "purchase" || input.kind === "warranty") {
     y = drawPayKv(ctx, "Status", input.paymentLabel || "Betaling", pad, y, inner);
     for (const [label, value] of txPairs) {
       y = drawPayKv(ctx, label, value, pad, y, inner);
@@ -1050,6 +1082,21 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   y += 8;
   ctx.fillRect(pad, y, inner, 3);
   y += 16;
+
+  if (input.signaturePng) {
+    ctx.font = "600 16px sans-serif";
+    fitText(ctx, "Signatur", pad, y, inner);
+    y += 22;
+    await paintPng(ctx, input.signaturePng, pad, y, 280, 88);
+    y += 96;
+    if (input.signerName) {
+      ctx.font = "600 16px sans-serif";
+      fitText(ctx, input.signerName, pad, y, inner);
+      y += 24;
+    }
+    ctx.fillRect(pad, y, inner, 3);
+    y += 16;
+  }
 
   let qrCanvas: { start: number; end: number } | undefined;
   if (input.statusQr) {

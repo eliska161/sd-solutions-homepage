@@ -1,4 +1,4 @@
-export type WorkshopReceiptKind = "purchase" | "repair";
+export type WorkshopReceiptKind = "purchase" | "repair" | "warranty";
 
 export type WorkshopReceiptInput = {
   kind: WorkshopReceiptKind;
@@ -49,4 +49,6 @@ export type WorkshopReceiptInput = {
   statusQr?: string | null;
   thanks: string;
   footer: string[];
+  signerName?: string | null;
+  signaturePng?: string | null;
 };

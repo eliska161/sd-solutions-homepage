@@ -481,6 +481,93 @@ export async function renderReceiptPdf(input: {
   return done;
 }
 
+export async function renderWarrantySlipPdf(input: {
+  ticketNumber: string;
+  customerName: string;
+  deviceLabel: string;
+  issuedAt: Date;
+  outcomeLabel: string;
+  description: string;
+  refundLabel?: string | null;
+  originalTotalLabel?: string | null;
+  signerName: string;
+  signaturePng: Buffer | null;
+}): Promise<Buffer> {
+  const fonts = pdfFontPaths();
+  const ink = "#111111";
+  const muted = "#5c6370";
+  const doc = new PDFDocument({
+    size: "A4",
+    margins: { top: 36, bottom: 48, left: 42, right: 42 },
+    bufferPages: true,
+    info: {
+      Title: `Garanti ${input.ticketNumber}`,
+      Author: LEGAL_PARTY.brandName,
+    },
+  });
+  const chunks: Buffer[] = [];
+  const done = new Promise<Buffer>((resolve, reject) => {
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+  });
+  drawBrandHeader(doc, "Garantisak", input.ticketNumber);
+  const left = doc.page.margins.left;
+  const width = pageWidth(doc);
+  let y = 92;
+  doc.font(fonts.bold).fontSize(14).fillColor(ink);
+  doc.text(input.outcomeLabel, left, y, { width });
+  y = doc.y + 10;
+  doc.font(fonts.regular).fontSize(10).fillColor(ink);
+  doc.text(`Kunde: ${input.customerName}`, left, y, { width });
+  y = doc.y + 2;
+  doc.text(`Enhet: ${input.deviceLabel || "—"}`, left, y, { width });
+  y = doc.y + 2;
+  doc.text(`Dato: ${formatDate(input.issuedAt)}`, left, y, { width });
+  y = doc.y + 12;
+  doc.font(fonts.bold).fontSize(10).text("Krav", left, y);
+  y = doc.y + 4;
+  doc.font(fonts.regular).fontSize(10).fillColor(ink);
+  doc.text(input.description, left, y, { width });
+  y = doc.y + 12;
+  if (input.originalTotalLabel) {
+    doc.text(`Opprinnelig beløp: ${input.originalTotalLabel}`, left, y, { width });
+    y = doc.y + 4;
+  }
+  if (input.refundLabel) {
+    doc.font(fonts.bold).fontSize(12);
+    doc.text(`Tilbakebetaling: ${input.refundLabel}`, left, y, { width });
+    y = doc.y + 12;
+  }
+  y += 8;
+  if (input.signaturePng) {
+    try {
+      doc.image(input.signaturePng, left, y, { width: 220, height: 64 });
+    } catch {
+      /* ignore */
+    }
+    y += 72;
+  }
+  doc
+    .moveTo(left, y)
+    .lineTo(left + 220, y)
+    .strokeColor("#d5d8de")
+    .stroke();
+  y += 6;
+  doc.font(fonts.regular).fontSize(8).fillColor(muted);
+  doc.text("Kundes signatur", left, y, { width: 220 });
+  y += 12;
+  doc.font(fonts.bold).fontSize(10).fillColor(ink);
+  doc.text(input.signerName, left, y, { width });
+  const range = doc.bufferedPageRange();
+  for (let i = 0; i < range.count; i++) {
+    doc.switchToPage(range.start + i);
+    drawPageChrome(doc, i + 1, range.count);
+  }
+  doc.end();
+  return done;
+}
+
 export function parsePngDataUrl(raw: string): Buffer | null {
   const match = raw
     .trim()
