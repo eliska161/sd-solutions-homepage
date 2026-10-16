@@ -21,7 +21,6 @@ import { formatNokFromOre } from "@/lib/money";
 import { PAYMENT_STATUS_LABELS } from "@/lib/labels";
 import { publicTicketLinkFilter } from "@/lib/public-link";
 import { customerPriceSuffix } from "@/lib/vat";
-import { ticketIsBatteryJob } from "@/server/battery-calibrate";
 import { isCustomerVatCharged, isLockerModeEnabled } from "@/server/settings";
 
 /**
@@ -215,7 +214,6 @@ export async function getPublicRepairByToken(token: string) {
     paidAt: row.paidAt,
     canPay:
       row.paymentStatus !== "PAID" && row.paymentStatus !== "REFUNDED",
-    batteryCalibrate: await ticketIsBatteryJob(row.id),
   };
 }
 

@@ -245,6 +245,15 @@ export async function renderReceiptPdf(input: {
   cardLast4?: string | null;
   authCode?: string | null;
   transactionId?: string | null;
+  paymentIntentId?: string | null;
+  chargeId?: string | null;
+  fundingLabel?: string | null;
+  entryMethod?: string | null;
+  aid?: string | null;
+  cardCountry?: string | null;
+  networkTxnId?: string | null;
+  statement?: string | null;
+  paidAt?: string | null;
   statusUrl?: string | null;
   lines: ReceiptLine[];
   discount?: { label: string; amountOre: number } | null;
@@ -429,8 +438,17 @@ export async function renderReceiptPdf(input: {
       : input.cardLast4
         ? `Kort **** ${input.cardLast4}`
         : null,
+    input.fundingLabel ? `Korttype ${input.fundingLabel}` : null,
+    input.entryMethod ? `Lesemåte ${input.entryMethod}` : null,
     input.authCode ? `Aut.id ${input.authCode}` : null,
-    input.transactionId ? `Transaksjon ${input.transactionId}` : null,
+    input.aid ? `AID ${input.aid}` : null,
+    input.chargeId ? `Charge ${input.chargeId}` : null,
+    input.paymentIntentId ? `Betalings-ID ${input.paymentIntentId}` : null,
+    !input.chargeId && input.transactionId ? `Transaksjon ${input.transactionId}` : null,
+    input.networkTxnId ? `Nettverk-ID ${input.networkTxnId}` : null,
+    input.cardCountry ? `Land ${input.cardCountry}` : null,
+    input.statement ? `Utlegg ${input.statement}` : null,
+    input.paidAt ? `Tidspunkt ${input.paidAt}` : null,
     input.warrantyDays && input.warrantyDays > 0
       ? `Garanti på utført arbeid: ${input.warrantyDays} dager.`
       : null,
