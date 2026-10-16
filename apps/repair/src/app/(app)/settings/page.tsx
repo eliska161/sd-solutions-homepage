@@ -12,7 +12,7 @@ import {
   setSetting,
 } from "@/server/settings";
 import { BILLING_CHARGE_VAT_KEY, VAT_NOT_COLLECTED } from "@/lib/vat";
-import { OPS_LOCKER_MODE_KEY } from "@/lib/ops";
+import { OPS_LOCKER_MODE_KEY, OPS_STRIPE_READER_KEY } from "@/lib/ops";
 import {
   elksAlphaSender,
   elksIsConfigured,
@@ -53,6 +53,15 @@ async function saveLockerAction(formData: FormData) {
   redirect("/settings");
 }
 
+async function saveStripeReaderAction(formData: FormData) {
+  "use server";
+  await setSetting(
+    OPS_STRIPE_READER_KEY,
+    String(formData.get("readerId") || "").trim(),
+  );
+  redirect("/settings");
+}
+
 export default async function SettingsPage() {
   const company =
     (await getSetting<CompanyInfo>("company.info")) ?? {
@@ -62,6 +71,9 @@ export default async function SettingsPage() {
       phone: "+47 21 56 45 44",
     };
   const webhookUrl = `${publicAppOrigin()}/api/webhooks/elks`;
+  const stripeWebhookUrl = `${publicAppOrigin()}/api/webhooks/stripe`;
+  const stripeReaderId =
+    (await getSetting<string>(OPS_STRIPE_READER_KEY))?.trim() || "";
   const sender = elksAlphaSender();
   const smsReady = elksIsConfigured();
   const chargeVat = await isCustomerVatCharged();
@@ -224,6 +236,47 @@ export default async function SettingsPage() {
               <p>
                 <span className="text-foreground">VIEWER</span> — kun lesing.
               </p>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Stripe Tap to Pay" />
+            <CardBody className="space-y-3 text-sm">
+              <p>
+                Fra saken: Tap to Pay. På iPhone: Stripe-appen → + → Charge a
+                card → beløpet → Tap to Pay. Bruk saksnummeret som
+                beskrivelse.
+              </p>
+              <div>
+                <Label htmlFor="stripe-webhook">Stripe-webhook</Label>
+                <Input
+                  id="stripe-webhook"
+                  className="mt-1.5 font-mono text-[12px]"
+                  readOnly
+                  value={stripeWebhookUrl}
+                />
+              </div>
+              <p className="text-[12px] text-muted">
+                Hendelser: checkout.session.completed,
+                checkout.session.async_payment_succeeded,
+                payment_intent.succeeded, charge.succeeded. Secret:
+                STRIPE_WEBHOOK_SECRET.
+              </p>
+              <form action={saveStripeReaderAction} className="space-y-2">
+                <Label htmlFor="stripe-reader">Terminal-leser (valgfritt)</Label>
+                <Input
+                  id="stripe-reader"
+                  name="readerId"
+                  className="mt-1.5 font-mono text-[12px]"
+                  defaultValue={stripeReaderId}
+                  placeholder="tmr_..."
+                />
+                <p className="text-[12px] text-muted">
+                  Hvis iPhonen er registrert som Stripe Terminal-leser og
+                  online, sendes beløpet dit automatisk.
+                </p>
+                <Button type="submit">Lagre leser</Button>
+              </form>
             </CardBody>
           </Card>
 

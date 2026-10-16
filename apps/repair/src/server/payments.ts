@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 import bwipjs from "bwip-js/node";
-import { customers, devices, repairTickets } from "@/db/schema";
+import { activityEvents, customers, devices, repairTickets, settings } from "@/db/schema";
 import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
@@ -11,6 +11,7 @@ import { formatNokFromOre, vatFromGrossOre } from "@/lib/money";
 import { allocatePublicShortCode, publicTicketLinkFilter } from "@/lib/public-link";
 import { getStripe, stripeConfigured } from "@/lib/stripe";
 import { loadTicketCharge } from "@/lib/ticket-totals";
+import { OPS_STRIPE_READER_KEY } from "@/lib/ops";
 import { isCustomerVatCharged } from "@/server/settings";
 
 export type KioskPayment = {
@@ -548,4 +549,219 @@ export async function kioskPaymentForTicket(ticketId: string): Promise<KioskPaym
       : null,
     chargeLines: lines,
   };
+}
+
+const TICKET_NUMBER_IN_TEXT = /\bREP\d{5}\b/i;
+const IN_PERSON_PAY_WINDOW_MS = 45 * 60 * 1000;
+
+async function readOpsSetting<T>(key: string): Promise<T | null> {
+  const db = getDb();
+  const [row] = await db.select().from(settings).where(eq(settings.key, key)).limit(1);
+  return (row?.value as T) ?? null;
+}
+
+export async function startInPersonPayment(ticketId: string): Promise<{
+  ok: boolean;
+  paid?: boolean;
+  sentToReader?: boolean;
+  amountLabel?: string;
+  ticketNumber?: string;
+  error?: string;
+}> {
+  const charge = await loadTicketCharge(ticketId);
+  const db = getDb();
+  const [ticket] = await db
+    .select({
+      id: repairTickets.id,
+      ticketNumber: repairTickets.ticketNumber,
+      paymentStatus: repairTickets.paymentStatus,
+      stripePaymentIntentId: repairTickets.stripePaymentIntentId,
+      brand: devices.brand,
+      model: devices.model,
+    })
+    .from(repairTickets)
+    .innerJoin(devices, eq(devices.id, repairTickets.deviceId))
+    .where(eq(repairTickets.id, ticketId))
+    .limit(1);
+  if (!ticket) return { ok: false, error: "Saken ble ikke funnet" };
+  if (ticket.paymentStatus === "PAID") {
+    return { ok: true, paid: true, ticketNumber: ticket.ticketNumber };
+  }
+  if (charge.totalOre <= 0) {
+    await markTicketPaid({ ticketId, source: "staff", skipNotify: true });
+    return { ok: true, paid: true, ticketNumber: ticket.ticketNumber };
+  }
+
+  const stripe = getStripe();
+  if (!stripe) return { ok: false, error: "Stripe er ikke satt opp" };
+
+  const device = [ticket.brand, ticket.model].filter(Boolean).join(" ");
+  const description = `${ticket.ticketNumber}${device ? ` ${device}` : ""}`;
+  let intentId = ticket.stripePaymentIntentId;
+  if (intentId) {
+    try {
+      const existing = await stripe.paymentIntents.retrieve(intentId);
+      if (existing.status === "succeeded") {
+        await markTicketPaid({
+          ticketId,
+          paymentIntentId: existing.id,
+          source: "stripe",
+        });
+        return { ok: true, paid: true, ticketNumber: ticket.ticketNumber };
+      }
+      const present = existing.payment_method_types?.includes("card_present");
+      if (
+        present &&
+        existing.amount === charge.totalOre &&
+        (existing.status === "requires_payment_method" ||
+          existing.status === "requires_confirmation")
+      ) {
+        intentId = existing.id;
+      } else {
+        intentId = null;
+      }
+    } catch (err) {
+      console.error("==> Stripe in-person PI retrieve", err);
+      intentId = null;
+    }
+  }
+
+  if (!intentId) {
+    const created = await stripe.paymentIntents.create({
+      amount: charge.totalOre,
+      currency: "nok",
+      payment_method_types: ["card_present"],
+      capture_method: "automatic",
+      description,
+      metadata: {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        channel: "tap_to_pay",
+      },
+    });
+    intentId = created.id;
+    await db
+      .update(repairTickets)
+      .set({ stripePaymentIntentId: intentId, updatedAt: new Date() })
+      .where(eq(repairTickets.id, ticketId));
+  }
+
+  await addActivity({
+    entityType: "repair_ticket",
+    entityId: ticketId,
+    type: "repair.in_person_pay",
+    message: `Tap to Pay startet (${formatNokFromOre(charge.totalOre)})`,
+    meta: { amountOre: charge.totalOre, ticketNumber: ticket.ticketNumber, paymentIntentId: intentId },
+  });
+
+  let sentToReader = false;
+  const preferred =
+    (await readOpsSetting<string>(OPS_STRIPE_READER_KEY))?.trim() ||
+    process.env.STRIPE_TERMINAL_READER_ID?.trim() ||
+    "";
+  try {
+    const readers = await stripe.terminal.readers.list({ status: "online", limit: 20 });
+    const reader =
+      readers.data.find((item) => item.id === preferred) ||
+      readers.data.find((item) => String(item.device_type).includes("phone")) ||
+      readers.data[0] ||
+      null;
+    if (reader && intentId) {
+      await stripe.terminal.readers.processPaymentIntent(reader.id, {
+        payment_intent: intentId,
+      });
+      sentToReader = true;
+    }
+  } catch (err) {
+    console.error("==> Stripe Terminal reader", err);
+  }
+
+  return {
+    ok: true,
+    paid: false,
+    sentToReader,
+    amountLabel: formatNokFromOre(charge.totalOre),
+    ticketNumber: ticket.ticketNumber,
+  };
+}
+
+export async function confirmInPersonStripePayment(input: {
+  paymentIntentId?: string | null;
+  amountOre?: number | null;
+  description?: string | null;
+  metadata?: Record<string, string> | null;
+}): Promise<{ ok: boolean }> {
+  const ticketId = await findTicketForInPersonPayment(input);
+  if (!ticketId) return { ok: false };
+  return markTicketPaid({
+    ticketId,
+    paymentIntentId: input.paymentIntentId,
+    source: "stripe",
+  });
+}
+
+async function findTicketForInPersonPayment(input: {
+  paymentIntentId?: string | null;
+  amountOre?: number | null;
+  description?: string | null;
+  metadata?: Record<string, string> | null;
+}): Promise<string | null> {
+  const db = getDb();
+  const byMeta = input.metadata?.ticketId?.trim();
+  if (byMeta) {
+    const [row] = await db
+      .select({ id: repairTickets.id, paymentStatus: repairTickets.paymentStatus })
+      .from(repairTickets)
+      .where(eq(repairTickets.id, byMeta))
+      .limit(1);
+    if (row && row.paymentStatus !== "PAID") return row.id;
+    if (row) return row.id;
+  }
+
+  if (input.paymentIntentId) {
+    const [byPi] = await db
+      .select({ id: repairTickets.id })
+      .from(repairTickets)
+      .where(eq(repairTickets.stripePaymentIntentId, input.paymentIntentId))
+      .limit(1);
+    if (byPi) return byPi.id;
+  }
+
+  const fromText = (input.description || "").match(TICKET_NUMBER_IN_TEXT)?.[0];
+  const ticketNumber = (input.metadata?.ticketNumber || fromText || "").toUpperCase();
+  if (ticketNumber) {
+    const [byNumber] = await db
+      .select({ id: repairTickets.id })
+      .from(repairTickets)
+      .where(eq(repairTickets.ticketNumber, ticketNumber))
+      .limit(1);
+    if (byNumber) return byNumber.id;
+  }
+
+  if (input.amountOre && input.amountOre > 0) {
+    const since = new Date(Date.now() - IN_PERSON_PAY_WINDOW_MS);
+    const recent = await db
+      .select({
+        entityId: activityEvents.entityId,
+        meta: activityEvents.meta,
+        createdAt: activityEvents.createdAt,
+      })
+      .from(activityEvents)
+      .where(
+        and(
+          eq(activityEvents.type, "repair.in_person_pay"),
+          gt(activityEvents.createdAt, since),
+        ),
+      )
+      .orderBy(desc(activityEvents.createdAt))
+      .limit(40);
+    const matches = recent.filter((row) => {
+      const meta = (row.meta || {}) as { amountOre?: number };
+      return meta.amountOre === input.amountOre;
+    });
+    const unique = [...new Set(matches.map((row) => row.entityId))];
+    if (unique.length === 1) return unique[0];
+  }
+
+  return null;
 }
