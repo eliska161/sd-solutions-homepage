@@ -220,17 +220,7 @@ class Bitmap {
 
   cropBottom(pad = 8) {
     let last = this.height - 1;
-    while (last > 0) {
-      let ink = false;
-      for (let x = 0; x < this.width; x++) {
-        if (this.bits[last * this.width + x]) {
-          ink = true;
-          break;
-        }
-      }
-      if (ink) break;
-      last -= 1;
-    }
+    while (last > 0 && !this.hasRow(last)) last -= 1;
     const height = Math.min(this.height, last + 1 + pad);
     if (height === this.height) return this;
     const next = new Bitmap(this.width, height);
@@ -240,6 +230,27 @@ class Bitmap {
       }
     }
     return next;
+  }
+
+  /**
+   * Drop blank rows. After 180° rotate, leading rows are the foot of the
+   * slip and trailing rows are the head (near the cut).
+   */
+  cropInk(padTop = 8, padBottom = 8) {
+    let first = 0;
+    while (first < this.height && !this.hasRow(first)) first += 1;
+    let last = this.height - 1;
+    while (last > first && !this.hasRow(last)) last -= 1;
+    first = Math.max(0, first - padBottom);
+    const end = Math.min(this.height, last + 1 + padTop);
+    if (first === 0 && end === this.height) return { map: this, offset: 0 };
+    const next = new Bitmap(this.width, end - first);
+    for (let y = 0; y < next.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        if (this.bits[(first + y) * this.width + x]) next.set(x, y);
+      }
+    }
+    return { map: next, offset: first };
   }
 
   toRaster(): Uint8Array {
@@ -842,7 +853,7 @@ function printerWrap(map: Bitmap, qr?: { start: number; end: number }) {
   } else {
     parts.push(gsRasterLimited(map));
   }
-  parts.push(feedDots(80), partialCut());
+  parts.push(feedDots(40), partialCut());
   return concat(...parts);
 }
 
@@ -904,7 +915,7 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
 
-  const pad = 16;
+  const pad = 10;
   const inner = w - pad * 2;
   await paintLogo(ctx, (w - 108) / 2, pad, 108, 108);
 
@@ -1065,13 +1076,14 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   }
 
   const canvasH = canvas.height;
-  const map = canvasToBitmap(canvas, true).cropBottom(16);
+  // After 180° rotate: padBottom trims the foot, padTop the head.
+  const cropped = canvasToBitmap(canvas, true).cropInk(8, 4);
   let qrMap: { start: number; end: number } | undefined;
   if (qrCanvas) {
     qrMap = {
-      start: canvasH - qrCanvas.end,
-      end: canvasH - qrCanvas.start,
+      start: canvasH - qrCanvas.end - cropped.offset,
+      end: canvasH - qrCanvas.start - cropped.offset,
     };
   }
-  return printerWrap(map, qrMap);
+  return printerWrap(cropped.map, qrMap);
 }
