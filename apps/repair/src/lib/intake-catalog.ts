@@ -77,6 +77,11 @@ export const CUSTOMER_PROGRESS_STEPS = [
   {
     key: "READY",
     label: "Klar for henting",
-    statuses: ["READY_FOR_PICKUP", "COMPLETED"],
+    statuses: ["READY_FOR_PICKUP"],
+  },
+  {
+    key: "DONE",
+    label: "Fullført",
+    statuses: ["COMPLETED"],
   },
 ] as const;

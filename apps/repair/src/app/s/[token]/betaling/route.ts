@@ -27,6 +27,9 @@ export async function GET(
   if (ticket.paymentStatus === "PAID") {
     return NextResponse.redirect(new URL(`/s/${token}?betalt=1`, request.url));
   }
+  if (ticket.paymentStatus === "REFUNDED" || ticket.paymentStatus === "PARTIAL") {
+    return NextResponse.redirect(new URL(`/s/${token}`, request.url));
+  }
   const checkout = await ensurePickupCheckout(ticket.id);
   if (checkout.ok && checkout.paid) {
     return NextResponse.redirect(new URL(`/s/${token}?betalt=1`, request.url));

@@ -14,7 +14,7 @@ import { Select } from "@/components/ui/Select";
 import { RepairStatusBadge } from "@/components/ui/StatusBadge";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatDropoffAppointment } from "@/lib/dropoff";
-import { formatDate, formatDateOnly, parseKrToOre, DELIVERY_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/labels";
+import { formatDate, formatDateOnly, parseKrToOre, DELIVERY_METHOD_LABELS, PAYMENT_STATUS_LABELS, REPAIR_STATUS_LABELS, canCollectPayment } from "@/lib/labels";
 import { formatNokFromOre, grossProfitOre } from "@/lib/money";
 import { loadTicketCharge } from "@/lib/ticket-totals";
 import { canWrite } from "@/lib/permissions";
@@ -53,6 +53,7 @@ import { ensureDefaultServices } from "@/server/services-catalog";
 import { listTechnicians } from "@/server/users";
 import {
   createWarrantyForRepair,
+  getLatestWarrantyClaim,
   getWarrantyForTicket,
 } from "@/server/warranty";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
@@ -218,6 +219,7 @@ export default async function RepairDetailPage({
     diag,
     activity,
     warranty,
+    claim,
     photos,
     technicians,
     assigneeName,
@@ -237,6 +239,7 @@ export default async function RepairDetailPage({
     getDiagnosticsForTicket(id),
     listActivity({ entityType: "repair_ticket", entityId: id, limit: 40 }),
     getWarrantyForTicket(id),
+    getLatestWarrantyClaim(id),
     listAttachments("repair_ticket", id),
     listTechnicians(),
     getRepairAssigneeName(ticket.assigneeId),
@@ -290,7 +293,7 @@ export default async function RepairDetailPage({
       />
 
       <div className="mb-4">
-        <ThermalPrintBar ticketId={ticket.id} />
+        <ThermalPrintBar ticketId={ticket.id} warranty={Boolean(claim)} />
       </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
@@ -318,7 +321,7 @@ export default async function RepairDetailPage({
         <p className="text-[13px] font-medium">
           Betaling: {PAYMENT_STATUS_LABELS[ticket.paymentStatus]}
         </p>
-        {session && canWrite(session.user.role) && ticket.paymentStatus !== "PAID" ? (
+        {session && canWrite(session.user.role) && canCollectPayment(ticket.paymentStatus) ? (
           <>
             <Link
               href={`/repairs/${ticket.id}/tap-to-pay`}
@@ -340,8 +343,13 @@ export default async function RepairDetailPage({
             href={`/repairs/${ticket.id}/garanti`}
             className="inline-flex h-8 items-center rounded border border-border bg-white px-3 text-xs font-medium"
           >
-            Garantisak
+            {claim ? "Garantisak" : "Ny garantisak"}
           </Link>
+        ) : null}
+        {claim ? (
+          <p className="text-[13px] font-medium">
+            {claim.resolution || "Garantikrav"}
+          </p>
         ) : null}
         <p className="text-[13px] text-muted">
           {ticket.source === "CUSTOMER_PORTAL" ? "Nettside" : "Verksted"}
@@ -869,10 +877,15 @@ export default async function RepairDetailPage({
                     {warranty.days} dager · {formatDate(warranty.startsAt)} –{" "}
                     {formatDate(warranty.endsAt)}
                   </p>
+                  {claim ? (
+                    <p className="mt-2 text-muted">
+                      Siste sak: {claim.resolution || claim.description}
+                    </p>
+                  ) : null}
                   {session && canWrite(session.user.role) ? (
                     <p className="mt-2">
                       <Link href={`/repairs/${ticket.id}/garanti`} className="text-accent underline">
-                        Ny garantisak
+                        {claim ? "Ny garantisak" : "Åpne garantisak"}
                       </Link>
                     </p>
                   ) : null}
@@ -903,7 +916,10 @@ export default async function RepairDetailPage({
               {history.map((h) => (
                 <div key={h.id} className="text-sm border-b border-border pb-2">
                   <p>
-                    {h.fromStatus ?? "—"} → {h.toStatus}
+                    {h.fromStatus
+                      ? REPAIR_STATUS_LABELS[h.fromStatus] ?? h.fromStatus
+                      : "—"}{" "}
+                    → {REPAIR_STATUS_LABELS[h.toStatus] ?? h.toStatus}
                   </p>
                   <p className="text-[12px] text-muted">
                     {formatDate(h.createdAt)}

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import {
   attachments,
   customers,
@@ -10,6 +10,7 @@ import {
   repairTickets,
   services,
   users,
+  warrantyClaims,
 } from "@/db/schema";
 import {
   buildCustomerProgress,
@@ -18,7 +19,11 @@ import {
 import { getDb } from "@/lib/db";
 import { formatDropoffAppointment } from "@/lib/dropoff";
 import { formatNokFromOre } from "@/lib/money";
-import { PAYMENT_STATUS_LABELS } from "@/lib/labels";
+import {
+  PAYMENT_STATUS_LABELS,
+  WARRANTY_RESOLUTION_LABELS,
+  canCollectPayment,
+} from "@/lib/labels";
 import { publicTicketLinkFilter } from "@/lib/public-link";
 import { customerPriceSuffix } from "@/lib/vat";
 import { isCustomerVatCharged, isLockerModeEnabled } from "@/server/settings";
@@ -70,7 +75,7 @@ export async function getPublicRepairByToken(token: string) {
 
   const chargeVat = await isCustomerVatCharged();
   const lockerMode = await isLockerModeEnabled();
-  const [updates, photos, ticketServices] = await Promise.all([
+  const [updates, photos, ticketServices, [claim]] = await Promise.all([
     db
       .select({
         id: repairNotes.id,
@@ -115,6 +120,18 @@ export async function getPublicRepairByToken(token: string) {
       .leftJoin(services, eq(services.id, repairServices.serviceId))
       .where(eq(repairServices.ticketId, row.id))
       .orderBy(asc(repairServices.createdAt)),
+    db
+      .select({
+        description: warrantyClaims.description,
+        resolution: warrantyClaims.resolution,
+        resolutionKind: warrantyClaims.resolutionKind,
+        status: warrantyClaims.status,
+        refundOre: warrantyClaims.refundOre,
+      })
+      .from(warrantyClaims)
+      .where(eq(warrantyClaims.ticketId, row.id))
+      .orderBy(desc(warrantyClaims.createdAt))
+      .limit(1),
   ]);
 
   const deviceLabel = [row.deviceBrand, row.deviceModel, row.deviceVariant]
@@ -128,7 +145,11 @@ export async function getPublicRepairByToken(token: string) {
     statusLabel:
       !row.receivedAt && row.status === "NEW"
         ? "Venter innlevering"
-        : customerStatusLabel(row.status),
+        : claim &&
+            (row.status === "IN_REPAIR" || row.status === "DIAGNOSTICS") &&
+            claim.resolutionKind === "REPAIR"
+          ? "Garantiarbeid"
+          : customerStatusLabel(row.status),
     progress: buildCustomerProgress(row.status, {
       received: Boolean(row.receivedAt),
       outboundPost: row.outboundMethod === "POST",
@@ -212,8 +233,21 @@ export async function getPublicRepairByToken(token: string) {
     paymentLabel: PAYMENT_STATUS_LABELS[row.paymentStatus] || row.paymentStatus,
     paid: row.paymentStatus === "PAID",
     paidAt: row.paidAt,
-    canPay:
-      row.paymentStatus !== "PAID" && row.paymentStatus !== "REFUNDED",
+    canPay: canCollectPayment(row.paymentStatus),
+    warrantyClaim: claim
+      ? {
+          title:
+            (claim.resolutionKind &&
+              WARRANTY_RESOLUTION_LABELS[
+                claim.resolutionKind as keyof typeof WARRANTY_RESOLUTION_LABELS
+              ]) ||
+            claim.resolution ||
+            "Garantisak",
+          detail: claim.resolution || claim.description,
+          refundLabel:
+            claim.refundOre > 0 ? formatNokFromOre(claim.refundOre) : null,
+        }
+      : null,
   };
 }
 

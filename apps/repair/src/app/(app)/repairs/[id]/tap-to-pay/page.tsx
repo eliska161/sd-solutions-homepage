@@ -75,6 +75,9 @@ export default async function TapToPayPage({
         totalLabel={formatNokFromOre(charge.totalOre)}
         amountCopy={String(oreToKr(charge.totalOre)).replace(".", ",")}
         alreadyPaid={ticket.paymentStatus === "PAID"}
+        closed={
+          ticket.paymentStatus === "REFUNDED" || ticket.paymentStatus === "PARTIAL"
+        }
       />
     </div>
   );

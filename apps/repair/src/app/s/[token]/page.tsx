@@ -47,13 +47,14 @@ export default async function CustomerStatusPage({
 
   const currentStep =
     data.progress.find((s) => s.state === "current") ??
-    data.progress.find((s) => s.state === "done");
+    [...data.progress].reverse().find((s) => s.state === "done");
   const doneCount = data.progress.filter((s) => s.state === "done").length;
-  const progressPct = Math.round(
-    ((doneCount + (currentStep?.state === "current" ? 0.45 : 0)) /
-      Math.max(data.progress.length, 1)) *
-      100,
-  );
+  const hasCurrent = data.progress.some((s) => s.state === "current");
+  const progressPct = hasCurrent
+    ? Math.round(
+        ((doneCount + 0.45) / Math.max(data.progress.length, 1)) * 100,
+      )
+    : Math.round((doneCount / Math.max(data.progress.length, 1)) * 100);
 
   return (
     <div>
@@ -75,7 +76,19 @@ export default async function CustomerStatusPage({
 
       {justPaid && data.paid ? (
         <p className="mb-4 rounded border border-border bg-white px-4 py-3 text-sm">
-          Betalingen er registrert. Kvittering er sendt på e-post.
+          Betalingen er registrert.
+        </p>
+      ) : null}
+
+      {data.warrantyClaim ? (
+        <p className="mb-4 rounded border border-border bg-white px-4 py-3 text-sm">
+          <span className="font-medium">{data.warrantyClaim.title}</span>
+          {data.warrantyClaim.refundLabel
+            ? ` · ${data.warrantyClaim.refundLabel}`
+            : ""}
+          {data.warrantyClaim.detail ? (
+            <span className="mt-1 block text-muted">{data.warrantyClaim.detail}</span>
+          ) : null}
         </p>
       ) : null}
 

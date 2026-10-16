@@ -3,7 +3,7 @@
 import { desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { warranties, warrantyClaims } from "@/db/schema";
+import { customers, repairTickets, warranties, warrantyClaims } from "@/db/schema";
 import { addActivity } from "@/lib/activity";
 import { writeAuditLog } from "@/lib/audit";
 import { getDb } from "@/lib/db";
@@ -81,8 +81,21 @@ export async function listClaims(status?: z.infer<typeof claimStatusSchema>) {
   await requireSession();
   const db = getDb();
   return db
-    .select()
+    .select({
+      id: warrantyClaims.id,
+      description: warrantyClaims.description,
+      status: warrantyClaims.status,
+      resolution: warrantyClaims.resolution,
+      resolutionKind: warrantyClaims.resolutionKind,
+      refundOre: warrantyClaims.refundOre,
+      createdAt: warrantyClaims.createdAt,
+      ticketId: warrantyClaims.ticketId,
+      ticketNumber: repairTickets.ticketNumber,
+      customerName: customers.name,
+    })
     .from(warrantyClaims)
+    .leftJoin(repairTickets, eq(repairTickets.id, warrantyClaims.ticketId))
+    .leftJoin(customers, eq(customers.id, repairTickets.customerId))
     .where(status ? eq(warrantyClaims.status, status) : undefined)
     .orderBy(desc(warrantyClaims.createdAt));
 }

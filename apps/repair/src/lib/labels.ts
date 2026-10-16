@@ -40,10 +40,29 @@ export const DELIVERY_METHOD_LABELS = {
 
 export const PAYMENT_STATUS_LABELS = {
   UNPAID: "Ikke betalt",
-  PARTIAL: "Delvis betalt",
+  PARTIAL: "Delvis refundert",
   PAID: "Betalt",
   REFUNDED: "Refundert",
 } as const;
+
+export const WARRANTY_CLAIM_STATUS_LABELS = {
+  OPEN: "Åpen",
+  IN_PROGRESS: "Under arbeid",
+  APPROVED: "Godkjent",
+  REJECTED: "Avvist",
+  RESOLVED: "Løst",
+  CLOSED: "Lukket",
+} as const;
+
+export const WARRANTY_RESOLUTION_LABELS = {
+  REPAIR: "Garantiarbeid",
+  REFUND: "Tilbakebetaling",
+  REJECT: "Avvist",
+} as const;
+
+export function canCollectPayment(status: string) {
+  return status === "UNPAID";
+}
 
 export const REPAIR_PART_STATUS_LABELS = {
   USED: "Fra lager",
@@ -86,6 +105,23 @@ export const REPAIR_STATUSES = Object.keys(
 export const FLIP_STATUSES = Object.keys(
   FLIP_STATUS_LABELS,
 ) as (keyof typeof FLIP_STATUS_LABELS)[];
+
+export function paymentStatusTone(
+  status: string,
+): "default" | "muted" | "accent" | "success" | "warning" | "danger" {
+  switch (status) {
+    case "PAID":
+      return "success";
+    case "REFUNDED":
+      return "warning";
+    case "PARTIAL":
+      return "warning";
+    case "UNPAID":
+      return "danger";
+    default:
+      return "muted";
+  }
+}
 
 export function repairStatusTone(
   status: string,

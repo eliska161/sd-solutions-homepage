@@ -179,6 +179,8 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
   const statusUrl = code ? publicStatusUrl(code) : null;
   const qr = statusUrl ? await statusQr(statusUrl) : null;
   const paid = ticket.paymentStatus === "PAID";
+  const refunded =
+    ticket.paymentStatus === "REFUNDED" || ticket.paymentStatus === "PARTIAL";
   const slip = paid
     ? await stripePaymentSlip({
         paymentIntentId: ticket.stripePaymentIntentId,
@@ -207,7 +209,7 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
   const org = company?.orgNumber?.trim();
   const footer = [
     org ? `Org.nr ${org}` : "",
-    "Kjopsbevis. Ta med ved reklamasjon.",
+    "Kjøpsbevis. Ta med ved reklamasjon.",
     `Garanti: ${warrantyLabel}`,
     chargeVat ? "Priser inkl. 25 % mva." : "Mva samles ikke inn.",
     "sd-solutions.org",
@@ -227,7 +229,9 @@ export async function workshopReceiptPayloads(ticketId: string): Promise<{
     paymentLabel,
     paymentDetail: paid
       ? slip.paymentDetail || (ticket.stripePaymentIntentId ? "Kort" : "Kontant/butikk")
-      : "Ikke betalt ennå",
+      : refunded
+        ? PAYMENT_STATUS_LABELS[ticket.paymentStatus]
+        : "Ikke betalt ennå",
     cardBrand: slip.cardBrand,
     cardLast4: slip.cardLast4,
     authCode: slip.authCode,

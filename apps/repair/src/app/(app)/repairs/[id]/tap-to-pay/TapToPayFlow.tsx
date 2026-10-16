@@ -28,9 +28,12 @@ export function TapToPayFlow(input: {
   totalLabel: string;
   amountCopy: string;
   alreadyPaid: boolean;
+  closed?: boolean;
 }) {
   const router = useRouter();
-  const [step, setStep] = useState<Step>(input.alreadyPaid ? "ferdig" : "bekreft");
+  const [step, setStep] = useState<Step>(
+    input.alreadyPaid || input.closed ? "ferdig" : "bekreft",
+  );
   const [sentToReader, setSentToReader] = useState(false);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
@@ -179,9 +182,12 @@ export function TapToPayFlow(input: {
 
       {step === "ferdig" ? (
         <div className="rounded border border-border bg-white px-5 py-5">
-          <p className="text-lg font-semibold">Betalt</p>
+          <p className="text-lg font-semibold">
+            {input.closed ? "Ikke åpen for betaling" : "Betalt"}
+          </p>
           <p className="mt-1 text-sm text-muted">
             {input.ticketNumber} · {input.totalLabel}
+            {input.closed ? " · refundert" : ""}
           </p>
           <div className="mt-4">
             <ThermalPrintBar ticketId={input.ticketId} />

@@ -9,7 +9,13 @@ import {
 } from "@/lib/thermal/usb-printer";
 import type { WorkshopReceiptInput, WorkshopReceiptKind } from "@/lib/thermal/types";
 
-export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
+export function ThermalPrintBar({
+  ticketId,
+  warranty,
+}: {
+  ticketId: string;
+  warranty?: boolean;
+}) {
   const [busy, setBusy] = useState<"connect" | WorkshopReceiptKind | null>(null);
   const [note, setNote] = useState("");
   const [link, setLink] = useState("Ingen skriver");
@@ -42,18 +48,32 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
         error?: string;
         purchase?: WorkshopReceiptInput;
         repair?: WorkshopReceiptInput;
+        warranty?: WorkshopReceiptInput | null;
       };
       if (!res.ok || !data.ok || !data.purchase || !data.repair) {
         throw new Error(data.error || "Kunne ikke hente kvittering");
       }
-      const result = await printWorkshopReceipt(kind === "purchase" ? data.purchase : data.repair);
+      const payload =
+        kind === "purchase"
+          ? data.purchase
+          : kind === "warranty"
+            ? data.warranty
+            : data.repair;
+      if (!payload) throw new Error("Fant ingen garantikvittering");
+      const result = await printWorkshopReceipt(payload);
       if (!result.ok) {
         throw new Error(
           "Skriveren svarte ikke. Koble til og velg USB-serial / COM-porten.",
         );
       }
       setLink(printerLinkLabel());
-      setNote(kind === "purchase" ? "Kjøpskvittering skrevet ut." : "Reparasjonskvittering skrevet ut.");
+      setNote(
+        kind === "purchase"
+          ? "Kjøpskvittering skrevet ut."
+          : kind === "warranty"
+            ? "Garantikvittering skrevet ut."
+            : "Reparasjonskvittering skrevet ut.",
+      );
     } catch (err) {
       setNote(err instanceof Error ? err.message : "Utskrift feilet.");
     } finally {
@@ -90,6 +110,17 @@ export function ThermalPrintBar({ ticketId }: { ticketId: string }) {
       >
         {busy === "repair" ? "Skriver…" : "Reparasjonskvittering"}
       </Button>
+      {warranty ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => void print("warranty")}
+          disabled={busy !== null}
+        >
+          {busy === "warranty" ? "Skriver…" : "Garantikvittering"}
+        </Button>
+      ) : null}
       <p className="text-[13px] text-muted">
         Termisk 80 mm · {link}
         {note ? ` · ${note}` : ""}

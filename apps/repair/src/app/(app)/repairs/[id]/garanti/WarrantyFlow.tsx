@@ -148,6 +148,7 @@ export function WarrantyFlow(input: {
           );
         })}
       </ol>
+      <p className="mb-4 text-center text-[13px] text-muted">{STEPS[current]?.label}</p>
 
       {step === "sak" ? (
         <div className="rounded border border-border bg-white px-5 py-5">
