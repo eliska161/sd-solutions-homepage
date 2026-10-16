@@ -219,27 +219,24 @@ class Bitmap {
   }
 
   cropBottom(pad = 8) {
+    return this.cropInk(pad).map;
+  }
+
+  cropInk(pad = 4) {
+    let first = 0;
+    while (first < this.height && !this.hasRow(first)) first += 1;
     let last = this.height - 1;
-    while (last > 0) {
-      let ink = false;
+    while (last > first && !this.hasRow(last)) last -= 1;
+    first = Math.max(0, first - pad);
+    const end = Math.min(this.height, last + 1 + pad);
+    if (first === 0 && end === this.height) return { map: this, offset: 0 };
+    const next = new Bitmap(this.width, end - first);
+    for (let y = 0; y < next.height; y++) {
       for (let x = 0; x < this.width; x++) {
-        if (this.bits[last * this.width + x]) {
-          ink = true;
-          break;
-        }
-      }
-      if (ink) break;
-      last -= 1;
-    }
-    const height = Math.min(this.height, last + 1 + pad);
-    if (height === this.height) return this;
-    const next = new Bitmap(this.width, height);
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        if (this.bits[y * this.width + x]) next.set(x, y);
+        if (this.bits[(first + y) * this.width + x]) next.set(x, y);
       }
     }
-    return next;
+    return { map: next, offset: first };
   }
 
   toRaster(): Uint8Array {
@@ -461,7 +458,7 @@ function fitText(
 }
 
 function partialCut() {
-  return concat(cmd(ESC, 0x4a, 96), cmd(GS, 0x56, 0x41, 0x18));
+  return concat(cmd(ESC, 0x4a, 24), cmd(GS, 0x56, 0x41, 0x08));
 }
 
 function labelGrade(parts?: string[]) {
@@ -834,15 +831,15 @@ function printerInit() {
 function printerWrap(map: Bitmap, qr?: { start: number; end: number }) {
   const parts: Uint8Array[] = [printerInit()];
   if (qr) {
-    const start = Math.max(0, qr.start - 8);
-    const end = Math.min(map.height, qr.end + 8);
+    const start = Math.max(0, qr.start - 2);
+    const end = Math.min(map.height, qr.end + 2);
     if (start > 0) parts.push(gsRasterLimited(map.copyRows(0, start)));
     if (end > start) parts.push(gsRaster(map.copyRows(start, end)));
     if (end < map.height) parts.push(gsRasterLimited(map.copyRows(end, map.height)));
   } else {
     parts.push(gsRasterLimited(map));
   }
-  parts.push(feedDots(80), partialCut());
+  parts.push(partialCut());
   return concat(...parts);
 }
 
@@ -1065,13 +1062,13 @@ export async function buildWorkshopReceipt(input: WorkshopReceiptInput) {
   }
 
   const canvasH = canvas.height;
-  const map = canvasToBitmap(canvas, true).cropBottom(16);
+  const cropped = canvasToBitmap(canvas, true).cropInk(4);
   let qrMap: { start: number; end: number } | undefined;
   if (qrCanvas) {
     qrMap = {
-      start: canvasH - qrCanvas.end,
-      end: canvasH - qrCanvas.start,
+      start: canvasH - qrCanvas.end - cropped.offset,
+      end: canvasH - qrCanvas.start - cropped.offset,
     };
   }
-  return printerWrap(map, qrMap);
+  return printerWrap(cropped.map, qrMap);
 }
