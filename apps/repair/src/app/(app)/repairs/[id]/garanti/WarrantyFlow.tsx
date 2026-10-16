@@ -262,7 +262,7 @@ export function WarrantyFlow(input: {
         <div className="rounded border border-border bg-white px-5 py-5">
           <p className="text-sm font-medium">Butikkens eksemplar</p>
           <p className="mt-1 text-sm text-muted">
-            Skriv ut slippen, la kunden signere med penn i feltet, og behold den i kassen.
+            Skriv ut slippen og la kunden signere med penn i feltet.
             Kunden får kvittering etterpå.
           </p>
           <div className="mt-3">

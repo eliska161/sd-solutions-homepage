@@ -92,8 +92,8 @@ function warrantySlip(
     totalLabel: refund ? `−${formatNokFromOre(opts.refundOre)}` : formatNokFromOre(0),
     thanks: store
       ? needsSign
-        ? "Signer med penn i feltet. Behold i kassen."
-        : "Behold i kassen."
+        ? "Signer med penn i feltet."
+        : "Ta vare på denne kvitteringen."
       : refund
         ? "Beløpet tilbakebetales. Ta vare på denne kvitteringen."
         : "Garantiarbeid. Ta vare på denne kvitteringen.",
