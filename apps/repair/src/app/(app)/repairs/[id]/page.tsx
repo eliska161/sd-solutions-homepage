@@ -15,7 +15,7 @@ import { RepairStatusBadge } from "@/components/ui/StatusBadge";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatDropoffAppointment } from "@/lib/dropoff";
 import { formatDate, formatDateOnly, parseKrToOre, DELIVERY_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/labels";
-import { formatNokFromOre, grossProfitOre, oreToKr } from "@/lib/money";
+import { formatNokFromOre, grossProfitOre } from "@/lib/money";
 import { loadTicketCharge } from "@/lib/ticket-totals";
 import { canWrite } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
@@ -40,7 +40,6 @@ import {
   addRepairNote,
   markRepairReceived,
   markRepairPaidInShop,
-  startRepairTapToPay,
   getRepair,
   getRepairAssigneeName,
   listRepairNotes,
@@ -68,7 +67,6 @@ import {
   CustomerLinkCard,
   TechnicianEtaForm,
 } from "./TechnicianEtaForm";
-import { CopyPayValue } from "./CopyPayValue";
 
 function repairBack(ticketId: string, tab?: string | null) {
   const t = tab?.trim();
@@ -97,25 +95,6 @@ async function markPaidAction(formData: FormData) {
   const ticketId = String(formData.get("ticketId"));
   await markRepairPaidInShop(ticketId);
   repairBack(ticketId, String(formData.get("tab") || ""));
-}
-
-async function startTapToPayAction(formData: FormData) {
-  "use server";
-  const ticketId = String(formData.get("ticketId"));
-  const tab = String(formData.get("tab") || "");
-  const result = await startRepairTapToPay(ticketId);
-  const params = new URLSearchParams();
-  if (tab.trim() && tab !== "oversikt") params.set("tab", tab);
-  if (result.ok && result.paid) {
-    redirect(`/repairs/${ticketId}${params.size ? `?${params}` : ""}`);
-  }
-  if (!result.ok) {
-    params.set("tap_error", result.error || "feil");
-  } else {
-    params.set("tap", "1");
-    if (result.sentToReader) params.set("tap_reader", "1");
-  }
-  redirect(`/repairs/${ticketId}?${params.toString()}`);
 }
 
 async function addNoteAction(formData: FormData) {
@@ -213,10 +192,10 @@ export default async function RepairDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; tap?: string; tap_reader?: string; tap_error?: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id } = await params;
-  const { tab: tabRaw, tap, tap_reader: tapReader, tap_error: tapError } = await searchParams;
+  const { tab: tabRaw } = await searchParams;
   const tab = parseRepairTab(tabRaw);
   const session = await getSession();
   const ticket = await getRepair(id);
@@ -314,38 +293,6 @@ export default async function RepairDetailPage({
         <ThermalPrintBar ticketId={ticket.id} />
       </div>
 
-      {tapError ? (
-        <p className="mb-4 rounded border border-border bg-white px-4 py-3 text-sm">
-          Kunne ikke starte Tap to Pay: {tapError}
-        </p>
-      ) : null}
-      {tap === "1" && ticket.paymentStatus !== "PAID" ? (
-        <div className="mb-4 rounded border border-border bg-white px-4 py-4">
-          <p className="text-sm font-medium">Betal i Stripe-appen med Tap to Pay</p>
-          {tapReader === "1" ? (
-            <p className="mt-1 text-sm text-muted">
-              Beløpet er også sendt til telefonen hvis den er online som Terminal-leser.
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-muted">
-              Åpne Stripe-appen → + → Charge a card → velg Tap to Pay. Skriv
-              saksnummer i beskrivelsen, så merkes saken betalt automatisk.
-            </p>
-          )}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <CopyPayValue
-              label="Beløp"
-              value={String(oreToKr(charge.totalOre)).replace(".", ",")}
-            />
-            <CopyPayValue label="Beskrivelse" value={ticket.ticketNumber} />
-          </div>
-          <p className="mt-2 text-[13px] text-muted">
-            {formatNokFromOre(charge.totalOre)}. Etter tap, last siden på nytt
-            om statusen ikke hopper selv.
-          </p>
-        </div>
-      ) : null}
-
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <RepairStatusForm
           ticketId={ticket.id}
@@ -373,13 +320,12 @@ export default async function RepairDetailPage({
         </p>
         {session && canWrite(session.user.role) && ticket.paymentStatus !== "PAID" ? (
           <>
-            <form action={startTapToPayAction}>
-              <input type="hidden" name="ticketId" value={ticket.id} />
-              <input type="hidden" name="tab" value={tab} />
-              <Button type="submit" size="sm">
-                Tap to Pay · {formatNokFromOre(charge.totalOre)}
-              </Button>
-            </form>
+            <Link
+              href={`/repairs/${ticket.id}/tap-to-pay`}
+              className="inline-flex h-8 items-center rounded bg-accent px-3 text-xs font-medium text-white"
+            >
+              Tap to Pay · {formatNokFromOre(charge.totalOre)}
+            </Link>
             <form action={markPaidAction}>
               <input type="hidden" name="ticketId" value={ticket.id} />
               <input type="hidden" name="tab" value={tab} />

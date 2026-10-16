@@ -685,6 +685,38 @@ export async function startInPersonPayment(ticketId: string): Promise<{
   };
 }
 
+export async function refreshInPersonPayment(ticketId: string): Promise<{
+  paid: boolean;
+}> {
+  const db = getDb();
+  const [ticket] = await db
+    .select({
+      paymentStatus: repairTickets.paymentStatus,
+      stripePaymentIntentId: repairTickets.stripePaymentIntentId,
+    })
+    .from(repairTickets)
+    .where(eq(repairTickets.id, ticketId))
+    .limit(1);
+  if (!ticket) return { paid: false };
+  if (ticket.paymentStatus === "PAID") return { paid: true };
+  const stripe = getStripe();
+  if (!stripe || !ticket.stripePaymentIntentId) return { paid: false };
+  try {
+    const intent = await stripe.paymentIntents.retrieve(ticket.stripePaymentIntentId);
+    if (intent.status === "succeeded") {
+      await markTicketPaid({
+        ticketId,
+        paymentIntentId: intent.id,
+        source: "stripe",
+      });
+      return { paid: true };
+    }
+  } catch (err) {
+    console.error("==> Stripe in-person refresh", err);
+  }
+  return { paid: false };
+}
+
 export async function confirmInPersonStripePayment(input: {
   paymentIntentId?: string | null;
   amountOre?: number | null;
