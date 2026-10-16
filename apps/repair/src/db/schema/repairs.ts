@@ -489,6 +489,13 @@ export const warrantyClaims = pgTable(
     status: warrantyClaimStatusEnum("status").notNull().default("OPEN"),
     description: text("description").notNull(),
     resolution: text("resolution"),
+    /** REPAIR = fix under warranty, REFUND = money back, REJECT = not covered. */
+    resolutionKind: text("resolution_kind"),
+    refundOre: integer("refund_ore").notNull().default(0),
+    signerName: text("signer_name"),
+    signedAt: timestamp("signed_at", { withTimezone: true }),
+    signaturePath: text("signature_path"),
+    stripeRefundId: text("stripe_refund_id"),
     createdById: text("created_by_id").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

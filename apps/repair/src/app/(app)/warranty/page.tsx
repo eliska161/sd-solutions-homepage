@@ -36,7 +36,7 @@ export default async function WarrantyPage() {
       {claims.length === 0 ? (
         <EmptyState
           title="Ingen garantikrav"
-          description="Krav opprettes fra reparasjonsworkspace eller senere flyt."
+          description="Åpne en sak og velg Garantisak for reklamasjon, signatur og refusjon."
           action={
             <Link href="/repairs">
               <Button type="button" variant="secondary">
@@ -50,7 +50,16 @@ export default async function WarrantyPage() {
           {claims.map((c) => (
             <tr key={c.id}>
               <Td className="text-muted">{formatDate(c.createdAt)}</Td>
-              <Td className="max-w-md">{c.description}</Td>
+              <Td className="max-w-md">
+                {c.description}
+                {c.ticketId ? (
+                  <span className="mt-1 block">
+                    <Link href={`/repairs/${c.ticketId}/garanti`} className="text-accent underline">
+                      Åpne flyt
+                    </Link>
+                  </span>
+                ) : null}
+              </Td>
               <Td>{c.status}</Td>
               <Td>
                 <form action={updateClaimAction} className="flex gap-2">

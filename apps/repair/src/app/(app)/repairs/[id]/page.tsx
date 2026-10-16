@@ -335,6 +335,14 @@ export default async function RepairDetailPage({
             </form>
           </>
         ) : null}
+        {session && canWrite(session.user.role) ? (
+          <Link
+            href={`/repairs/${ticket.id}/garanti`}
+            className="inline-flex h-8 items-center rounded border border-border bg-white px-3 text-xs font-medium"
+          >
+            Garantisak
+          </Link>
+        ) : null}
         <p className="text-[13px] text-muted">
           {ticket.source === "CUSTOMER_PORTAL" ? "Nettside" : "Verksted"}
           {ticket.receivedAt
@@ -861,6 +869,13 @@ export default async function RepairDetailPage({
                     {warranty.days} dager · {formatDate(warranty.startsAt)} –{" "}
                     {formatDate(warranty.endsAt)}
                   </p>
+                  {session && canWrite(session.user.role) ? (
+                    <p className="mt-2">
+                      <Link href={`/repairs/${ticket.id}/garanti`} className="text-accent underline">
+                        Ny garantisak
+                      </Link>
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <form action={createWarrantyAction} className="space-y-2">

@@ -8,7 +8,7 @@ import { getUploadsRoot, resolveUploadAbsolutePath } from "@/lib/uploads";
 
 export async function storeCustomerPdf(input: {
   ticketId: string;
-  category: "TERMS" | "RECEIPT";
+  category: "TERMS" | "RECEIPT" | "WARRANTY";
   fileName: string;
   description: string;
   buffer: Buffer;
