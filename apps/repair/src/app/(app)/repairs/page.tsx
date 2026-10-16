@@ -25,7 +25,7 @@ export default async function RepairsPage({
     <div>
       <PageHeader
         title="Reparasjoner"
-        description="Tickets og verkstedstatus."
+        description="Saker og verkstedstatus."
         actions={
           <Link href="/repairs/new">
             <Button type="button">Ny reparasjon</Button>

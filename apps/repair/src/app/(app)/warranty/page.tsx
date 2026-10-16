@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/Button";
 import { DataTable, Td } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Select } from "@/components/ui/Select";
-import { formatDate } from "@/lib/labels";
+import { WARRANTY_CLAIM_STATUS_LABELS, formatDate } from "@/lib/labels";
+import { formatNokFromOre } from "@/lib/money";
 import { listClaims, updateClaimStatus } from "@/server/warranty";
 
 async function updateClaimAction(formData: FormData) {
@@ -30,7 +31,7 @@ export default async function WarrantyPage() {
     <div>
       <PageHeader
         title="Garanti"
-        description="Garantikrav knyttet til reparasjoner."
+        description="Reklamasjoner og garantisaker."
       />
 
       {claims.length === 0 ? (
@@ -46,35 +47,61 @@ export default async function WarrantyPage() {
           }
         />
       ) : (
-        <DataTable headers={["Opprettet", "Beskrivelse", "Status", ""]}>
+        <DataTable headers={["Sak", "Krav", "Utfall", "Status", ""]}>
           {claims.map((c) => (
             <tr key={c.id}>
-              <Td className="text-muted">{formatDate(c.createdAt)}</Td>
-              <Td className="max-w-md">
-                {c.description}
+              <Td>
                 {c.ticketId ? (
-                  <span className="mt-1 block">
-                    <Link href={`/repairs/${c.ticketId}/garanti`} className="text-accent underline">
-                      Åpne flyt
-                    </Link>
+                  <Link href={`/repairs/${c.ticketId}`} className="text-accent underline">
+                    {c.ticketNumber || "Sak"}
+                  </Link>
+                ) : (
+                  "—"
+                )}
+                {c.customerName ? (
+                  <span className="mt-0.5 block text-[13px] text-muted">{c.customerName}</span>
+                ) : null}
+                <span className="mt-0.5 block text-[12px] text-muted">
+                  {formatDate(c.createdAt)}
+                </span>
+              </Td>
+              <Td className="max-w-md">{c.description}</Td>
+              <Td>
+                {c.resolution || "—"}
+                {c.refundOre > 0 ? (
+                  <span className="mt-0.5 block text-[13px] text-muted">
+                    {formatNokFromOre(c.refundOre)}
                   </span>
                 ) : null}
               </Td>
-              <Td>{c.status}</Td>
               <Td>
-                <form action={updateClaimAction} className="flex gap-2">
+                {WARRANTY_CLAIM_STATUS_LABELS[c.status] || c.status}
+              </Td>
+              <Td>
+                <form action={updateClaimAction} className="flex flex-wrap gap-2">
                   <input type="hidden" name="id" value={c.id} />
                   <Select name="status" defaultValue={c.status} className="w-40">
-                    <option value="OPEN">Åpen</option>
-                    <option value="IN_PROGRESS">Under arbeid</option>
-                    <option value="APPROVED">Godkjent</option>
-                    <option value="REJECTED">Avvist</option>
-                    <option value="RESOLVED">Løst</option>
-                    <option value="CLOSED">Lukket</option>
+                    {(
+                      Object.keys(WARRANTY_CLAIM_STATUS_LABELS) as Array<
+                        keyof typeof WARRANTY_CLAIM_STATUS_LABELS
+                      >
+                    ).map((status) => (
+                      <option key={status} value={status}>
+                        {WARRANTY_CLAIM_STATUS_LABELS[status]}
+                      </option>
+                    ))}
                   </Select>
                   <Button type="submit" size="sm" variant="secondary">
                     Oppdater
                   </Button>
+                  {c.ticketId ? (
+                    <Link
+                      href={`/repairs/${c.ticketId}/garanti`}
+                      className="inline-flex h-8 items-center text-sm text-accent underline"
+                    >
+                      Ny sak
+                    </Link>
+                  ) : null}
                 </form>
               </Td>
             </tr>

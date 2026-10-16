@@ -14,6 +14,7 @@ import {
 } from "@/lib/intake-options";
 import {
   FLIP_STATUS_LABELS,
+  PAYMENT_STATUS_LABELS,
   REPAIR_STATUS_LABELS,
 } from "@/lib/labels";
 import { grossProfitOre } from "@/lib/money";
@@ -339,7 +340,13 @@ export async function buildRepairSummaryDocument(
           value: dateOnlyLabel(ticket.estimatedCompletionDate),
         },
         { label: "Fullført", value: dateLabel(ticket.completedAt) },
-        { label: "Betaling", value: ticket.paymentStatus },
+        {
+          label: "Betaling",
+          value:
+            PAYMENT_STATUS_LABELS[
+              ticket.paymentStatus as keyof typeof PAYMENT_STATUS_LABELS
+            ] ?? ticket.paymentStatus,
+        },
       ],
     },
     {

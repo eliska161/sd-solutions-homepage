@@ -14,6 +14,9 @@ export function buildCustomerProgress(
   status: keyof typeof REPAIR_STATUS_LABELS | string,
   options?: { received?: boolean; outboundPost?: boolean },
 ): CustomerProgressStep[] {
+  const outboundPost = Boolean(options?.outboundPost);
+  const received = options?.received !== false;
+
   if (status === "CANCELLED" || status === "RETURNED") {
     return CUSTOMER_PROGRESS_STEPS.map((step) => ({
       key: step.key,
@@ -26,13 +29,8 @@ export function buildCustomerProgress(
     (step.statuses as readonly string[]).includes(status),
   );
   if (currentIndex < 0) currentIndex = 0;
-  if (status === "COMPLETED") {
-    currentIndex = CUSTOMER_PROGRESS_STEPS.length - 1;
-  }
-  const received = options?.received !== false;
   if (!received) currentIndex = 0;
-
-  const outboundPost = Boolean(options?.outboundPost);
+  const completed = status === "COMPLETED";
 
   return CUSTOMER_PROGRESS_STEPS.map((step, index) => {
     let label: string = step.label;
@@ -42,16 +40,13 @@ export function buildCustomerProgress(
     if (step.key === "READY" && outboundPost) {
       label = "Klar for utsending";
     }
-    return {
-      key: step.key,
-      label,
-      state:
-        index < currentIndex
-          ? ("done" as const)
-          : index === currentIndex
-            ? ("current" as const)
-            : ("todo" as const),
-    };
+    if (step.key === "DONE" && outboundPost) {
+      label = "Sendt";
+    }
+    let state: ProgressStepState = "todo";
+    if (completed || index < currentIndex) state = "done";
+    else if (index === currentIndex) state = "current";
+    return { key: step.key, label, state };
   });
 }
 
