@@ -502,8 +502,15 @@ export async function startRepairTapToPay(ticketId: string) {
   const { startInPersonPayment } = await import("@/server/payments");
   const result = await startInPersonPayment(ticketId);
   revalidatePath(`/repairs/${ticketId}`);
+  revalidatePath(`/repairs/${ticketId}/tap-to-pay`);
   revalidatePath("/repairs");
   return result;
+}
+
+export async function refreshRepairTapToPay(ticketId: string) {
+  await requireSession();
+  const { refreshInPersonPayment } = await import("@/server/payments");
+  return refreshInPersonPayment(ticketId);
 }
 
 export async function updateReturnTracking(
