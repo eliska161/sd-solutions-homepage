@@ -1,65 +1,96 @@
 "use client";
 
+import { useId } from "react";
 import { motion } from "framer-motion";
 
-const loop = {
-  duration: 2.4,
+const drop = {
+  duration: 3.2,
   repeat: Infinity,
   ease: [0.22, 1, 0.36, 1] as const,
-  repeatDelay: 0.45,
+  repeatDelay: 0.7,
 };
+
+function BubbleField({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+  const dots: Array<{ cx: number; cy: number; r: number }> = [];
+  for (let row = 0; row < 7; row++) {
+    for (let col = 0; col < 9; col++) {
+      dots.push({
+        cx: x + 14 + col * ((w - 20) / 8),
+        cy: y + 16 + row * ((h - 24) / 6),
+        r: row % 2 === col % 2 ? 4.2 : 3.4,
+      });
+    }
+  }
+  return (
+    <g fill="#c5d4e6" opacity="0.9">
+      {dots.map((dot, i) => (
+        <circle key={i} cx={dot.cx} cy={dot.cy} r={dot.r} />
+      ))}
+    </g>
+  );
+}
+
+function PaddedMailer({
+  className,
+  sealOpen,
+}: {
+  className?: string;
+  sealOpen?: boolean;
+}) {
+  const clip = `pouch${useId().replace(/:/g, "")}`;
+  return (
+    <svg viewBox="0 0 280 168" className={className}>
+      <rect x="28" y="36" width="224" height="124" rx="18" fill="#f4f6f8" stroke="#1f2430" strokeWidth="3" />
+      <clipPath id={clip}>
+        <rect x="34" y="54" width="212" height="100" rx="12" />
+      </clipPath>
+      <g clipPath={`url(#${clip})`}>
+        <rect x="34" y="54" width="212" height="100" fill="#eef2f6" />
+        <BubbleField x={34} y={54} w={212} h={100} />
+      </g>
+      <rect x="40" y="40" width="200" height="16" rx="4" fill="#d7dee8" stroke="#1f2430" strokeWidth="2" />
+      <motion.g
+        animate={
+          sealOpen
+            ? { y: [0, 0, 14, 14, 0], rotate: [0, 0, 0, 0, 0] }
+            : undefined
+        }
+        transition={sealOpen ? { ...drop, times: [0, 0.42, 0.58, 0.86, 1] } : undefined}
+        style={{ transformOrigin: "140px 48px" }}
+      >
+        <rect x="48" y="32" width="184" height="18" rx="3" fill="#2b6cb0" stroke="#1f2430" strokeWidth="2" />
+        <rect x="56" y="37" width="168" height="4" rx="1" fill="#d6e4f3" />
+      </motion.g>
+    </svg>
+  );
+}
 
 export function EnvelopeVisual() {
   return (
-    <div className="relative mx-auto h-[210px] w-[280px]" aria-hidden>
-      <motion.div
-        className="absolute left-1/2 top-1 -translate-x-1/2 text-[22px] font-bold text-[#2b6cb0]"
-        animate={{ y: [0, 8, 0], opacity: [0.35, 1, 0.35] }}
-        transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+    <div className="relative mx-auto h-[250px] w-[300px]" aria-hidden>
+      <motion.p
+        className="absolute left-0 right-0 top-0 text-center text-[18px] font-bold text-[#2b6cb0]"
+        animate={{ opacity: [0.25, 1, 0.25] }}
+        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
       >
-        ↓
-      </motion.div>
-      <motion.div
-        className="absolute left-1/2 top-8 h-[96px] w-[52px] -translate-x-1/2"
-        animate={{ y: [0, 78, 86], opacity: [1, 1, 0] }}
-        transition={{ ...loop, times: [0, 0.55, 1] }}
-      >
-        <svg viewBox="0 0 52 96" className="h-full w-full">
-          <rect x="3" y="4" width="46" height="88" rx="7" fill="#1b1e24" stroke="#1f2430" strokeWidth="3" />
-          <rect x="9" y="12" width="34" height="58" rx="2" fill="#e8eaee" />
-          <circle cx="26" cy="80" r="4" fill="#e8eaee" />
-        </svg>
-      </motion.div>
-      <svg viewBox="0 0 280 140" className="absolute bottom-0 h-[140px] w-full">
-        <rect
-          x="16"
-          y="38"
-          width="248"
-          height="92"
-          rx="4"
-          fill="#ffffff"
-          stroke="#1f2430"
-          strokeWidth="3"
-        />
-        <motion.path
-          d="M16 42 L140 18 L264 42"
-          fill="#d6e4f3"
-          stroke="#1f2430"
-          strokeWidth="3"
-          animate={{ d: ["M16 42 L140 18 L264 42", "M16 42 L140 18 L264 42", "M16 42 L140 92 L264 42"] }}
-          transition={{ ...loop, times: [0, 0.45, 1] }}
-        />
-        <text
-          x="140"
-          y="108"
-          textAnchor="middle"
-          fill="#1f2430"
-          fontSize="16"
-          fontWeight="700"
+        Ned i åpningen
+      </motion.p>
+      <div className="absolute inset-x-0 bottom-0 h-[168px] overflow-hidden">
+        <PaddedMailer className="h-full w-full" sealOpen />
+      </div>
+      <div className="absolute left-1/2 top-7 h-[150px] w-[72px] -translate-x-1/2 overflow-hidden">
+        <motion.div
+          className="absolute left-1/2 w-[56px] -translate-x-1/2"
+          animate={{ y: [-8, 78, 96], opacity: [1, 1, 0] }}
+          transition={{ ...drop, times: [0, 0.48, 0.72] }}
         >
-          SD SOLUTIONS
-        </text>
-      </svg>
+          <svg viewBox="0 0 56 104" className="h-[104px] w-full">
+            <rect x="3" y="3" width="50" height="98" rx="10" fill="#1b1e24" stroke="#1f2430" strokeWidth="3" />
+            <rect x="9" y="12" width="38" height="64" rx="3" fill="#e8eaee" />
+            <circle cx="28" cy="88" r="4" fill="#e8eaee" />
+          </svg>
+        </motion.div>
+      </div>
     </div>
   );
 }
@@ -79,9 +110,10 @@ export function LabelVisual({
   issue?: string;
   parts?: string[];
 }) {
+  const clip = `mailer${useId().replace(/:/g, "")}`;
   const partLine = parts[0] ?? "Ikke valgt ennå";
   return (
-    <div className="mx-auto flex w-[380px] items-end gap-4" aria-hidden>
+    <div className="mx-auto flex w-[420px] items-end gap-5" aria-hidden>
       <div className="flex w-[186px] flex-col items-center">
         <div className="h-4 w-[148px] rounded-t bg-[#1b1e24]" />
         <motion.div
@@ -96,18 +128,12 @@ export function LabelVisual({
             animate={printed ? { y: 8 } : { y: -190 }}
             transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
           >
-            <p className="text-center text-[9px] font-bold tracking-[0.14em]">
-              SD SOLUTIONS
-            </p>
+            <p className="text-center text-[9px] font-bold tracking-[0.14em]">SD SOLUTIONS</p>
             <div className="mt-1 h-7 w-full bg-[repeating-linear-gradient(90deg,#1f2430_0_2px,transparent_2px_3px)]" />
             <p className="text-center text-[12px] font-bold tracking-wide">{ticket}</p>
-            <p className="mt-0.5 text-[9px] font-semibold leading-tight">
-              {phone ? `${phone}` : ""}
-            </p>
+            <p className="mt-0.5 text-[9px] font-semibold leading-tight">{phone ?? ""}</p>
             <p className="text-[10px] font-bold leading-tight">{device}</p>
-            {issue ? (
-              <p className="text-[9px] font-semibold leading-tight">Feil: {issue}</p>
-            ) : null}
+            {issue ? <p className="text-[9px] font-semibold leading-tight">Feil: {issue}</p> : null}
             <p className="mt-0.5 border-t border-[#1f2430] pt-0.5 text-[8px] font-bold leading-tight">
               {partLine}
             </p>
@@ -115,16 +141,23 @@ export function LabelVisual({
         </div>
       </div>
 
-      <div className="relative h-[210px] w-[170px]">
-        <svg viewBox="0 0 170 210" className="h-full w-full">
-          <rect x="8" y="82" width="154" height="118" rx="4" fill="#fff" stroke="#1f2430" strokeWidth="3" />
-          <path d="M8 94 L85 148 L162 94" fill="none" stroke="#2b6cb0" strokeWidth="3" />
+      <div className="relative h-[210px] w-[210px]">
+        <svg viewBox="0 0 210 210" className="h-full w-full">
+          <rect x="18" y="48" width="174" height="148" rx="16" fill="#f4f6f8" stroke="#1f2430" strokeWidth="3" />
+          <clipPath id={clip}>
+            <rect x="26" y="68" width="158" height="118" rx="10" />
+          </clipPath>
+          <g clipPath={`url(#${clip})`}>
+            <rect x="26" y="68" width="158" height="118" fill="#eef2f6" />
+            <BubbleField x={26} y={68} w={158} h={118} />
+          </g>
+          <rect x="32" y="52" width="146" height="14" rx="3" fill="#2b6cb0" stroke="#1f2430" strokeWidth="2" />
         </svg>
         {printed ? (
           <motion.div
-            className="absolute left-[22px] w-[126px] border-[3px] border-[#1f2430] bg-white px-1.5 py-1 text-[#1f2430]"
-            animate={{ y: [8, 98, 98], rotate: [-6, 0, 0], opacity: [0, 1, 1] }}
-            transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 0.5, times: [0, 0.45, 1] }}
+            className="absolute left-[42px] w-[126px] border-[3px] border-[#1f2430] bg-white px-1.5 py-1 text-[#1f2430]"
+            animate={{ y: [12, 92, 92], rotate: [-8, 0, 0], opacity: [0, 1, 1] }}
+            transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 0.6, times: [0, 0.4, 1] }}
           >
             <div className="h-4 w-full bg-[repeating-linear-gradient(90deg,#1f2430_0_2px,transparent_2px_3px)]" />
             <p className="text-[9px] font-bold">{ticket}</p>
@@ -161,29 +194,26 @@ export function LockerVisual({
         return (
           <div
             key={id}
-            className={[
-              "relative h-[88px] overflow-hidden bg-[#e8eaee]",
-              hi ? "ring-4 ring-[#2b6cb0]" : "",
-            ].join(" ")}
+            className={["relative h-[88px] overflow-hidden bg-[#e8eaee]", hi ? "ring-4 ring-[#2b6cb0]" : ""].join(
+              " ",
+            )}
           >
             <div className="absolute inset-1 bg-white" />
-            {filled ? (
-              <div className="absolute inset-x-5 inset-y-6 bg-[#2b6cb0]" />
-            ) : null}
+            {filled ? <div className="absolute inset-x-5 inset-y-6 rounded-sm bg-[#2b6cb0]" /> : null}
             {hi && action === "insert" && open ? (
               <motion.div
-                className="absolute left-1/2 top-2 h-[64px] w-[36px] -translate-x-1/2"
-                animate={{ y: [-40, 18], opacity: [0.2, 1] }}
-                transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 0.35 }}
+                className="absolute left-1/2 top-1 h-[70px] w-[48px] -translate-x-1/2"
+                animate={{ y: [-46, 16], opacity: [0.15, 1] }}
+                transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.4, ease: [0.22, 1, 0.36, 1] }}
               >
                 <EnvelopeMini />
               </motion.div>
             ) : null}
             {hi && action === "retrieve" && open ? (
               <motion.div
-                className="absolute left-1/2 top-2 h-[64px] w-[36px] -translate-x-1/2"
-                animate={{ y: [18, -42], opacity: [1, 0.15] }}
-                transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 0.35 }}
+                className="absolute left-1/2 top-1 h-[70px] w-[48px] -translate-x-1/2"
+                animate={{ y: [16, -48], opacity: [1, 0.12] }}
+                transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.4, ease: [0.22, 1, 0.36, 1] }}
               >
                 <EnvelopeMini />
               </motion.div>
@@ -194,12 +224,10 @@ export function LockerVisual({
               animate={{ x: open ? "-78%" : "0%" }}
               transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
             >
-              <span className="absolute left-2 top-1.5 text-[18px] font-bold text-white">
-                {id}
-              </span>
+              <span className="absolute left-2 top-1.5 text-[18px] font-bold text-white">{id}</span>
               <motion.span
                 className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-[#2b6cb0]"
-                animate={hi ? { scale: [1, 1.35, 1] } : { scale: 1 }}
+                animate={hi ? { scale: [1, 1.28, 1] } : { scale: 1 }}
                 transition={{ duration: 1, repeat: Infinity }}
               />
             </motion.div>
@@ -212,9 +240,15 @@ export function LockerVisual({
 
 function EnvelopeMini() {
   return (
-    <svg viewBox="0 0 36 64" className="h-full w-full">
-      <rect x="1" y="1" width="34" height="62" rx="2" fill="#fff" stroke="#1f2430" strokeWidth="2" />
-      <path d="M1 10 L18 28 L35 10" fill="none" stroke="#2b6cb0" strokeWidth="2" />
+    <svg viewBox="0 0 48 70" className="h-full w-full">
+      <rect x="2" y="8" width="44" height="58" rx="8" fill="#f4f6f8" stroke="#1f2430" strokeWidth="2" />
+      <circle cx="12" cy="28" r="3" fill="#c5d4e6" />
+      <circle cx="24" cy="28" r="3" fill="#c5d4e6" />
+      <circle cx="36" cy="28" r="3" fill="#c5d4e6" />
+      <circle cx="18" cy="40" r="3" fill="#c5d4e6" />
+      <circle cx="30" cy="40" r="3" fill="#c5d4e6" />
+      <circle cx="24" cy="52" r="3" fill="#c5d4e6" />
+      <rect x="8" y="4" width="32" height="10" rx="2" fill="#2b6cb0" stroke="#1f2430" strokeWidth="2" />
     </svg>
   );
 }
