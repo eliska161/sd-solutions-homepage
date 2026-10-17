@@ -41,7 +41,7 @@ const SCREEN_NOK: Record<string, ScreenBand> = {
   "14": { copy: 1299, oemPull: 2199, original: 4490 },
   "15": { copy: 1499, oemPull: 2899, original: 5190 },
   "16": { copy: 1699, oemPull: 3599, original: 5890 },
-  "17": { copy: 1899, oemPull: 3990, original: 6690 },
+  "17": { copy: 1899, oemPull: 3990, original: 6690 }, // Pro Max original skjerm: 5990 (unntak)
 };
 
 /**
@@ -206,6 +206,7 @@ function gradePriceKr(input: {
     const row = SCREEN_NOK[gen] ?? SCREEN_NOK["13"];
     if (input.partGrade === "copy") return row.copy + SCREEN_VARIANT[variant];
     if (input.partGrade === "original") {
+      if (gen === "17" && variant === "pro_max") return 5990;
       return row.original + SCREEN_OEM_VARIANT[variant];
     }
     return row.oemPull + SCREEN_OEM_VARIANT[variant];
