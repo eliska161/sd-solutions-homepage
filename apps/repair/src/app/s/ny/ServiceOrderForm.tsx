@@ -24,6 +24,7 @@ import {
 } from "@/lib/part-grades";
 import { REPAIR_TERMS_VERSION, repairTermsSections } from "@/lib/repair-terms";
 import type { IphoneModelOption } from "@/lib/apple-models";
+import { OTHER_PHONE_MODEL } from "@/lib/apple-models";
 import { SignaturePad } from "@/components/forms/SignaturePad";
 import { customerPriceWithLabor } from "@/lib/vat";
 
@@ -116,6 +117,7 @@ export function ServiceOrderForm({
   const [imei, setImei] = useState("");
   const [serialNumber, setSerialNumber] = useState("");
   const [model, setModel] = useState("");
+  const [otherModel, setOtherModel] = useState("");
   const [storage, setStorage] = useState("");
   const [color, setColor] = useState("");
   const [lookupColors, setLookupColors] = useState<string[]>([]);
@@ -151,11 +153,13 @@ export function ServiceOrderForm({
     return models;
   }, [model, models, lookupColors, lookupStorages]);
 
+  const isOtherPhone = model === OTHER_PHONE_MODEL;
+  const resolvedModel = isOtherPhone ? otherModel.trim() : model;
   const selected = modelChoices.find((m) => m.name === model);
   const partQuote =
-    jobType !== "other" && model
+    jobType !== "other" && resolvedModel && !isOtherPhone
       ? quotePublicPart({
-          deviceLabel: model,
+          deviceLabel: resolvedModel,
           jobType,
           partGrade,
         })
@@ -256,6 +260,10 @@ export function ServiceOrderForm({
         setError("Velg modell.");
         return;
       }
+      if (model === OTHER_PHONE_MODEL && otherModel.trim().length < 2) {
+        setError("Spesifiser hvilken telefon det er.");
+        return;
+      }
     }
 
     if (step === "job") {
@@ -323,8 +331,10 @@ export function ServiceOrderForm({
       streetAddress: String(formData.get("streetAddress") || ""),
       postalCode: String(formData.get("postalCode") || ""),
       city: String(formData.get("city") || ""),
-      brand: "Apple",
-      model: String(formData.get("model") || ""),
+      brand: isOtherPhone
+        ? otherModel.trim().split(/\s+/)[0] || "Annet"
+        : "Apple",
+      model: resolvedModel,
       storage: String(formData.get("storage") || "") || null,
       color: String(formData.get("color") || "") || null,
       serialNumber: serial || null,
@@ -581,7 +591,7 @@ export function ServiceOrderForm({
                 <Label htmlFor="model">Modell</Label>
                 <Select
                   id="model"
-                  name="model"
+                  name="modelChoice"
                   required={step === "device"}
                   className="mt-1"
                   value={model}
@@ -591,15 +601,34 @@ export function ServiceOrderForm({
                     setLookupStorages([]);
                     setStorage("");
                     setColor("");
+                    if (e.target.value !== OTHER_PHONE_MODEL) setOtherModel("");
                   }}
                 >
-                  <option value="">Velg iPhone…</option>
+                  <option value="">Velg modell…</option>
+                  <option value={OTHER_PHONE_MODEL}>{OTHER_PHONE_MODEL}</option>
                   {modelChoices.map((m) => (
                     <option key={m.name} value={m.name}>
                       {m.name}
                     </option>
                   ))}
                 </Select>
+                {isOtherPhone ? (
+                  <div className="mt-3">
+                    <Label htmlFor="otherModel">Spesifiser modell</Label>
+                    <Input
+                      id="otherModel"
+                      name="otherModel"
+                      required={step === "device"}
+                      className="mt-1"
+                      placeholder="f.eks. Samsung Galaxy S24, Pixel 8"
+                      value={otherModel}
+                      onChange={(e) => setOtherModel(e.target.value)}
+                    />
+                    <p className="mt-1 text-[13px] text-muted">
+                      Skriv merke og modell. Pris avtales etter diagnose.
+                    </p>
+                  </div>
+                ) : null}
               </div>
               <div>
                 <Label htmlFor="storage">Lagring</Label>
@@ -691,7 +720,8 @@ export function ServiceOrderForm({
                 <p className="text-sm font-medium text-foreground">Deltype</p>
                 <div className="grid gap-2">
                   {partGradeOptionsForJob(jobType).map((option) => {
-                    const optionQuote = model
+                    const optionQuote =
+                      model && !isOtherPhone
                       ? quotePublicPart({
                           deviceLabel: model,
                           jobType,
@@ -730,7 +760,9 @@ export function ServiceOrderForm({
                   </p>
                 ) : (
                   <p className="text-[13px] text-muted">
-                    Velg modell for å se pris.
+                    {isOtherPhone
+                      ? "Pris avtales etter diagnose."
+                      : "Velg modell for å se pris."}
                   </p>
                 )}
               </div>
